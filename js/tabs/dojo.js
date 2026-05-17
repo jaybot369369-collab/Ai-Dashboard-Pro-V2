@@ -725,12 +725,77 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
   }
 
   /* ══════════════════════════════════════════════════════
+     DOJO CONCEPT CARDS
+  ══════════════════════════════════════════════════════ */
+  const CONCEPTS = [
+    { cat:'Entry',        catColor:'#7c5cff', title:'Silver Bullet',  desc:'15-min windows during London/NY open targeting FVG mitigation. Key times: 3am, 10am, 2pm NY.' },
+    { cat:'Structure',    catColor:'#3b82f6', title:'Fair Value Gap',  desc:'Imbalance between candle 1 high and candle 3 low. Price tends to revisit & rebalance these zones.' },
+    { cat:'Structure',    catColor:'#ea580c', title:'Order Block',     desc:'Last bullish/bearish candle before a strong move. High-probability reaction zone on return.' },
+    { cat:'Setup',        catColor:'#0891b2', title:'Liquidity Sweep', desc:'Price runs equal highs/lows to grab stops before reversing the true intended direction.' },
+    { cat:'Timing',       catColor:'#d97706', title:'Killzones',       desc:'London 02:00–05:00, NY 07:00–10:00 EST. Windows when institutional expansion is most likely.' },
+    { cat:'Framework',    catColor:'#7c3aed', title:'Power of 3',      desc:'Accumulation → Manipulation → Distribution. The anatomy of every Daily, Weekly & Monthly candle.' },
+    { cat:'Confirmation', catColor:'#16a34a', title:'CISD',            desc:'Change in State of Delivery. Confirms a shift from bullish to bearish delivery (or vice versa).' },
+    { cat:'Entry',        catColor:'#7c5cff', title:'OTE',             desc:'Optimal Trade Entry — 62% to 79% Fibonacci retracement into HTF discount or premium array.' },
+    { cat:'Structure',    catColor:'#dc2626', title:'Breaker Block',   desc:'A failed swing becomes a breaker. Acts as a reverse order block on retest — powerful reversal zone.' },
+  ];
+
+  function renderConceptCard(c) {
+    return `<div class="card" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;cursor:pointer;transition:transform .15s,box-shadow .15s"
+      onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.12)'"
+      onmouseleave="this.style.transform='';this.style.boxShadow=''">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.catColor};background:${c.catColor}18;padding:3px 8px;border-radius:99px">${esc(c.cat)}</span>
+      </div>
+      <div style="font-size:15px;font-weight:700;color:var(--text)">${esc(c.title)}</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.5;flex:1">${esc(c.desc)}</div>
+      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-top:4px">Open lesson →</div>
+    </div>`;
+  }
+
+  function renderDojoHero() {
+    const now = new Date();
+    const hour = now.getUTCHours();
+    let session = 'Asia', sessionColor = '#3b82f6';
+    if (hour >= 2 && hour < 10)  { session = 'London'; sessionColor = '#7c5cff'; }
+    if (hour >= 12 && hour < 21) { session = 'New York'; sessionColor = '#16a34a'; }
+    return `
+      <div class="page-head" style="margin-bottom:20px">
+        <div>
+          <h1 style="margin:0;font-size:22px;font-weight:700;color:var(--text)">ICT Dojo</h1>
+          <div style="font-size:13px;color:var(--text-2);margin-top:3px">Inner Circle Trader methodology · <span style="color:${sessionColor};font-weight:600">${session} session</span> active</div>
+        </div>
+      </div>
+      <div class="hi-card" style="margin-bottom:20px;border-radius:16px;padding:28px 32px;position:relative;overflow:hidden">
+        <div style="position:relative;z-index:1">
+          <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:8px">Master the Methodology</div>
+          <div style="font-size:28px;font-weight:800;line-height:1.2;margin-bottom:10px">Trade with institutional<br>precision</div>
+          <div style="font-size:14px;opacity:.8;max-width:480px;line-height:1.6">Learn the 9 core ICT concepts — from Order Blocks and Fair Value Gaps to Silver Bullet setups. Each lesson connects directly to your live session tools below.</div>
+          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
+            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">9 Concepts</span>
+            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Live Setups</span>
+            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Top Down Analysis</span>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);margin-bottom:14px">Core Concepts</div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px">
+        ${CONCEPTS.map(renderConceptCard).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);white-space:nowrap">Live Session Tools</div>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+    `;
+  }
+
+  /* ══════════════════════════════════════════════════════
      RENDER — entry point
   ══════════════════════════════════════════════════════ */
   function render() {
     if (_pollTimer) clearInterval(_pollTimer);
     const content = document.getElementById('content');
-    content.innerHTML = `<div class="dojo-wrap">
+    content.innerHTML = renderDojoHero() + `<div class="dojo-wrap">
       <div id="dojoTopBar">${renderTopBar()}</div>
       <div id="dojoBody"><div class="loading-state">Loading…</div></div>
     </div>`;
