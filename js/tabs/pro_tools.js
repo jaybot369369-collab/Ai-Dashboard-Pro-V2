@@ -911,10 +911,113 @@ const ProToolsTab = (() => {
     wireCloud();
   }
 
+  /* ── Inline calculators ─────────────────────────────── */
+  function _calcRR() {
+    const entry  = parseFloat(document.getElementById('rrEntry')?.value)  || 0;
+    const stop   = parseFloat(document.getElementById('rrStop')?.value)   || 0;
+    const target = parseFloat(document.getElementById('rrTarget')?.value) || 0;
+    const out = document.getElementById('rrResult');
+    if (!out) return;
+    if (!entry || !stop || !target) { out.innerHTML = '<span style="color:var(--text-dim);font-size:.82rem">Enter all three values</span>'; return; }
+    const risk   = Math.abs(entry - stop);
+    const reward = Math.abs(target - entry);
+    const rr     = risk > 0 ? reward / risk : 0;
+    const rrColor = rr >= 2 ? 'var(--green)' : rr >= 1 ? 'var(--gold)' : 'var(--red)';
+    out.innerHTML = `<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">
+      <div><div style="font-size:.75rem;color:var(--text-dim)">Risk</div><div style="color:var(--red);font-weight:600">$${risk.toFixed(2)}</div></div>
+      <div><div style="font-size:.75rem;color:var(--text-dim)">Reward</div><div style="color:var(--green);font-weight:600">$${reward.toFixed(2)}</div></div>
+      <div><div style="font-size:.75rem;color:var(--text-dim)">R:R</div><div style="color:${rrColor};font-weight:700;font-size:1.1rem">${rr.toFixed(2)} : 1</div></div>
+    </div>`;
+  }
+
+  function _calcCompound() {
+    const capital = parseFloat(document.getElementById('cpCapital')?.value) || 0;
+    const monthly = parseFloat(document.getElementById('cpMonthly')?.value) || 0;
+    const out = document.getElementById('cpResult');
+    if (!out) return;
+    if (!capital || !monthly) { out.innerHTML = '<span style="color:var(--text-dim);font-size:.82rem">Enter capital and monthly %</span>'; return; }
+    const r = monthly / 100;
+    const m3  = capital * Math.pow(1 + r, 3);
+    const m6  = capital * Math.pow(1 + r, 6);
+    const m12 = capital * Math.pow(1 + r, 12);
+    const fmt = v => '$' + v.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    out.innerHTML = `<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">
+      <div><div style="font-size:.75rem;color:var(--text-dim)">3M</div><div style="color:var(--green);font-weight:600">${fmt(m3)}</div></div>
+      <div><div style="font-size:.75rem;color:var(--text-dim)">6M</div><div style="color:var(--green);font-weight:600">${fmt(m6)}</div></div>
+      <div><div style="font-size:.75rem;color:var(--text-dim)">12M</div><div style="color:var(--green);font-weight:700;font-size:1.05rem">${fmt(m12)}</div></div>
+    </div>`;
+  }
+
+  function _calcDD() {
+    const dd  = parseFloat(document.getElementById('ddPct')?.value) || 0;
+    const out = document.getElementById('ddResult');
+    if (!out) return;
+    if (!dd || dd <= 0 || dd >= 100) { out.innerHTML = '<span style="color:var(--text-dim);font-size:.82rem">Enter drawdown % (1–99)</span>'; return; }
+    const required = (1 / (1 - dd / 100) - 1) * 100;
+    const rrColor = required > 100 ? 'var(--red)' : required > 50 ? 'var(--gold)' : 'var(--text)';
+    out.innerHTML = `<div style="margin-top:4px">
+      <div style="font-size:.75rem;color:var(--text-dim)">Required gain to break even</div>
+      <div style="color:${rrColor};font-weight:700;font-size:1.15rem">${required.toFixed(1)}%</div>
+    </div>`;
+  }
+
+  function _renderCalcCards() {
+    return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+
+      <div class="card" style="padding:16px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">R:R Calculator</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Entry, stop &amp; target → ratio</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Entry</label>
+          <input type="number" id="rrEntry" placeholder="e.g. 95000" step="any" oninput="ProToolsTab._calcRR()" />
+        </div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Stop</label>
+          <input type="number" id="rrStop" placeholder="e.g. 94200" step="any" oninput="ProToolsTab._calcRR()" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Target</label>
+          <input type="number" id="rrTarget" placeholder="e.g. 96800" step="any" oninput="ProToolsTab._calcRR()" />
+        </div>
+        <div id="rrResult"><span style="color:var(--text-dim);font-size:.82rem">Enter all three values</span></div>
+      </div>
+
+      <div class="card" style="padding:16px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">Compound Projection</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Capital × monthly % → 3/6/12M</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label>Starting Capital ($)</label>
+          <input type="number" id="cpCapital" placeholder="e.g. 10000" step="any" oninput="ProToolsTab._calcCompound()" />
+        </div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Monthly % Return</label>
+          <input type="number" id="cpMonthly" placeholder="e.g. 5" step="0.1" oninput="ProToolsTab._calcCompound()" />
+        </div>
+        <div id="cpResult"><span style="color:var(--text-dim);font-size:.82rem">Enter capital and monthly %</span></div>
+      </div>
+
+      <div class="card" style="padding:16px">
+        <div style="font-weight:600;font-size:15px;margin-bottom:4px">Drawdown Recovery</div>
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:12px">Drawdown % → gain needed</div>
+        <div class="form-group" style="margin-bottom:10px">
+          <label>Drawdown (%)</label>
+          <input type="number" id="ddPct" placeholder="e.g. 20" step="0.1" min="1" max="99" oninput="ProToolsTab._calcDD()" />
+        </div>
+        <div id="ddResult"><span style="color:var(--text-dim);font-size:.82rem">Enter drawdown % (1–99)</span></div>
+      </div>
+
+    </div>`;
+  }
+
   /* ── Tab nav ────────────────────────────────────────── */
   function render() {
     const content = document.getElementById('content');
-    content.innerHTML = `<div class="pro-wrap">
+    content.innerHTML = `<div class="page-head">
+      <h1>Pro Tools</h1>
+      <p class="subtitle">Calculators and utilities</p>
+    </div>
+    ${_renderCalcCards()}
+    <div class="pro-wrap">
       <div class="pro-subnav">
         <button class="pro-sub-btn${_sub==='sizer'?' active':''}" data-sub="sizer">📐 Position Sizer</button>
         <button class="pro-sub-btn${_sub==='qstats'?' active':''}" data-sub="qstats">📊 Quick Stats</button>
@@ -986,6 +1089,9 @@ const ProToolsTab = (() => {
 
   return {
     render,
+    _calcRR,
+    _calcCompound,
+    _calcDD,
     _removeCorrPair: sym => {
       _corrPairs = _corrPairs.filter(p => p !== sym);
       saveCorr();

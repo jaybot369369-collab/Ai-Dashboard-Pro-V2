@@ -312,10 +312,17 @@ const MarketIntelTab = (() => {
     </aside>`;
   }
 
+  function _pageHead() {
+    return `<div class="page-head">
+      <h1>Market Intel</h1>
+      <p class="subtitle">News feed · macro events · sentiment</p>
+    </div>`;
+  }
+
   /* ── Public render ──────────────────────────────────── */
   async function render() {
     const content = document.getElementById('content');
-    content.innerHTML = `<div class="mi-wrap"><div class="loading-state">Loading Market Intel…</div></div>`;
+    content.innerHTML = _pageHead() + `<div class="mi-wrap"><div class="loading-state">Loading Market Intel…</div></div>`;
 
     if (!_data || ageHours(_data?.generated) > REFRESH_MS / 3600000) {
       await load();
@@ -323,7 +330,7 @@ const MarketIntelTab = (() => {
     startAutoRefresh();
 
     if (_err) {
-      content.innerHTML = `<div class="mi-wrap"><div class="empty-state"><div class="empty-icon">⚠️</div>
+      content.innerHTML = _pageHead() + `<div class="mi-wrap"><div class="empty-state"><div class="empty-icon">⚠️</div>
         <p>Could not load market intel: ${esc(_err)}</p>
         <p class="text-dim" style="font-size:.85rem">Run <code>python3 automation/run_market_intel.py</code> to generate <code>js/data/market_intel.json</code>.</p>
       </div></div>`;
@@ -333,7 +340,7 @@ const MarketIntelTab = (() => {
     const d = _data || {};
     const isPending = !d.generated;
     if (isPending) {
-      content.innerHTML = `<div class="mi-wrap">
+      content.innerHTML = _pageHead() + `<div class="mi-wrap">
         <div class="mi-hdr">
           <div>
             <h1 class="mi-title">🛰 Market Intel</h1>
@@ -372,7 +379,7 @@ const MarketIntelTab = (() => {
     const fetchBtn = `<button class="btn-primary btn-sm" id="miFreshFetch" title="Trigger a fresh server-side fetch via Cloudflare Worker (uses Anthropic API tokens, ~3 minutes)">☁️ Run Cloud</button>`;
     const localBtn = `<button class="btn-ghost btn-sm" id="miLocalRun" title="Run the same pipeline locally via your Claude Code CLI (no API tokens; requires market_intel_local_server.py on :8769)">🖥️ Run Locally</button>`;
 
-    content.innerHTML = `<div class="mi-wrap">
+    content.innerHTML = _pageHead() + `<div class="mi-wrap">
       ${isStale ? `<div class="mi-stale-banner">⚠ Data may be stale — last refresh ${fmtAge(d.generated)} (cron schedule: 2x/day weekdays).</div>` : ''}
 
       <div class="mi-hdr">

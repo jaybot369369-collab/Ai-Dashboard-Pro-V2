@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   REPORTS TAB — 5 sub-tabs + CSV import
+   REPORTS TAB — My Reports
+   Header + template cards prepended; existing sub-tabs below.
    Sources: Notion journal CSV, Binance TX CSV,
             Binance Order History CSV (from XLSX)
 ════════════════════════════════════════════════════════════ */
@@ -12,9 +13,66 @@ const ReportsTab = (() => {
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
+  /* ── Template cards ─────────────────────────────────────── */
+  function _renderTemplateCards() {
+    const templates = [
+      {
+        icon: '📋',
+        name: 'Weekly review',
+        desc: 'Auto-summary of last 7 days',
+        sub: 'overview',
+      },
+      {
+        icon: '📊',
+        name: 'Monthly review',
+        desc: 'Full performance breakdown',
+        sub: 'compare',
+      },
+      {
+        icon: '🔍',
+        name: 'Setup deep-dive',
+        desc: 'Single-setup analysis',
+        sub: 'tags',
+      },
+    ];
+
+    return `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
+        ${templates.map(t => `
+          <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-size:1.6rem;line-height:1">${t.icon}</div>
+            <div>
+              <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:2px">${esc(t.name)}</div>
+              <div style="font-size:.78rem;color:#888">${esc(t.desc)}</div>
+            </div>
+            <button class="btn-primary btn-sm" style="margin-top:auto;align-self:flex-start" onclick="ReportsTab._sub('${t.sub}')">Generate</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
   function render() {
+    const trades = DB.getTrades();
+    const tradeCount = trades.length;
+    const subtitle = tradeCount > 0
+      ? esc(tradeCount + ' reports available')
+      : 'no data yet';
+
     const content = document.getElementById('content');
     content.innerHTML = `
+      <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1>My Reports</h1>
+          <p class="page-subtitle">${subtitle}</p>
+        </div>
+        <button class="btn-primary" onclick="ReportsTab._sub('import')">+ New report</button>
+      </div>
+
+      ${_renderTemplateCards()}
+
+      <div style="border-top:1px solid var(--border-sub);margin-bottom:20px"></div>
+
       <div class="sub-tabs">
         ${['overview','win-loss','drawdown','compare','tags','import']
           .map(id => `<div class="sub-tab${activeSubTab === id ? ' active' : ''}" onclick="ReportsTab._sub('${id}')">${subLabel(id)}</div>`)
@@ -110,7 +168,6 @@ const ReportsTab = (() => {
       if (dd > maxDD) { maxDD = dd; maxDDPct = peak > 0 ? (dd / peak) * 100 : 0; }
     });
 
-    // Consecutive losing days
     const dlMap = DB.dailyPLMap(trades);
     const dayArr = Object.values(dlMap);
     let maxLoss = 0, curLoss = 0;
@@ -285,7 +342,6 @@ const ReportsTab = (() => {
       </div>
     `;
 
-    // Drag and drop
     const dz = document.getElementById('dropZone');
     if (dz) {
       dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });

@@ -58,8 +58,15 @@ const FundTab = (() => {
     }
   }
 
+  function _pageHead() {
+    return `<div class="page-head">
+      <h1>Bot Farm</h1>
+      <p class="subtitle">Automated trading bots</p>
+    </div>`;
+  }
+
   function _offlineHTML() {
-    return `
+    return _pageHead() + `
       <div class="lw-offline" style="text-align:center; padding:60px 20px;">
         <div class="lw-offline-icon">🏦</div>
         <h2 class="lw-offline-title" style="margin-bottom:12px;">Bot Farm API offline</h2>
@@ -80,7 +87,7 @@ const FundTab = (() => {
     const nHealthy = (health && health.bots)
       ? health.bots.filter(b => b.status === 'healthy').length : 0;
     const dotClass = ks === 'running' ? 'live' : 'warn';
-    return `
+    return _pageHead() + `
       <div class="lw-header">
         <div class="lw-header-left">
           <span class="lw-dot ${dotClass}"></span>

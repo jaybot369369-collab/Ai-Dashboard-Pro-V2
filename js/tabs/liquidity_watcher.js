@@ -41,8 +41,15 @@ const LiquidityWatcherTab = (() => {
     }
   }
 
+  function _pageHead() {
+    return `<div class="page-head">
+      <h1>Liquidity Watcher</h1>
+      <p class="subtitle">Live leverage &amp; positioning data</p>
+    </div>`;
+  }
+
   function _offlineHTML() {
-    return `
+    return _pageHead() + `
       <div class="lw-offline" style="text-align:center; padding:60px 20px;">
         <div class="lw-offline-icon">🌊</div>
         <h2 class="lw-offline-title" style="margin-bottom:12px;">Liquidity Watcher offline</h2>
@@ -58,7 +65,7 @@ const LiquidityWatcherTab = (() => {
 
   function _liveHTML(health) {
     const safe = esc(safeUrl(LOCAL_URL));
-    return `
+    return _pageHead() + `
       <div class="lw-header">
         <div class="lw-header-left">
           <span class="lw-dot live"></span>

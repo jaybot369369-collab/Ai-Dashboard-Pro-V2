@@ -1,11 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
-   AI COACH — Claude-powered trading coach
+   AI COACH  (v2 visual redesign — 2026-05-17)
+   Claude-powered trading coach
    Features:
      1. Screenshot auto-tag (vision → setup metadata)
-     3. Daily journal prompt (evening reflection)
-     4. Weekly auto-review (Monday HTML report)
+     2. Daily journal prompt (evening reflection)
+     3. Weekly auto-review (Monday HTML report)
    API: Anthropic Messages API direct from browser
         (anthropic-dangerous-direct-browser-access: true)
+   Layout: .page-head + ask-coach bar + existing sub-tab content
 ════════════════════════════════════════════════════════════ */
 const AICoachTab = (() => {
 
@@ -303,7 +305,15 @@ ${JSON.stringify(trades.map(t => ({
     </div>`;
   }
 
-  /* ── Public render ──────────────────────────────────── */
+  /* ── Alert count helper (best-effort) ───────────────── */
+  function _alertCount() {
+    try {
+      if (typeof CoachTab !== 'undefined' && CoachTab._alertCount) return CoachTab._alertCount();
+    } catch {}
+    return null;
+  }
+
+  /* ── Sub-tab state ──────────────────────────────────── */
   // v1.1 (2026-05-10): Dr. Coach merged in as internal sub-tabs.
   // Five sub-tabs: Alerts, Grade Insights, Setup Catalogue, Weekly
   // Review (Claude-powered), Settings. Daily journal prompt removed.
@@ -319,32 +329,104 @@ ${JSON.stringify(trades.map(t => ({
     { id: 'settings',  label: '⚙️ Settings',        needsKey: false },
   ];
 
+  /* ── Dismissed insight titles (session-only) ─────────── */
+  const _dismissed = new Set();
+  let _settingsOpen = false;
+
+  function _dotColor(type) {
+    return type === 'positive' ? '#22c55e' : type === 'danger' ? '#ef4444' : type === 'info' ? '#3b82f6' : '#f59e0b';
+  }
+
+  /* ── Public render ──────────────────────────────────── */
   function render() {
     const content = document.getElementById('content');
+    if (!content) return;
     const apiKey = getKey();
 
-    // No-key banner shows above the tab bar so operator immediately
-    // sees they need to set the key (and where to do it: Settings tab)
-    const banner = !apiKey
-      ? `<div class="ai-banner">🔑 Set your Anthropic API key in the ⚙️ Settings tab to enable Weekly Review + Auto-tag Screenshots.</div>`
+    // Settings view
+    if (_settingsOpen) {
+      content.innerHTML = `
+        <div class="page-head">
+          <div><h1>AI Coach · Settings</h1><div class="page-head-sub">API key &amp; model configuration</div></div>
+          <button class="btn-ghost btn-sm" onclick="AICoachTab._closeSettings()">← Back</button>
+        </div>
+        <div class="card" style="max-width:520px">${renderSettings()}</div>`;
+      document.getElementById('aiSaveBtn')?.addEventListener('click', () => {
+        const k = document.getElementById('aiKey')?.value.trim();
+        const m = document.getElementById('aiModel')?.value;
+        if (k !== undefined) setS(KEYS.apiKey, k);
+        if (m) setS(KEYS.model, m);
+        if (typeof App !== 'undefined' && App.toast) App.toast('Settings saved');
+        _settingsOpen = false; render();
+      });
+      return;
+    }
+
+    // Gather insights
+    let insights = [];
+    try {
+      if (typeof CoachTab !== 'undefined' && CoachTab._getAlerts) {
+        insights = CoachTab._getAlerts().filter(a => !_dismissed.has(a.title));
+      }
+    } catch (_) {}
+
+    const insightBadge = insights.length
+      ? `<span style="margin-left:10px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:10px;background:rgba(124,92,255,.18);color:#a78bfa">${insights.length} ${insights.length === 1 ? 'insight' : 'insights'}</span>`
       : '';
 
-    const tabBar = `<div class="sub-tabs">
-      ${_SUB_TABS.map(t => {
-        const active = _activeSubTab === t.id ? ' active' : '';
-        const dim = (t.needsKey && !apiKey) ? ' style="opacity:.5"' : '';
-        const title = (t.needsKey && !apiKey) ? ' title="Requires API key"' : '';
-        return `<div class="sub-tab${active}"${dim}${title} onclick="AICoachTab._sub('${t.id}')">${t.label}</div>`;
-      }).join('')}
-    </div>`;
+    const insightCard = (a, i) => `
+      <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px;flex:1">
+          <div style="width:10px;height:10px;border-radius:50%;background:${_dotColor(a.type)};flex-shrink:0;margin-top:5px"></div>
+          <div>
+            <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:5px">${esc(a.title)}</div>
+            <div style="font-size:.82rem;color:var(--muted);line-height:1.55">${esc(a.desc)}</div>
+          </div>
+        </div>
+        <div style="display:flex;border-top:1px solid var(--border)">
+          <button class="btn-ghost" style="flex:1;border-radius:0;border-right:1px solid var(--border);padding:10px;font-size:.82rem"
+                  onclick="AICoachTab._showEvidence(${i})">Show evidence</button>
+          <button class="btn-ghost" style="flex:1;border-radius:0;padding:10px;font-size:.82rem"
+                  onclick="AICoachTab._dismiss(${i})">Dismiss</button>
+        </div>
+      </div>`;
 
-    content.innerHTML = `<div class="ai-wrap">
-      ${banner}
-      ${tabBar}
-      <div id="aicSubContent"></div>
-    </div>`;
+    const emptyCard = `
+      <div class="card" style="grid-column:1/-1;text-align:center;padding:48px 20px">
+        <div style="font-size:2rem;margin-bottom:12px">✅</div>
+        <div style="font-weight:700;color:var(--text)">All clear</div>
+        <div style="font-size:.84rem;color:var(--muted);margin-top:6px">No issues detected in your recent trade data.</div>
+      </div>`;
 
-    _renderSubTab(apiKey);
+    content.innerHTML = `
+      <div class="page-head">
+        <div>
+          <h1>AI Coach${insightBadge}</h1>
+          <div class="page-head-sub">Personalized insights from your trade history</div>
+        </div>
+        <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙️ Settings</button>
+      </div>
+
+      <div style="background:linear-gradient(135deg,rgba(124,92,255,.12),rgba(124,92,255,.04));border:1px solid rgba(124,92,255,.22);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--accent,#7c5cff);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem">⭐</div>
+        <div style="flex:0 0 auto">
+          <div style="font-weight:700;font-size:.9rem;color:var(--text);margin-bottom:2px">Ask your coach anything</div>
+          <div style="font-size:.75rem;color:var(--muted)">"Why am I losing money on Fridays?" · "Is my position sizing too aggressive?"</div>
+        </div>
+        <input id="askCoachInput" type="text" placeholder="Ask the coach…"
+               style="flex:1;background:var(--surface,#fff);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:.85rem;color:var(--text);outline:none;font-family:inherit;min-width:0"
+               onkeydown="if(event.key==='Enter')AICoachTab._askCoach()" />
+        <button onclick="AICoachTab._askCoach()"
+                style="flex-shrink:0;padding:9px 22px;background:var(--accent,#7c5cff);color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer">
+          Send
+        </button>
+      </div>
+      <div id="askCoachResponse" style="display:none;margin-bottom:20px"></div>
+
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+        ${insights.length ? insights.map(insightCard).join('') : emptyCard}
+      </div>
+    `;
   }
 
   function _renderSubTab(apiKey) {
@@ -403,10 +485,87 @@ ${JSON.stringify(trades.map(t => ({
     }
   }
 
+  /* ── Ask coach handler ──────────────────────────────── */
+  async function _askCoach() {
+    const input    = document.getElementById('askCoachInput');
+    const respDiv  = document.getElementById('askCoachResponse');
+    const question = input?.value?.trim();
+    if (!question) return;
+
+    if (!getKey()) {
+      if (respDiv) {
+        respDiv.style.display = 'block';
+        respDiv.innerHTML = `<div class="ai-banner">🔑 Add your Anthropic API key in the ⚙️ Settings tab to use Ask Coach.</div>`;
+      }
+      return;
+    }
+
+    if (respDiv) {
+      respDiv.style.display = 'block';
+      respDiv.innerHTML = `<div class="card" style="padding:16px 20px;color:var(--text-dim);font-size:.85rem">⏳ Thinking…</div>`;
+    }
+
+    try {
+      const trades = (typeof DB !== 'undefined' && DB.getTrades) ? DB.getTrades() : [];
+      const stats  = (typeof DB !== 'undefined' && DB.calcStats) ? DB.calcStats(trades) : {};
+
+      const system = `You are a trading coach analyzing a trader's journal data. Be direct, specific, and actionable.`;
+      const user   = `Trader question: "${question}"
+
+Trade stats summary: ${JSON.stringify({
+  totalTrades: trades.length,
+  winRate: stats.winRate,
+  avgR: stats.avgR,
+  totalPL: stats.totalPL,
+})}
+
+Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
+  date: t.date, symbol: t.symbol, dir: t.direction,
+  setup: (t.setupTypes||[t.setupType||'']).join('/'),
+  pre: t.preGrade, post: t.postGrade, r: t.rMultiple, result: t.result,
+})), null, 2)}`;
+
+      const { text } = await callClaude({ system, user, maxTokens: 800 });
+
+      if (respDiv) {
+        respDiv.style.display = 'block';
+        respDiv.innerHTML = `<div class="card" style="padding:16px 20px">
+          <div style="font-size:.72rem;font-weight:600;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Coach Response</div>
+          <div style="font-size:.86rem;line-height:1.6;color:var(--text-primary);white-space:pre-wrap">${esc(text)}</div>
+        </div>`;
+      }
+    } catch (e) {
+      if (respDiv) {
+        respDiv.innerHTML = `<div class="card" style="padding:16px 20px;color:var(--red);font-size:.85rem">⚠ ${esc(e.message)}</div>`;
+      }
+    }
+  }
+
+  /* ── Public API ─────────────────────────────────────── */
   return {
     render,
-    // Sub-tab switcher (called from the inline tab-bar onclick)
     _sub: (id) => { _activeSubTab = id; render(); },
+    _askCoach,
+    _openSettings:  () => { _settingsOpen = true;  render(); },
+    _closeSettings: () => { _settingsOpen = false; render(); },
+    _dismiss: (i) => {
+      // Look up the title at dismiss time (insights array rebuilt each render)
+      try {
+        const alerts = typeof CoachTab !== 'undefined' && CoachTab._getAlerts ? CoachTab._getAlerts() : [];
+        const visible = alerts.filter(a => !_dismissed.has(a.title));
+        if (visible[i]) _dismissed.add(visible[i].title);
+      } catch (_) {}
+      render();
+    },
+    _showEvidence: (i) => {
+      try {
+        const alerts = typeof CoachTab !== 'undefined' && CoachTab._getAlerts ? CoachTab._getAlerts() : [];
+        const visible = alerts.filter(a => !_dismissed.has(a.title));
+        const a = visible[i];
+        if (!a) return;
+        if (typeof App !== 'undefined' && App.toast) App.toast(a.title, 'info');
+      } catch (_) {}
+    },
     // Public API for use from other tabs (e.g. trade form auto-tag button)
     autoTagImage,
     callClaude,

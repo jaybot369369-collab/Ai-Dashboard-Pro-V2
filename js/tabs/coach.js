@@ -335,6 +335,8 @@ const CoachTab = (() => {
     _renderAlerts:    renderAlerts,
     _renderGrading:   renderGrading,
     _renderCatalogue: renderCatalogue,
+    _getAlerts:       computeAlerts,
+    _alertCount:      () => computeAlerts().length,
     _saveReview: () => {
       const period = document.getElementById('reviewPeriod')?.value || 'weekly';
       const questions = [
