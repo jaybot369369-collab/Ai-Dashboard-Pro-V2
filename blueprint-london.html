@@ -1,0 +1,1064 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Blueprint · London</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────────────────────── */
+:root {
+  --purple:    #7c5ff5;
+  --purple-lt: #9b82f7;
+  --orange:    #f97316;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --blue:      #3b82f6;
+  --teal:      #14b8a6;
+
+  --tier-e:    #22c55e;
+  --tier-r:    #f59e0b;
+  --tier-g:    #ef4444;
+
+  --radius:    14px;
+  --radius-sm: 8px;
+  --shadow:    0 2px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  --font:      'Inter', system-ui, -apple-system, sans-serif;
+  --transition: .2s ease;
+}
+
+/* LIGHT */
+[data-theme="light"] {
+  --bg:        #f0f2f7;
+  --surface:   #ffffff;
+  --surface2:  #f7f8fc;
+  --border:    #e5e7ef;
+  --text:      #1e2130;
+  --muted:     #7b7f96;
+  --heading:   #0f1120;
+  --shadow:    0 2px 12px rgba(0,0,0,.07);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.10);
+}
+/* DARK */
+[data-theme="dark"] {
+  --bg:        #0d0f18;
+  --surface:   #161926;
+  --surface2:  #1d2135;
+  --border:    #272c42;
+  --text:      #c8cde8;
+  --muted:     #656b8a;
+  --heading:   #e8ecff;
+  --shadow:    0 2px 12px rgba(0,0,0,.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.4);
+}
+
+/* ── RESET ──────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  transition: background var(--transition), color var(--transition);
+}
+button { font-family: var(--font); cursor: pointer; }
+a { color: var(--purple); text-decoration: none; }
+input, select, textarea { font-family: var(--font); }
+
+/* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+.shell { display: flex; min-height: 100vh; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  transition: background var(--transition), border-color var(--transition);
+}
+.sidebar-brand {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--purple), #4f46e5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.brand-text { line-height: 1.2; }
+.brand-title { font-size: 15px; font-weight: 700; color: var(--heading); }
+.brand-sub { font-size: 11px; color: var(--muted); }
+
+.sidebar-section { padding: 18px 12px 4px; }
+.sidebar-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 0 8px; margin-bottom: 4px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 10px; border: none; background: none;
+  color: var(--muted); border-radius: var(--radius-sm);
+  font-size: 13.5px; font-weight: 500;
+  transition: all var(--transition);
+  text-align: left;
+}
+.nav-btn .icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+.nav-btn:hover { background: var(--surface2); color: var(--text); }
+.nav-btn.active { background: linear-gradient(135deg, rgba(124,95,245,.18), rgba(79,70,229,.1)); color: var(--purple-lt); font-weight: 600; }
+[data-theme="light"] .nav-btn.active { background: rgba(124,95,245,.1); color: var(--purple); }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 16px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.theme-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.theme-toggle-label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.toggle-pill {
+  width: 38px; height: 20px;
+  background: var(--border);
+  border-radius: 10px;
+  position: relative;
+  transition: background var(--transition);
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.toggle-pill.on { background: var(--purple); }
+.toggle-pill::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--transition);
+}
+.toggle-pill.on::after { transform: translateX(18px); }
+
+/* HEADER EXPORT BTNS */
+.export-row {
+  display: flex; gap: 6px;
+}
+.icon-btn {
+  flex: 1; padding: 7px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 12px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  transition: all var(--transition);
+}
+.icon-btn:hover { border-color: var(--purple); color: var(--purple); background: rgba(124,95,245,.07); }
+
+/* MAIN CONTENT */
+.main {
+  flex: 1;
+  padding: 28px 28px;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ── CARDS ──────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+  transition: background var(--transition), border-color var(--transition);
+}
+.card-title {
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); margin-bottom: 14px;
+}
+
+/* ── KPI STAT CARDS ─────────────────────────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 14px;
+  transition: all var(--transition);
+}
+.kpi-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.kpi-icon {
+  width: 46px; height: 46px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.kpi-icon.purple { background: rgba(124,95,245,.15); }
+.kpi-icon.orange { background: rgba(249,115,22,.15); }
+.kpi-icon.green  { background: rgba(34,197,94,.15); }
+.kpi-icon.blue   { background: rgba(59,130,246,.15); }
+.kpi-num { font-size: 24px; font-weight: 700; color: var(--heading); line-height: 1; margin-bottom: 3px; }
+.kpi-label { font-size: 12px; color: var(--muted); font-weight: 500; }
+
+/* ── GRID LAYOUTS ───────────────────────────────────────────────────────── */
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.grid-65-35 { grid-template-columns: 1.8fr 1fr; }
+
+/* ── VIEW HEADER ────────────────────────────────────────────────────────── */
+.view-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 22px;
+}
+.view-header h2 { font-size: 20px; font-weight: 700; color: var(--heading); }
+.view-header .meta { font-size: 13px; color: var(--muted); }
+.view-header-right { display: flex; gap: 8px; align-items: center; }
+
+/* ── BADGE ──────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center;
+  padding: 2px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 600; letter-spacing: .3px;
+  cursor: help;
+}
+.badge.e { background: rgba(34,197,94,.12); color: var(--tier-e); border: 1px solid rgba(34,197,94,.25); }
+.badge.r { background: rgba(245,158,11,.12); color: var(--tier-r); border: 1px solid rgba(245,158,11,.25); }
+.badge.g { background: rgba(239,68,68,.12); color: var(--tier-g);  border: 1px solid rgba(239,68,68,.25); }
+
+.legend-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* ── FORMS ──────────────────────────────────────────────────────────────── */
+.form-group { margin-bottom: 13px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-bottom: 6px; }
+.form-control {
+  width: 100%; padding: 9px 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 13.5px;
+  transition: border-color var(--transition);
+  font-family: var(--font);
+}
+.form-control:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 3px rgba(124,95,245,.12); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ── BUTTONS ────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: var(--radius-sm);
+  font-size: 13px; font-weight: 600; border: none;
+  cursor: pointer; transition: all var(--transition);
+}
+.btn-primary { background: linear-gradient(135deg, var(--purple), #4f46e5); color: #fff; }
+.btn-primary:hover { opacity: .9; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(124,95,245,.35); }
+.btn-outline {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+}
+.btn-outline:hover { border-color: var(--purple); color: var(--purple); }
+.btn-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); color: var(--red); }
+.btn-danger:hover { background: rgba(239,68,68,.18); }
+.btn-success { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: var(--green); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+
+/* ── CHECKLIST ──────────────────────────────────────────────────────────── */
+.checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.check-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  background: var(--surface2); border: 1px solid var(--border);
+  cursor: pointer; font-size: 13px; transition: all var(--transition);
+}
+.check-item:hover { border-color: var(--purple); }
+.check-item input[type=checkbox] { accent-color: var(--purple); width: 15px; height: 15px; cursor: pointer; }
+.check-item.checked { border-color: rgba(124,95,245,.4); background: rgba(124,95,245,.06); color: var(--purple-lt); }
+
+/* ── TABLES ─────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: var(--radius-sm); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 10px 12px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--muted); background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text); }
+tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--surface2); }
+
+/* ── DETAILS / EXPAND ───────────────────────────────────────────────────── */
+details { margin-top: 5px; }
+details summary {
+  font-size: 11px; color: var(--muted); cursor: pointer;
+  list-style: none; display: flex; align-items: center; gap: 4px;
+  padding: 2px 0;
+}
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: '▸'; font-size: 10px; }
+details[open] summary::before { content: '▾'; }
+details summary:hover { color: var(--purple); }
+.detail-body {
+  margin-top: 6px; padding: 10px 12px;
+  background: var(--bg); border-left: 2px solid var(--purple);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 12px; color: var(--muted); line-height: 1.6;
+}
+
+/* ── PROGRESS RING ──────────────────────────────────────────────────────── */
+.ring-wrap { display: flex; align-items: center; gap: 14px; }
+.ring-label { font-size: 13px; }
+.ring-val { font-size: 24px; font-weight: 700; color: var(--heading); }
+
+/* ── RECENT LOG CHIPS ───────────────────────────────────────────────────── */
+.log-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 11px; font-weight: 500;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--muted);
+}
+.log-chip.ok { background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.2); color: var(--green); }
+.log-chip.warn { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.2); color: var(--tier-r); }
+
+/* ── TEXTAREA ────────────────────────────────────────────────────────────── */
+textarea.form-control { resize: vertical; min-height: 70px; }
+
+/* ── STATUS TEXT ─────────────────────────────────────────────────────────── */
+.status-text { font-size: 12px; color: var(--green); margin-top: 6px; }
+
+/* ── DIVIDER ─────────────────────────────────────────────────────────────── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* ── PILL TAB ────────────────────────────────────────────────────────────── */
+.pill-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.pill-tab {
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 12px; font-weight: 500; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--muted); cursor: pointer;
+  transition: all var(--transition);
+}
+.pill-tab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+.pill-tab:hover:not(.active) { border-color: var(--purple); color: var(--purple); }
+
+/* ── MY PLAN SECTION ────────────────────────────────────────────────────── */
+.plan-list { list-style: none; }
+.plan-list li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.plan-list li:last-child { border-bottom: none; }
+.plan-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); flex-shrink: 0; margin-top: 6px; }
+
+/* ── MOBILE ──────────────────────────────────────────────────────────────── */
+.menu-btn {
+  display: none; position: fixed; top: 14px; left: 14px; z-index: 60;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-size: 18px;
+  align-items: center; justify-content: center;
+  box-shadow: var(--shadow);
+}
+@media (max-width: 860px) {
+  .sidebar {
+    position: fixed; top: 0; left: -260px; width: 240px;
+    height: 100vh; z-index: 50; transition: left .25s ease;
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open { left: 0; }
+  .menu-btn { display: flex; }
+  .main { padding: 18px 16px; margin-top: 50px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .grid-2, .grid-3, .grid-65-35 { grid-template-columns: 1fr; }
+  .checklist { grid-template-columns: 1fr; }
+  .form-row, .form-row-3 { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<button class="menu-btn" id="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+
+<div class="shell">
+<!-- ── SIDEBAR ─────────────────────────────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-mark">
+      <div class="brand-icon">🧬</div>
+      <div class="brand-text">
+        <div class="brand-title">Blueprint · LDN</div>
+        <div class="brand-sub">Longevity protocol</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Operate</div>
+    <button class="nav-btn active" data-view="today"><span class="icon">📅</span> Today</button>
+    <button class="nav-btn" data-view="trends"><span class="icon">📈</span> Trends</button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Pillars</div>
+    <button class="nav-btn" data-view="diet"><span class="icon">🥗</span> Diet &amp; Supplements</button>
+    <button class="nav-btn" data-view="sleep"><span class="icon">🌙</span> Sleep &amp; Circadian</button>
+    <button class="nav-btn" data-view="exercise"><span class="icon">🏋️</span> Exercise</button>
+    <button class="nav-btn" data-view="biomarkers"><span class="icon">🩸</span> Biomarkers</button>
+    <button class="nav-btn" data-view="errata"><span class="icon">⚡</span> Mistakes &amp; Wins</button>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-label">Synthesis</div>
+    <button class="nav-btn" data-view="myplan"><span class="icon">🗺️</span> My Plan</button>
+    <button class="nav-btn" data-view="compare"><span class="icon">⚖️</span> Bryan vs Me</button>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="export-row">
+      <button class="icon-btn" id="btn-export-quick" title="Download data backup">⬇ Export</button>
+      <button class="icon-btn" id="btn-import-trigger" title="Import data backup">⬆ Import</button>
+    </div>
+    <input type="file" id="import-file" accept=".json" style="display:none"/>
+    <div class="theme-toggle" id="theme-toggle">
+      <span class="theme-toggle-label" id="theme-label">🌙 Dark mode</span>
+      <div class="toggle-pill on" id="toggle-pill"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ── MAIN ───────────────────────────────────────────────────────────── -->
+<main class="main" id="main-content"></main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIER BADGES
+═══════════════════════════════════════════════════════════════════════════ */
+const T = {
+  e: '<span class="badge e" title="Established — well-evidenced in published research, broadly applicable across populations">[E] Established</span>',
+  r: '<span class="badge r" title="Reasonable extrapolation — mechanism or adjacent evidence supports it, not directly tested in your ancestry">[R] Reasonable</span>',
+  g: '<span class="badge g" title="Educated guess — best inference from limited data; confirm with your own bloodwork or a clinician">[G] Educated guess</span>',
+  short: {
+    e: '<span class="badge e" title="Established">[E]</span>',
+    r: '<span class="badge r" title="Reasonable extrapolation">[R]</span>',
+    g: '<span class="badge g" title="Educated guess">[G]</span>'
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROTOCOL DATA
+═══════════════════════════════════════════════════════════════════════════ */
+const PROTOCOL = {
+  diet: {
+    title: 'Diet & Supplements',
+    rows: [
+      { topic:'Calories', bryan:'~2,250 kcal/day, ~10% below maintenance', mine:'10% deficit reasonable; track HbA1c + fasting insulin, not BMI. CREBRF variant (Polynesian) can decouple BMI from metabolic risk.', tier:'r', why:'CALERIE-2 supports modest CR for biomarker improvement [E]. CREBRF variant affects BMI/T2D coupling in Pacific-ancestry populations [R].' },
+      { topic:'Eating window', bryan:'6am–11am (16h fast)', mine:'10am–6pm or 12pm–8pm (~14h fast). Consistency matters more than the absolute window.', tier:'e', why:'TRF benefit plateaus around 12–14h. Ultra-early windows are a lifestyle choice, not a biological requirement.' },
+      { topic:'Protein', bryan:'~130g/day (1.7 g/kg)', mine:'1.2–1.6 g/kg until APOL1 genotype + eGFR known. Raise only if both clean.', tier:'g', why:'APOL1 G1/G2 risk variants are prevalent in West African ancestry. East African (Kenyan) prevalence is lower but non-zero. High protein stresses compromised kidneys.' },
+      { topic:'Dairy', bryan:'None currently', mine:'None until lactase persistence confirmed via test or elimination-and-reintroduce.', tier:'r', why:'Bantu-ancestry lactase non-persistence is the norm. Nilotic/Maasai groups within Kenya are often persistent. You may already know your tolerance.' },
+      { topic:'Sodium', bryan:'Not aggressively restricted', mine:'<2,300 mg/day if BP >120/75. London takeaway easily hits 4,000+ mg — track it.', tier:'r', why:'West African–ancestry populations show higher salt sensitivity on average (lower renin profile, higher BP response).' },
+      { topic:'Vitamin D3', bryan:'2,000 IU + K2 600 mcg MK-7', mine:'3,000–5,000 IU Oct–Apr; 1,000–2,000 IU May–Sep. K2 100–200 mcg. Calibrate to 25(OH)D bloodwork.', tier:'r', why:'Darker skin synthesises less D3 per UVB dose [E]. London 51°N = zero D3 synthesis Oct–Mar regardless of skin tone [E]. Specific dose requires your bloodwork.' },
+      { topic:'Iron / ferritin', bryan:'Not separately supplemented', mine:'Do not add iron-containing supplements without ferritin + TSAT baseline first.', tier:'e', why:'Direction depends entirely on genotype + diet. Polynesian sub-groups carry hemochromatosis-adjacent variants in some lineages; West African–ancestry carries higher anemia risk. Test before supplementing.' },
+      { topic:'Omega-3 EPA+DHA', bryan:'~800 mg/day', mine:'1–2 g EPA+DHA/day', tier:'e', why:'Robust cardiovascular evidence across populations.' },
+      { topic:'Creatine', bryan:'2.5 g/day', mine:'5 g/day — the standard evidence-backed dose. Bryan is being conservative.', tier:'e', why:'Strength + possibly cognition. No safety concerns at 5 g/day across decades of literature.' },
+      { topic:'Caffeine', bryan:'None after noon', mine:'None after 10am — or skip entirely. Test CYP1A2 SNP if unsure.', tier:'e', why:'CYP1A2 slow metabolizers (~50% across all ancestries) have a much longer caffeine half-life.' },
+      { topic:'EVOO', bryan:'3 tbsp/day', mine:'1–2 tbsp/day. Buy verified unblended UK brand (Belazu, Filippo Berio). Adulteration is real.', tier:'r', why:'PREDIMED supports EVOO for cardiovascular health [E]. 3 tbsp vs 1–2 tbsp is Bryan\'s personal extrapolation [R].' },
+      { topic:'NMN / NR', bryan:'Daily', mine:'Skip in v1 protocol.', tier:'g', why:'Raises NAD+ in blood — that\'s established. No convincing functional endpoint or longevity outcome in humans yet.' },
+      { topic:'Rapamycin', bryan:'Paused 2024', mine:'Skip. Bryan paused it himself.', tier:'g', why:'Paused after lipid worsening + soft-tissue infections. Longevity benefit in humans unproven.' },
+      { topic:'Spermidine / lithium / taurine', bryan:'In stack', mine:'Skip in v1.', tier:'g', why:'Spermidine: mostly mouse data. Lithium microdose: ecological studies only. Taurine: animal data. Revisit after baseline bloodwork.' },
+      { topic:'Acarbose', bryan:'With carb meals (Rx)', mine:'Skip unless CGM shows elevated post-prandial glucose spikes.', tier:'r', why:'Works for glycemic excursions — but confirm you have them first. Prescription-only in the UK.' },
+      { topic:'Psyllium husk', bryan:'In stack', mine:'5–10 g/day — easiest dietary fiber gap-closer.', tier:'e', why:'Well-evidenced for LDL reduction + gut microbiome. Cheap and widely available (Holland & Barrett, Tesco).' },
+      { topic:'B12', bryan:'In stack', mine:'500–1,000 mcg/day if plant-leaning diet.', tier:'e', why:'Required if animal protein intake is low. Deficiency is gradual and insidious; cheap to prevent.' },
+    ]
+  },
+  sleep: {
+    title: 'Sleep & Circadian',
+    rows: [
+      { topic:'Schedule', bryan:'8:30pm–5:30am (~8.5h TIB)', mine:'Pick any window sustainable 7 days/wk (e.g. 11pm–7am). Consistency > absolute time.', tier:'e', why:'Circadian entrainment is driven by consistency. Weekend disruption ≥90 min = "social jet lag" with measurable metabolic cost.' },
+      { topic:'Duration', bryan:'~8.5h time in bed', mine:'7.5–8.5h; individualize by feel after 2 stable weeks.', tier:'e', why:'7–9h is the established sweet spot. 8.5h is upper end.' },
+      { topic:'Bedroom temp', bryan:'15.5–19.4°C', mine:'17–19°C. UK housing runs too warm — get a £10 bedside thermometer.', tier:'e', why:'Core body temperature drop is required for slow-wave sleep.' },
+      { topic:'Morning light', bryan:'Outdoor sun within minutes of waking', mine:'20–30 min SAD lamp (10,000 lux) on waking, Oct–Feb. Outdoors when possible Apr–Sep.', tier:'e', why:'London outdoor light at 8am in winter is <1,000 lux — biologically sub-threshold. Lumie Vitamin L (~£90) is the substitute.' },
+      { topic:'Evening light', bryan:'Dim + blue-blockers 2h before bed', mine:'Same. Warm bulbs, no overhead LEDs after 9pm, blue-blockers if using screens.', tier:'e', why:'Blue-spectrum light suppresses melatonin onset within 30 min at <500 lux.' },
+      { topic:'Summer blackout', bryan:'N/A (LA latitude)', mine:'Blackout blinds (not curtains) — London dawn is 4:30am in June.', tier:'r', why:'Standard curtains transmit enough light to advance wake time involuntarily in UK summer.' },
+      { topic:'Air quality', bryan:'Not flagged', mine:'Bedroom HEPA filter — Levoit Core 300 (~£70–90).', tier:'r', why:'London PM2.5 is measurably worse than rural California. Demonstrated effects on sleep quality.' },
+      { topic:'Vitamin D → sleep', bryan:'Not linked', mine:'Fixing D3 deficiency (see Diet) may improve sleep architecture independently.', tier:'r', why:'Observational data links low 25(OH)D with poor sleep quality.' },
+      { topic:'Heritage note', bryan:'N/A', mine:'Equatorial ancestry adapted to ~12h day/night. High-latitude winter is biologically novel — the SAD lamp is your mitigation.', tier:'g', why:'No strong published evidence that East African or Polynesian ancestry shifts circadian preference vs European baseline. Reasonable inference from photoperiod biology.' },
+    ]
+  },
+  exercise: {
+    title: 'Exercise & Routines',
+    rows: [
+      { topic:'Weekly volume', bryan:'~60 min × 7 days', mine:'30–60 min × 6 days. Diminishing returns above 45 min for non-athletes.', tier:'e', why:'Volume-outcome curve is well-characterised. One rest day is protective against overuse injury.' },
+      { topic:'Strength', bryan:'3× /week', mine:'3× /week — squat, hinge, push, pull, carry. 45 min/session.', tier:'e', why:'Strength + grip are independent all-cause mortality predictors [E]. West African–ancestry populations show on average higher fast-twitch fiber proportion — faster strength gains than endurance gains likely [R].' },
+      { topic:'Zone 2 cardio', bryan:'Most days', mine:'3× /week, 45–60 min, conversational pace (HR 60–70% max). London parks are free.', tier:'e', why:'VO2max is the strongest single fitness predictor of all-cause mortality. Zone 2 builds mitochondrial density.' },
+      { topic:'HIIT', bryan:'1–2× /week', mine:'1× /week — 4×4 min intervals or 30s on/30s off. ~20 min total.', tier:'e', why:'Most efficient route to VO2max gains. More than 1–2×/week increases injury risk without proportional benefit.' },
+      { topic:'Steps / NEAT', bryan:'Implicit (high NEAT)', mine:'8,000+ steps/day. London is walkable — use it.', tier:'e', why:'NEAT is independent of structured exercise and independently predictive of metabolic health.' },
+      { topic:'Sauna', bryan:'In stack', mine:'2–3×/week, 15–20 min. Cap at 15 min if you carry HbAS (sickle trait).', tier:'r', why:'Finnish Laukkanen cohort: 4×/week sauna associated with ~40% lower CV mortality [E]. Sickle trait + extreme heat + dehydration = exertional collapse risk [E].' },
+      { topic:'Mobility', bryan:'Daily', mine:'5–10 min daily. Routine matters less than doing it.', tier:'r', why:'Injury prevention over decades.' },
+      { topic:'Sickle trait caution', bryan:'Not flagged', mine:'If HbAS+: avoid max-effort exertion at altitude, in heat, or while dehydrated.', tier:'e', why:'~8–12% of East African–ancestry individuals carry sickle trait (HbAS). Exertional risk under those specific conditions is established.' },
+      { topic:'Urate / gout', bryan:'Not flagged', mine:'Monitor serum urate if any joint history. Intense training + lentils + dehydration can trigger flares.', tier:'r', why:'Some Polynesian-ancestry groups show elevated gout prevalence. Standard item on Medichecks panel.' },
+    ]
+  },
+  biomarkers: {
+    title: 'Biomarkers & Testing',
+    cols: ['Marker', 'Bryan\'s Target', 'My Target / Notes', 'Tier'],
+    rows: [
+      { topic:'ApoB', bryan:'<60 mg/dL', mine:'<80 mg/dL; more aggressive if family hx CVD', tier:'e', why:'Best single lipid predictor of ASCVD. LDL-C is a proxy; ApoB is the direct measure.' },
+      { topic:'Lp(a)', bryan:'Measured', mine:'Measure once, ever — it\'s genetic and doesn\'t change', tier:'e', why:'Strong independent ASCVD risk factor.' },
+      { topic:'HbA1c', bryan:'<5.4%', mine:'<5.4%; verify with fructosamine if Hb variant present (HbS, HbC)', tier:'e', why:'Some African-ancestry Hb variants distort HbA1c assays. If HbA1c looks oddly low vs fasting glucose, request fructosamine.' },
+      { topic:'Fasting insulin', bryan:'<5 µIU/mL', mine:'<8 mU/L', tier:'e', why:'Rises years before HbA1c. Earliest metabolic warning signal available.' },
+      { topic:'25(OH)D', bryan:'~50–70 ng/mL', mine:'75–125 nmol/L (UK units). Test before and 8 weeks after any new dose.', tier:'e', why:'High prior probability of deficiency given skin tone + London latitude. Non-negotiable first test.' },
+      { topic:'Ferritin + TSAT', bryan:'Tracked', mine:'Ferritin 50–150 ng/mL before supplementing', tier:'e', why:'Do not supplement iron without knowing your direction.' },
+      { topic:'hs-CRP', bryan:'<0.5 mg/L', mine:'<1.0 mg/L', tier:'e', why:'Chronic low-grade inflammation baseline. Improves fastest with diet + sleep changes.' },
+      { topic:'eGFR + cystatin C + urine ACR', bryan:'Tracked', mine:'Run before adopting any high-protein protocol', tier:'e', why:'Kidney baseline essential before deciding protein dose, especially until APOL1 status known.' },
+      { topic:'Urate', bryan:'Tracked', mine:'<360 µmol/L', tier:'r', why:'Higher prior in some Polynesian-ancestry groups.' },
+      { topic:'Testosterone + SHBG', bryan:'Age-normal', mine:'Age-normal range', tier:'e', why:'Anabolic baseline; relevant to exercise response and energy.' },
+      { topic:'Homocysteine', bryan:'<7 µmol/L', mine:'<9 µmol/L', tier:'e', why:'B-vitamin status proxy. Cheap to fix with B12/folate.' },
+      { topic:'APOL1 genotype', bryan:'Not reported', mine:'Test once — drives protein dosing ceiling', tier:'r', why:'G1/G2 risk variants common in West African ancestry. One test informs lifetime protocol.' },
+      { topic:'G6PD status', bryan:'Not reported', mine:'Test once — affects drug and supplement tolerances', tier:'r', why:'Affects fava bean, sulfa drug, some antimalarial tolerances.' },
+      { topic:'HbAS (sickle trait)', bryan:'Not reported', mine:'Test once — guides exertion protocol', tier:'e', why:'If positive, max-effort under heat/altitude/dehydration carries rhabdo risk. ~8–12% prevalence in East African ancestry.' },
+      { topic:'23andMe SNP panel', bryan:'Has full genome', mine:'One-off test — converts ~10 educated guesses to reasonable extrapolations overnight', tier:'r', why:'Cheapest way to resolve APOL1, G6PD, lactase persistence, CYP1A2, HbAS simultaneously.' },
+      { topic:'DEXA scan', bryan:'Annual', mine:'Once for baseline; repeat every 2–3 years', tier:'e', why:'Body comp + bone density. ~£100–150 at Bodyscan / NowFitness / Aviva in London.' },
+      { topic:'CGM trial', bryan:'Continuous', mine:'2-week trial once (Libre 2 / Levels / Zoe)', tier:'e', why:'Personal glycemic response to food is highly individual.' },
+      { topic:'DunedinPACE / GrimAge', bryan:'Tracked', mine:'Skip in v1', tier:'g', why:'Noisy at individual level; training cohorts under-represent non-European ancestry significantly.' },
+      { topic:'CIMT / CAC score', bryan:'Annual', mine:'CIMT once for baseline; CAC once (radiation — repeat sparingly)', tier:'e', why:'Direct measures of subclinical atherosclerosis.' },
+    ]
+  },
+  errata: {
+    title: 'Mistakes & Breakthroughs',
+    isErrata: true,
+    rows: [
+      { topic:'Rapamycin — paused', verdict:'Reversal', text:'Lipid worsening, soft-tissue infections, slower-than-expected aging-clock gains. Paused 2024.', lesson:'His stop was appropriate. Dose-dependent lipid/glucose worsening is documented. Skip until human longevity evidence is stronger.', tier:'r' },
+      { topic:'Metformin — paused', verdict:'Reversal', text:'Concern over blunted exercise adaptation.', lesson:'Konopka 2019 meta-analysis supports blunted mitochondrial training response. Skip unless diabetic.', tier:'r' },
+      { topic:'Plasma exchange', verdict:'Reversal', text:'Walked back — no clear biomarker benefit.', lesson:'Young-plasma field has not replicated in controlled studies. Bryan\'s walk-back is consistent with the evidence.', tier:'e' },
+      { topic:'Methylene blue', verdict:'Reversal', text:'Quietly dropped from stack.', lesson:'Never had strong human evidence. No reason to start.', tier:'r' },
+      { topic:'Excess EVOO', verdict:'Lesson', text:'Gut/digestive issues when over-dosing olive oil.', lesson:'No free lunch above a sensible dose. Stick to 1–2 tbsp.', tier:'r' },
+      { topic:'Follistatin gene therapy', verdict:'Skip', text:'Claims muscle results from Honduras offshore trial. n=1, no controls.', lesson:'Not validated in humans for safety or longevity. This is the experimental frontier — do not replicate.', tier:'g' },
+      { topic:'Sleep consistency', verdict:'Win', text:'Single largest biomarker mover across his entire protocol.', lesson:'The cheapest, highest-leverage intervention. Make this your first move — before any supplement.', tier:'e' },
+      { topic:'VO2max gains from Z2 + HIIT', verdict:'Win', text:'Top-percentile VO2max for age.', lesson:'Expected from the protocol. Replicate it.', tier:'e' },
+      { topic:'Hair regrowth (minox + fin)', verdict:'Win', text:'Worked.', lesson:'Both drugs are well-evidenced. Independent of longevity protocol.', tier:'e' },
+      { topic:'Diet → skin + inflammation', verdict:'Win', text:'Plant-forward, alcohol-free, low-sugar dramatically improved markers.', lesson:'Boring baseline that works for most people. Alcohol-free alone is a meaningful intervention.', tier:'e' },
+    ]
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════════ */
+const STORE_KEY = 'blueprint-ldn-v3';
+let state = { logs: [] };
+try { const r = localStorage.getItem(STORE_KEY); if(r) state = JSON.parse(r); } catch(e) {}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {} }
+
+const SUPPS = ['Vit D3 + K2','Omega-3','Magnesium','Creatine','Psyllium','B12','Multivit'];
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEME
+═══════════════════════════════════════════════════════════════════════════ */
+let theme = localStorage.getItem('blueprint-theme') || 'dark';
+function applyTheme(t) {
+  theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  const pill = document.getElementById('toggle-pill');
+  const label = document.getElementById('theme-label');
+  if(t === 'dark') { pill.classList.add('on'); label.textContent = '🌙 Dark mode'; }
+  else             { pill.classList.remove('on'); label.textContent = '☀️ Light mode'; }
+  localStorage.setItem('blueprint-theme', t);
+  // Refresh charts if on trends view
+  if(document.querySelector('nav .nav-btn[data-view="trends"].active')) setView('trends');
+}
+document.getElementById('theme-toggle').addEventListener('click', () => applyTheme(theme === 'dark' ? 'light' : 'dark'));
+applyTheme(theme);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORT / IMPORT
+═══════════════════════════════════════════════════════════════════════════ */
+document.getElementById('btn-export-quick').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'blueprint-london-'+todayStr()+'.json'; a.click();
+});
+document.getElementById('btn-import-trigger').addEventListener('click', () => {
+  document.getElementById('import-file').click();
+});
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      state = JSON.parse(ev.target.result); save();
+      alert('✓ Imported '+( state.logs?.length||0)+' log entries successfully.');
+      setView(currentView);
+    } catch(err) { alert('Import failed: '+err.message); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ROUTER
+═══════════════════════════════════════════════════════════════════════════ */
+let currentView = 'today';
+function setView(name) {
+  currentView = name;
+  document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  const main = document.getElementById('main-content');
+  main.innerHTML = '';
+  (VIEWS[name] || VIEWS.today)(main);
+  if(window.innerWidth <= 860) document.getElementById('sidebar').classList.remove('open');
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════════════════════ */
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function mkViewHeader(title, meta, extraHtml) {
+  return `<div class="view-header"><div><h2>${title}</h2>${meta?`<div class="meta" style="margin-top:3px">${meta}</div>`:''}</div><div class="view-header-right">${extraHtml||''}</div></div>`;
+}
+function legendBar() {
+  return `<div class="legend-row">${T.e} ${T.r} ${T.g}</div>`;
+}
+function pillarTable(key) {
+  const p = PROTOCOL[key];
+  if(p.isErrata) {
+    let h = `<div class="table-wrap"><table><thead><tr><th>Topic</th><th>Result</th><th>What Bryan Found</th><th>Lesson for Me</th><th>Tier</th></tr></thead><tbody>`;
+    p.rows.forEach(r => {
+      const vColor = r.verdict==='Win'?'var(--green)': r.verdict==='Reversal'?'var(--red)':'var(--tier-r)';
+      h += `<tr>
+        <td><strong>${r.topic}</strong></td>
+        <td><span style="font-size:11px;font-weight:600;color:${vColor}">${r.verdict}</span></td>
+        <td style="color:var(--muted);font-size:12px">${r.text}</td>
+        <td>${r.lesson}</td>
+        <td>${T.short[r.tier]}</td>
+      </tr>`;
+    });
+    h += `</tbody></table></div>`;
+    return h;
+  }
+  let h = `<div class="table-wrap"><table><thead><tr><th>Topic</th><th>Bryan</th><th>My Adaptation</th><th>Tier</th></tr></thead><tbody>`;
+  p.rows.forEach(r => {
+    h += `<tr>
+      <td style="white-space:nowrap"><strong>${r.topic}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${r.bryan}</td>
+      <td>${r.mine}<details><summary>Why this adaptation?</summary><div class="detail-body">${r.why}</div></details></td>
+      <td>${T.short[r.tier]}</td>
+    </tr>`;
+  });
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHART DEFAULTS
+═══════════════════════════════════════════════════════════════════════════ */
+function chartDefaults() {
+  const isDark = theme === 'dark';
+  return {
+    gridColor: isDark ? '#272c42' : '#e5e7ef',
+    tickColor: isDark ? '#656b8a' : '#9ca3af',
+    tooltipBg: isDark ? '#1d2135' : '#ffffff',
+    tooltipText: isDark ? '#e8ecff' : '#1e2130',
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VIEWS
+═══════════════════════════════════════════════════════════════════════════ */
+const VIEWS = {};
+
+/* ── TODAY ────────────────────────────────────────────────────────────── */
+VIEWS.today = (root) => {
+  const existing = state.logs.find(l => l.date === todayStr()) || { date: todayStr(), supps: [] };
+  const recent = [...state.logs].sort((a,b)=>a.date<b.date?1:-1).slice(0,7);
+  const sleepData = recent.filter(l=>l.sleep_h);
+  const sleepAvg = sleepData.length ? (sleepData.reduce((s,l)=>s+l.sleep_h,0)/sleepData.length).toFixed(1) : null;
+  const adherencePct = recent.length ? Math.round(100*recent.reduce((s,l)=>s+(l.supps?l.supps.length:0),0)/(recent.length*SUPPS.length)) : null;
+  const workouts = recent.filter(l=>l.workout&&l.workout!=='rest').length;
+  const latestWeight = recent.find(l=>l.weight_kg);
+
+  root.innerHTML = mkViewHeader('Today', todayStr());
+
+  // KPI CARDS
+  const kpis = [
+    { icon:'😴', color:'purple', label:'Avg Sleep (7d)', val: sleepAvg ? sleepAvg+'h' : '—' },
+    { icon:'💊', color:'orange', label:'Supp Adherence', val: adherencePct !== null ? adherencePct+'%' : '—' },
+    { icon:'🏋️', color:'green',  label:'Workouts (7d)', val: recent.length ? workouts+'/7' : '—' },
+    { icon:'⚖️', color:'blue',   label:'Latest Weight', val: latestWeight ? latestWeight.weight_kg+'kg' : '—' },
+  ];
+  const kpiGrid = document.createElement('div');
+  kpiGrid.className = 'kpi-grid';
+  kpis.forEach(k => {
+    kpiGrid.innerHTML += `<div class="kpi-card">
+      <div class="kpi-icon ${k.color}">${k.icon}</div>
+      <div><div class="kpi-num">${k.val}</div><div class="kpi-label">${k.label}</div></div>
+    </div>`;
+  });
+  root.appendChild(kpiGrid);
+
+  // FORM + SUMMARY GRID
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-65-35';
+  grid.style.alignItems = 'start';
+
+  // Form card
+  const formCard = document.createElement('div');
+  formCard.className = 'card';
+  formCard.innerHTML = `<div class="card-title">Log Today's Entry</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Sleep (hours)</label>
+        <input class="form-control" id="f_sleep" type="number" step="0.1" min="0" max="14" placeholder="e.g. 7.5" value="${existing.sleep_h??''}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Weight (kg)</label>
+        <input class="form-control" id="f_weight" type="number" step="0.1" placeholder="e.g. 76.2" value="${existing.weight_kg??''}"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Mood (1–10)</label>
+        <input class="form-control" id="f_mood" type="number" min="1" max="10" placeholder="1–10" value="${existing.mood??''}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Workout</label>
+        <select class="form-control" id="f_wtype">
+          <option value="">— none —</option>
+          ${['strength','zone2','hiit','mobility','walk','rest'].map(x=>`<option${existing.workout===x?' selected':''}>${x}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Workout duration (min)</label>
+        <input class="form-control" id="f_wmin" type="number" placeholder="e.g. 45" value="${existing.workout_min??''}"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Biomarker reading</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-control" id="f_bname" type="text" placeholder="e.g. 25(OH)D" style="flex:1.5" value="${existing.biomarker_name??''}"/>
+          <input class="form-control" id="f_bval" type="number" step="any" placeholder="value" style="flex:1" value="${existing.biomarker_value??''}"/>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Meals (brief notes)</label>
+      <textarea class="form-control" id="f_meals" placeholder="What did you eat today?">${existing.meals??''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-control" id="f_notes" rows="2" placeholder="Energy, symptoms, anything notable">${existing.notes??''}</textarea>
+    </div>
+    <div class="card-title" style="margin-top:16px">Supplements Taken</div>
+    <div class="checklist" id="supp-list"></div>
+    <div style="margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="f_save">Save Entry</button>
+      <span class="status-text" id="f_status"></span>
+    </div>`;
+
+  // Build supplement checklist
+  const suppList = formCard.querySelector('#supp-list');
+  SUPPS.forEach(s => {
+    const item = document.createElement('label');
+    const isChecked = existing.supps && existing.supps.includes(s);
+    item.className = 'check-item' + (isChecked ? ' checked' : '');
+    item.innerHTML = `<input type="checkbox" value="${s}" ${isChecked?'checked':''}> ${s}`;
+    item.querySelector('input').addEventListener('change', e => {
+      item.classList.toggle('checked', e.target.checked);
+    });
+    suppList.appendChild(item);
+  });
+
+  formCard.querySelector('#f_save').addEventListener('click', () => {
+    const supps = Array.from(formCard.querySelectorAll('.check-item input:checked')).map(i=>i.value);
+    const entry = {
+      date: todayStr(),
+      sleep_h: parseFloat(formCard.querySelector('#f_sleep').value)||null,
+      weight_kg: parseFloat(formCard.querySelector('#f_weight').value)||null,
+      mood: parseInt(formCard.querySelector('#f_mood').value)||null,
+      workout: formCard.querySelector('#f_wtype').value||null,
+      workout_min: parseInt(formCard.querySelector('#f_wmin').value)||null,
+      biomarker_name: formCard.querySelector('#f_bname').value.trim()||null,
+      biomarker_value: parseFloat(formCard.querySelector('#f_bval').value)||null,
+      meals: formCard.querySelector('#f_meals').value.trim()||null,
+      notes: formCard.querySelector('#f_notes').value.trim()||null,
+      supps
+    };
+    state.logs = state.logs.filter(l => l.date !== todayStr());
+    state.logs.push(entry);
+    save();
+    const st = formCard.querySelector('#f_status');
+    st.textContent = '✓ Saved at '+new Date().toLocaleTimeString();
+    setTimeout(() => setView('today'), 400);
+  });
+
+  grid.appendChild(formCard);
+
+  // Summary card
+  const summCard = document.createElement('div');
+  summCard.className = 'card';
+  if(recent.length > 0) {
+    summCard.innerHTML = `<div class="card-title">Recent Log</div>`;
+    recent.forEach(l => {
+      const sleepOk = l.sleep_h >= 7;
+      const moodOk  = l.mood >= 7;
+      summCard.innerHTML += `
+        <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:600;color:var(--heading)">${l.date}</span>
+            ${l.workout&&l.workout!=='rest'?`<span class="log-chip ok">🏋️ ${l.workout}</span>`:''}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${l.sleep_h!==null?`<span class="log-chip ${sleepOk?'ok':'warn'}">😴 ${l.sleep_h}h</span>`:''}
+            ${l.mood!==null?`<span class="log-chip ${moodOk?'ok':'warn'}">🧠 ${l.mood}/10</span>`:''}
+            ${l.weight_kg!==null?`<span class="log-chip">⚖️ ${l.weight_kg}kg</span>`:''}
+            ${l.supps?.length?`<span class="log-chip ok">💊 ${l.supps.length}/${SUPPS.length}</span>`:''}
+          </div>
+        </div>`;
+    });
+    summCard.innerHTML += `<button class="btn btn-outline btn-sm" style="margin-top:14px;width:100%" onclick="setView('trends')">View Trends →</button>`;
+  } else {
+    summCard.innerHTML = `<div class="card-title">Recent Log</div>
+      <div style="padding:30px 0;text-align:center">
+        <div style="font-size:32px;margin-bottom:10px">📋</div>
+        <div style="color:var(--muted);font-size:13px">No entries yet.<br>Fill in the form to start tracking.</div>
+      </div>`;
+  }
+  grid.appendChild(summCard);
+  root.appendChild(grid);
+};
+
+/* ── TRENDS ───────────────────────────────────────────────────────────── */
+VIEWS.trends = (root) => {
+  root.innerHTML = mkViewHeader('Trends', 'Charts populate as you log daily entries');
+
+  const logs = [...state.logs].sort((a,b)=>a.date<b.date?-1:1);
+  if(logs.length < 1) {
+    const c = document.createElement('div'); c.className = 'card';
+    c.innerHTML = `<div style="padding:40px;text-align:center"><div style="font-size:40px;margin-bottom:12px">📈</div><div style="color:var(--muted)">No data yet. Log at least one entry on the Today tab.</div></div>`;
+    root.appendChild(c); return;
+  }
+
+  const cd = chartDefaults();
+  const grid = document.createElement('div');
+  grid.className = 'grid grid-2';
+
+  function sparkCard(containerId, title, datasets, labels, type='line') {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<div class="card-title">${title}</div><canvas id="${containerId}" style="max-height:200px"></canvas>`;
+    grid.appendChild(card);
+    requestAnimationFrame(() => {
+      const ctx = document.getElementById(containerId)?.getContext('2d');
+      if(!ctx) return;
+      new Chart(ctx, {
+        type,
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: datasets.length > 1, labels: { color: cd.tickColor, font:{size:11} } },
+            tooltip: { backgroundColor: cd.tooltipBg, titleColor: cd.tooltipText, bodyColor: cd.tooltipText }
+          },
+          scales: {
+            x: { ticks:{color:cd.tickColor,font:{size:10}}, grid:{color:cd.gridColor} },
+            y: { ticks:{color:cd.tickColor,font:{size:10}}, grid:{color:cd.gridColor} }
+          }
+        }
+      });
+    });
+  }
+
+  const dates = logs.map(l=>l.date.slice(5));
+
+  // Sleep
+  sparkCard('c_sleep','Sleep (hours)',[{
+    label:'Sleep',data:logs.map(l=>l.sleep_h),
+    borderColor:'#7c5ff5',backgroundColor:'rgba(124,95,245,.12)',tension:.3,pointRadius:4,fill:true,borderWidth:2,
+    pointBackgroundColor:'#7c5ff5'
+  }], dates);
+
+  // Weight
+  sparkCard('c_weight','Weight (kg)',[{
+    label:'Weight',data:logs.map(l=>l.weight_kg),
+    borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',tension:.3,pointRadius:4,fill:true,borderWidth:2,
+    pointBackgroundColor:'#22c55e'
+  }], dates);
+
+  // Mood
+  sparkCard('c_mood','Mood (1–10)',[{
+    label:'Mood',data:logs.map(l=>l.mood),
+    borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.1)',tension:.3,pointRadius:4,fill:true,borderWidth:2,
+    pointBackgroundColor:'#f97316'
+  }], dates);
+
+  // Biomarker
+  const lastBio = [...logs].reverse().find(l=>l.biomarker_name);
+  if(lastBio) {
+    const series = logs.filter(l=>l.biomarker_name===lastBio.biomarker_name && l.biomarker_value!==null);
+    if(series.length > 0) {
+      sparkCard('c_bio',`Biomarker: ${lastBio.biomarker_name}`,[{
+        label:lastBio.biomarker_name,data:series.map(l=>l.biomarker_value),
+        borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.3,pointRadius:4,fill:true,borderWidth:2,
+        pointBackgroundColor:'#3b82f6'
+      }], series.map(l=>l.date.slice(5)));
+    }
+  }
+
+  // Workout frequency bar
+  const wkMap = {};
+  logs.forEach(l=>{ if(l.workout&&l.workout!=='rest') wkMap[l.workout]=(wkMap[l.workout]||0)+1; });
+  if(Object.keys(wkMap).length > 0) {
+    const colors = { strength:'#7c5ff5', zone2:'#22c55e', hiit:'#ef4444', mobility:'#14b8a6', walk:'#f97316' };
+    sparkCard('c_wk','Workout Breakdown',[{
+      label:'Sessions',
+      data:Object.values(wkMap),
+      backgroundColor:Object.keys(wkMap).map(k=>colors[k]||'#7c5ff5')+'99',
+      borderColor:Object.keys(wkMap).map(k=>colors[k]||'#7c5ff5'),
+      borderWidth:1, borderRadius:6
+    }], Object.keys(wkMap), 'bar');
+  }
+
+  // Supplement adherence trend
+  const suppTrend = logs.filter(l=>l.supps).map(l=>({date:l.date.slice(5),pct:Math.round(100*l.supps.length/SUPPS.length)}));
+  if(suppTrend.length > 0) {
+    sparkCard('c_supp','Supplement Adherence (%)',[{
+      label:'Adherence %',data:suppTrend.map(s=>s.pct),
+      borderColor:'#14b8a6',backgroundColor:'rgba(20,184,166,.1)',tension:.3,pointRadius:4,fill:true,borderWidth:2,
+      pointBackgroundColor:'#14b8a6'
+    }], suppTrend.map(s=>s.date));
+  }
+
+  root.appendChild(grid);
+};
+
+/* ── PILLAR VIEWS ─────────────────────────────────────────────────────── */
+['diet','sleep','exercise','biomarkers','errata'].forEach(key => {
+  VIEWS[key] = (root) => {
+    const p = PROTOCOL[key];
+    root.innerHTML = mkViewHeader(p.title, 'Bryan\'s protocol · My adaptation · Reasoning · Confidence tier');
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = legendBar() + pillarTable(key);
+    root.appendChild(card);
+  };
+});
+
+/* ── MY PLAN ──────────────────────────────────────────────────────────── */
+VIEWS.myplan = (root) => {
+  root.innerHTML = mkViewHeader('My Plan', 'Consolidated personalized protocol · London · Half-Kenyan / Half-NZ');
+
+  const intro = document.createElement('div'); intro.className = 'card section-gap';
+  intro.innerHTML = legendBar() + `<p style="font-size:13px;color:var(--muted);line-height:1.7">This plan is distilled from the five pillars. Every item carries a tier badge indicating how much to trust it. All <span class="badge g" style="font-size:10px">[G] Educated guess</span> items should be confirmed with your own bloodwork before acting on them. Start with the Pre-Flight tests — they will replace many guesses with evidence.</p>`;
+  root.appendChild(intro);
+
+  const grid = document.createElement('div'); grid.className = 'grid grid-2';
+
+  const sections = [
+    { title:'🔬 Pre-Flight — Do These First', content:`<ul class="plan-list">
+      <li><div class="plan-dot"></div><div>Comprehensive bloodwork via <strong>Medichecks</strong> or <strong>Thriva</strong>: ApoB, Lp(a), HbA1c, fasting insulin, 25(OH)D, ferritin+TSAT, hs-CRP, eGFR+cystatin C+urine ACR, urate, ALT/GGT, TSH/fT4, testosterone+SHBG, homocysteine ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div><strong>SNP panel</strong> — 23andMe + Promethease: APOL1, G6PD, HbAS, lactase persistence, CYP1A2 ${T.short.r}</div></li>
+      <li><div class="plan-dot"></div><div>One-time: <strong>Lp(a)</strong>, DEXA scan, CIMT or CAC baseline ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div><strong>2-week CGM trial</strong> — Libre 2 / Levels / Zoe ${T.short.e}</div></li>
+    </ul>` },
+    { title:'💊 Daily Supplement Stack (v1)', content:`<table><thead><tr><th>Item</th><th>Dose</th><th>Tier</th></tr></thead><tbody>
+      <tr><td>Vit D3 (Oct–Apr)</td><td>3,000–5,000 IU</td><td>${T.short.r}</td></tr>
+      <tr><td>Vit D3 (May–Sep)</td><td>1,000–2,000 IU</td><td>${T.short.r}</td></tr>
+      <tr><td>Vit K2 MK-7</td><td>100–200 mcg</td><td>${T.short.r}</td></tr>
+      <tr><td>Omega-3 EPA+DHA</td><td>1–2 g</td><td>${T.short.e}</td></tr>
+      <tr><td>Magnesium glycinate</td><td>200–400 mg (evening)</td><td>${T.short.e}</td></tr>
+      <tr><td>Creatine monohydrate</td><td>5 g</td><td>${T.short.e}</td></tr>
+      <tr><td>Psyllium husk</td><td>5–10 g</td><td>${T.short.e}</td></tr>
+      <tr><td>B12 (if plant-leaning)</td><td>500–1,000 mcg</td><td>${T.short.e}</td></tr>
+      <tr><td>Basic multivitamin</td><td>1/day</td><td>${T.short.r}</td></tr>
+    </tbody></table>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">Hold NMN, rapamycin, metformin, spermidine, lithium until bloodwork justifies or evidence improves.</p>` },
+    { title:'🌅 Daily Habits', content:`<ul class="plan-list">
+      <li><div class="plan-dot"></div><div>Consistent sleep window ±30 min, 7 days ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>SAD lamp 20–30 min on waking, Oct–Feb ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>Eating window ~14h fast ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>Protein 1.2–1.6 g/kg (raise if kidneys + APOL1 clean) ${T.short.r}</div></li>
+      <li><div class="plan-dot"></div><div>Sodium &lt;2,300 mg/day ${T.short.r}</div></li>
+      <li><div class="plan-dot"></div><div>No alcohol ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>8,000+ steps ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>5–10 min mobility ${T.short.r}</div></li>
+      <li><div class="plan-dot"></div><div>Bedroom 17–19°C · blackout blinds · HEPA filter ${T.short.e}</div></li>
+    </ul>` },
+    { title:'🏋️ Weekly Training', content:`<table><thead><tr><th>Session</th><th>Freq</th><th>Detail</th><th>Tier</th></tr></thead><tbody>
+      <tr><td>Strength</td><td>3×/week</td><td>Compound lifts, 45 min</td><td>${T.short.e}</td></tr>
+      <tr><td>Zone 2</td><td>3×/week</td><td>45–60 min, conversational pace</td><td>${T.short.e}</td></tr>
+      <tr><td>HIIT</td><td>1×/week</td><td>4×4 min or 30/30, ~20 min total</td><td>${T.short.e}</td></tr>
+      <tr><td>Sauna</td><td>2–3×/week</td><td>15–20 min (cap 15 min if HbAS+)</td><td>${T.short.r}</td></tr>
+      <tr><td>Rest</td><td>1×/week</td><td>Full rest or gentle walk</td><td>${T.short.r}</td></tr>
+    </tbody></table>` },
+    { title:'📆 Quarterly Cadence', content:`<ul class="plan-list">
+      <li><div class="plan-dot"></div><div>Repeat: ApoB, HbA1c, fasting insulin, 25(OH)D, ferritin, hs-CRP ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>Re-assess supplement stack against latest results ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>DEXA scan every 2–3 years ${T.short.e}</div></li>
+      <li><div class="plan-dot"></div><div>CAC score every 5–10 years ${T.short.e}</div></li>
+    </ul>` },
+    { title:'🚫 Hard Rules', content:`<ul class="plan-list">
+      <li><div class="plan-dot" style="background:var(--red)"></div><div>No iron supplementation without ferritin baseline ${T.short.e}</div></li>
+      <li><div class="plan-dot" style="background:var(--red)"></div><div>No high-protein target (&gt;1.7 g/kg) until eGFR + APOL1 known ${T.short.r}</div></li>
+      <li><div class="plan-dot" style="background:var(--red)"></div><div>No max-effort exertion under heat/altitude/dehydration if HbAS+ ${T.short.e}</div></li>
+      <li><div class="plan-dot" style="background:var(--red)"></div><div>No experimental drugs (rapamycin, metformin, follistatin) in v1 ${T.short.g}</div></li>
+    </ul>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px">Boring base hits first. The interesting stuff earns its place only after the boring stuff has run for 6–12 months.</p>` },
+  ];
+
+  sections.forEach(s => {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<div class="card-title">${s.title}</div>${s.content}`;
+    grid.appendChild(card);
+  });
+  root.appendChild(grid);
+};
+
+/* ── COMPARE ──────────────────────────────────────────────────────────── */
+VIEWS.compare = (root) => {
+  root.innerHTML = mkViewHeader('Bryan vs Me', 'All pillars · side-by-side · tier-labeled');
+  Object.keys(PROTOCOL).forEach(key => {
+    const p = PROTOCOL[key];
+    const card = document.createElement('div'); card.className = 'card';
+    card.style.marginBottom = '16px';
+    card.innerHTML = `<div class="card-title" style="margin-bottom:14px">${p.title}</div>`+ legendBar() + pillarTable(key);
+    root.appendChild(card);
+  });
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════════════════════ */
+setView('today');
+</script>
+</body>
+</html>
