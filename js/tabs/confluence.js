@@ -446,6 +446,106 @@ const ConfluenceTab = (() => {
     }
   }
 
+  const GUIDE_HTML = `
+    <div class="card conf-guide" style="margin-top:20px">
+      <div class="card-title">How to read this tab</div>
+      <div class="conf-guide-body">
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">What it does</div>
+          <p>Watches BTC · ETH · XRP · SOL · SUI in real time. Tells you when multiple ICT setups line up in the same direction. Higher confluence = stronger trade signal. Click <strong>Pull Data</strong> any time to refresh — data stays put until you pull again.</p>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">The 4 KPI cards (top strip)</div>
+          <ul>
+            <li><strong>Tracked</strong> — how many assets being scored (always 5).</li>
+            <li><strong>Aligned ≥65 / ≤35</strong> — how many assets crossed the actionable threshold right now. 0 is normal most of the time.</li>
+            <li><strong>Killzone</strong> — which session is currently active (Asia / London / NY AM / NY PM / Off). When active, scores get a 1.15× multiplier.</li>
+            <li><strong>Last update</strong> — confirms data freshness.</li>
+          </ul>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">The ranked table</div>
+          <p>Sorted by most extreme score first (distance from 50). The asset at the top has the strongest directional signal — bull or bear.</p>
+          <ul>
+            <li><strong>#</strong> — rank (1 = most aligned right now)</li>
+            <li><strong>Asset</strong> — BTC / ETH / XRP / SOL / SUI</li>
+            <li><strong>Dir</strong> — ▲ Bull / ▼ Bear / ─ Neutral, direction of the net signal</li>
+            <li><strong>Score</strong> — 0–100 confluence score + coloured bar. 50 = neutral. ≥65 = strong bull. ≤35 = strong bear.</li>
+            <li><strong>Setups</strong> — "5/11" = 5 of 11 detectors fired</li>
+            <li><strong>Top fired</strong> — the highest-strength detectors, colour-coded green=bull, red=bear</li>
+            <li><strong>Price</strong> — live spot price from Binance</li>
+          </ul>
+          <p><strong>Click any row</strong> to expand and see every detector with ✓/✗, strength bar, weight, and a plain-English evidence string.</p>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">Score → action</div>
+          <table class="conf-guide-table">
+            <thead><tr><th>Score</th><th>Meaning</th><th>What to do</th></tr></thead>
+            <tbody>
+              <tr><td><strong>80–100</strong></td><td>Very strong bull alignment</td><td>Hunt for long entries — wait for LTF trigger</td></tr>
+              <tr><td><strong>65–80</strong></td><td>Strong bull alignment</td><td>Bias long — only take longs in this asset</td></tr>
+              <tr><td><strong>50–65</strong></td><td>Mild bull lean</td><td>No trade — wait</td></tr>
+              <tr><td><strong>35–50</strong></td><td>Mild bear lean</td><td>No trade — wait</td></tr>
+              <tr><td><strong>20–35</strong></td><td>Strong bear alignment</td><td>Bias short</td></tr>
+              <tr><td><strong>0–20</strong></td><td>Very strong bear alignment</td><td>Hunt for short entries</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:8px"><strong>Critical rule:</strong> to score above 65 (or below 35), an asset needs at least <strong>3 detectors firing in the dominant direction</strong>. This prevents a single noisy signal from spiking the number.</p>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">What each detector means</div>
+          <table class="conf-guide-table">
+            <thead><tr><th>Detector</th><th>TF</th><th>Fires when…</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Bias 4h</strong></td><td>4h</td><td>EMA50 above/below EMA200 with slope confirming — the dominant trend.</td></tr>
+              <tr><td><strong>ADX 4h</strong></td><td>4h</td><td>ADX &gt; 15 and rising 3 bars (same gate the OBxADX live bot uses).</td></tr>
+              <tr><td><strong>FVG 15m / 1h</strong></td><td>15m, 1h</td><td>An unfilled Fair Value Gap exists.</td></tr>
+              <tr><td><strong>OB 15m / 1h</strong></td><td>15m, 1h</td><td>An unmitigated Order Block exists (last opposite candle before &gt;1×ATR displacement).</td></tr>
+              <tr><td><strong>Sweep 15m / 1h</strong></td><td>15m, 1h</td><td>Wick past the 20-bar swing high/low + closed back inside. Turtle Soup.</td></tr>
+              <tr><td><strong>CISD 15m</strong></td><td>15m</td><td>Change in State of Delivery — strong opposite candle after a 3-bar run.</td></tr>
+              <tr><td><strong>BOS 1h</strong></td><td>1h</td><td>Break of Structure — close beyond the prior 15-bar swing extreme.</td></tr>
+              <tr><td><strong>Near Level</strong></td><td>n/a</td><td>Spot price within 0.5% of a level from your Daily Report (R1-R3 / S1-S4).</td></tr>
+              <tr><td><strong>LW Align</strong></td><td>n/a</td><td>Liquidity Watcher's 4h bias for the asset. Only fires when LW runs on localhost:8766.</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:8px">Detector <strong>weights</strong> are biased by your Playbook tab's backtested winRate when a setup has ≥5 logged trades. As your trading record grows, the engine quietly tilts toward setups your data shows actually work.</p>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">How to actually use it</div>
+          <ol>
+            <li><strong>Morning scan:</strong> Pull Data → look at top of table. Any asset ≥65 or ≤35? If yes, click its row.</li>
+            <li><strong>Verify on TradingView:</strong> Open the chart at the cited TF and confirm the FVG / OB / sweep actually exists where the evidence says it does. <em>Mirage-number rule.</em></li>
+            <li><strong>Killzone alerts:</strong> When the Killzone card flips to London / NY AM / NY PM, pull data. Setups firing inside a KZ are weighted higher.</li>
+            <li><strong>Multi-TF stack check:</strong> Look for these stacking — ✓ Bias 4h + ✓ OB 1h + ✓ FVG 15m + ✓ Sweep 15m all in the same direction = textbook A-tier.</li>
+            <li><strong>Avoid chop:</strong> If most assets are in the 40–60 neutral band → don't trade. The widget is telling you nothing is set up well.</li>
+          </ol>
+        </div>
+
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">Things to know</div>
+          <ul>
+            <li><strong>Mirage-number rule:</strong> always verify against TradingView before entering.</li>
+            <li><strong>GitHub Pages:</strong> when viewing from <code>github.io</code>, LW Align won't fire (Chrome blocks HTTPS→localhost). Run the dashboard locally at <code>localhost:8768</code> with LW up for that signal.</li>
+            <li><strong>Daily Report dependency:</strong> the Near Level detector needs <code>js/data/daily_report.json</code>. If today's report hasn't been generated, this detector shows "no levels".</li>
+            <li><strong>No alerts yet:</strong> v1 is on-screen only — no Telegram pings.</li>
+            <li><strong>Symmetric:</strong> score 78 bull is exactly as strong as 22 bear.</li>
+          </ul>
+        </div>
+
+        <div class="conf-guide-section conf-guide-tldr">
+          <div class="conf-guide-h">TL;DR</div>
+          <p>Open the tab → Pull Data → look at row 1. If score ≥65 or ≤35, expand it. Verify the cited setup on TradingView. Trade in the direction the table says — if the killzone is active and ≥3 detectors agree.</p>
+        </div>
+
+      </div>
+    </div>`;
+
   function render() {
     const content = document.getElementById('content');
     content.innerHTML = `
@@ -459,7 +559,8 @@ const ConfluenceTab = (() => {
           <button class="btn-soft" id="confAutoBtn" title="Toggle 60s auto-refresh">${_autoOn ? 'Auto ✓' : 'Auto off'}</button>
         </div>
       </div>
-      <div id="confluenceRoot"></div>`;
+      <div id="confluenceRoot"></div>
+      ${GUIDE_HTML}`;
 
     document.getElementById('confRefreshBtn').addEventListener('click', _pullData);
     document.getElementById('confAutoBtn').addEventListener('click', () => {
