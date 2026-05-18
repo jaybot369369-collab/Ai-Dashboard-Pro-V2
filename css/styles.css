@@ -3418,7 +3418,6 @@ html[data-sidebar="collapsed"] .sidebar {
   width: var(--sidebar-w-collapsed, 72px);
 }
 html[data-sidebar="collapsed"] .sb-brand-text,
-html[data-sidebar="collapsed"] .sb-collapse-btn,
 html[data-sidebar="collapsed"] .sb-group-label,
 html[data-sidebar="collapsed"] .nav-label,
 html[data-sidebar="collapsed"] .nav-badge,
@@ -3428,6 +3427,15 @@ html[data-sidebar="collapsed"] .sb-backup-icon,
 html[data-sidebar="collapsed"] .sb-footer-btns,
 html[data-sidebar="collapsed"] .sb-add-tab { display: none; }
 html[data-sidebar="collapsed"] .sb-new-trade-btn { padding: 11px 0; }
+html[data-sidebar="collapsed"] .sb-collapse-btn,
+body.sidebar-collapsed .sb-collapse-btn {
+  transform: rotate(180deg);
+  position: absolute;
+  right: 8px;
+  top: 14px;
+}
+html[data-sidebar="collapsed"] .sb-brand,
+body.sidebar-collapsed .sb-brand { position: relative; }
 
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -3880,7 +3888,8 @@ html[data-sidebar="collapsed"] .sb-new-trade-btn { padding: 11px 0; }
 .card-title {
   font: 700 15px/1 'Plus Jakarta Sans', sans-serif;
   color: var(--heading, var(--text));
-  letter-spacing: -.01em;
+  letter-spacing: .02em;
+  text-transform: none;
 }
 
 .sub-tabs {
@@ -4574,7 +4583,7 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 14px;
 }
-.card-title { font-size: 15px; font-weight: 700; color: var(--heading); letter-spacing: -.01em; }
+.card-title { font-size: 15px; font-weight: 700; color: var(--heading); letter-spacing: .02em; text-transform: none; }
 .card-sub { font-size: 12px; color: var(--muted); font-weight: 500; }
 
 .pill-select {
@@ -4716,3 +4725,171 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 .card tr:last-child td { border-bottom: none; }
 .card tbody tr:hover td { background: var(--surface2); }
 .card td strong { color: var(--heading); }
+
+/* ── Liquidity Watcher V3 ─────────────────────────────── */
+.lw-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 900px) { .lw-cards-row { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .lw-cards-row { grid-template-columns: 1fr; } }
+
+.lw-asset-card { padding: 18px 20px; }
+.lw-ac-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.lw-ac-sym  { display: flex; align-items: center; gap: 10px; }
+.lw-ac-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2, #a78bfa));
+  color: #fff; font-size: 14px; font-weight: 700;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.lw-ac-avatar-sm { width: 26px; height: 26px; font-size: 11px; }
+.lw-ac-name { font-size: 14px; font-weight: 700; color: var(--heading); }
+.lw-ac-sub  { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* TF selector */
+.lw-tf-row { display: flex; gap: 4px; }
+.lw-tf-btn {
+  padding: 5px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface2); color: var(--text);
+  cursor: pointer; transition: all .15s;
+}
+.lw-tf-btn:hover { border-color: var(--accent); }
+.lw-tf-btn.on    { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+/* Table */
+.lw-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lw-table th {
+  text-align: left; padding: 12px 16px;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--muted); background: var(--surface2); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.lw-table th:first-child { border-top-left-radius: 0; }
+.lw-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.lw-table tr:last-child td { border-bottom: none; }
+.lw-row:hover td { background: var(--surface2); }
+.lw-td-asset { white-space: nowrap; }
+.lw-td-score { min-width: 140px; }
+
+/* Chips */
+.lw-chip {
+  display: inline-flex; align-items: center;
+  padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+}
+.lw-chip-bull    { background: rgba(34,197,94,.15);  color: #16a34a; }
+.lw-chip-bear    { background: rgba(239,68,68,.13);  color: #dc2626; }
+.lw-chip-neutral { background: var(--surface2);       color: var(--muted); border: 1px solid var(--border); }
+.lw-chip-choppy  { background: rgba(245,158,11,.13); color: #d97706; }
+.lw-chip-sig     { background: var(--surface2); color: var(--text-sub); border: 1px solid var(--border); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Priority / status badges */
+.lw-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.lw-badge-high { background: rgba(239,68,68,.13);  color: #dc2626; }
+.lw-badge-med  { background: rgba(245,158,11,.13); color: #d97706; }
+.lw-badge-low  { background: rgba(34,197,94,.13);  color: #16a34a; }
+.lw-badge-live { background: rgba(34,197,94,.13);  color: #16a34a; }
+.lw-badge-dim  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+/* ── Bot Farm V3 ──────────────────────────────────────── */
+.bf-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 22px;
+}
+@media (max-width: 1100px) { .bf-kpi-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .bf-kpi-row { grid-template-columns: 1fr; } }
+
+.bf-kpi-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 18px;
+  background: var(--surface, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.bf-kpi-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--accent-soft, rgba(124,92,255,.12));
+  display: grid; place-items: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.bf-kpi-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bf-kpi-value { font-size: 20px; font-weight: 700; color: var(--heading); line-height: 1.1; }
+.bf-kpi-label { font-size: 11.5px; color: var(--muted); }
+
+.bf-bot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+@media (max-width: 900px) { .bf-bot-grid { grid-template-columns: 1fr; } }
+
+.bf-bot-card { padding: 18px 20px; }
+.bf-bot-head {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.bf-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2, #a78bfa));
+  color: #fff; font-size: 15px; font-weight: 700;
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.bf-bot-id { flex: 1; min-width: 0; }
+.bf-bot-name {
+  font-size: 15px; font-weight: 700; color: var(--heading);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.bf-bot-sub {
+  font-size: 12px; color: var(--muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bf-bot-pnl  { text-align: right; flex-shrink: 0; }
+.bf-bot-pnl-lbl { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+
+.bf-bot-meta {
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 4px; margin-bottom: 12px;
+  font-size: 12px; color: var(--muted);
+}
+.bf-tier-chip {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  padding: 3px 9px; border-radius: 10px;
+  background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.bf-bot-last {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0;
+}
+
+.bf-stat-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding: 12px 14px;
+  background: var(--surface2);
+  border-radius: 10px;
+}
+.bf-stat-lbl {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); margin-bottom: 3px;
+}
+.bf-stat-val { font-size: 14px; font-weight: 700; color: var(--heading); }
+
+/* Bot status pills */
+.bf-badge {
+  display: inline-block;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+  white-space: nowrap;
+}
+.bf-badge-live   { background: rgba(34,197,94,.13);  color: #16a34a; }
+.bf-badge-warn   { background: rgba(245,158,11,.13); color: #d97706; }
+.bf-badge-paused { background: rgba(245,158,11,.13); color: #d97706; }
+.bf-badge-error  { background: rgba(239,68,68,.13);  color: #dc2626; }
+.bf-badge-dim    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+.bf-pnl-pos  { color: #16a34a; }
+.bf-pnl-neg  { color: #dc2626; }
+.bf-pnl-flat { color: var(--muted); }

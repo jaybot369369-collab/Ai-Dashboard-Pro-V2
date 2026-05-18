@@ -112,12 +112,88 @@ const App = (() => {
   }
 
   /* ══════════════════════════════════════════════════════
-     THEME
+     THEME (legacy — kept for DB.saveSettings compat)
   ══════════════════════════════════════════════════════ */
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
-    $('themeToggle').textContent = theme === 'dark' ? '🌙' : '☀️';
+    const tog = $('themeToggle');
+    if (tog) tog.textContent = theme === 'dark' ? '🌙' : '☀️';
     DB.saveSettings({ theme });
+  }
+
+  /* ══════════════════════════════════════════════════════
+     TWEAKS PANEL  (Variation · Theme · Accent · Density
+                    Sidebar · Privacy · Chart style)
+  ══════════════════════════════════════════════════════ */
+  const TWEAK_KEYS = ['variation','theme','accent','density','sidebar','privacy','chartStyle'];
+  const tweakState = {
+    variation: 'a', theme: 'light', accent: 'purple',
+    density: 'comfy', sidebar: 'expanded', privacy: 'off', chartStyle: 'smooth',
+  };
+
+  function loadTweaks() {
+    TWEAK_KEYS.forEach(k => {
+      const v = localStorage.getItem('td-' + k);
+      if (v) tweakState[k] = v;
+    });
+    // Back-compat: honour jb_settings.theme if no td-theme saved yet
+    if (!localStorage.getItem('td-theme')) {
+      const s = DB.getSettings();
+      if (s.theme) tweakState.theme = s.theme;
+    }
+  }
+
+  function applyTweaks() {
+    const html = document.documentElement;
+    html.setAttribute('data-variation', tweakState.variation);
+    html.setAttribute('data-theme',     tweakState.theme);
+    html.setAttribute('data-accent',    tweakState.accent);
+    html.setAttribute('data-density',   tweakState.density);
+    html.setAttribute('data-sidebar',   tweakState.sidebar);
+    html.setAttribute('data-privacy',   tweakState.privacy);
+    html.setAttribute('data-chart',     tweakState.chartStyle);
+
+    TWEAK_KEYS.forEach(k => localStorage.setItem('td-' + k, tweakState[k]));
+    DB.saveSettings({ theme: tweakState.theme });
+
+    // Update active highlights in the panel
+    document.querySelectorAll('.tweak-opt[data-key]').forEach(b => {
+      b.classList.toggle('on', tweakState[b.dataset.key] === b.dataset.val);
+    });
+
+    // Update legacy theme toggle icon
+    const tog = $('themeToggle');
+    if (tog) tog.textContent = tweakState.theme === 'dark' ? '🌙' : '☀️';
+
+    // Privacy mode body class
+    document.body.classList.toggle('privacy-mode', tweakState.privacy === 'on');
+  }
+
+  function wireTweaksPanel() {
+    const fab   = $('tweaksFab');
+    const panel = $('tweaksPanel');
+    const close = $('tweaksClose');
+    if (!fab || !panel) return;
+
+    fab.addEventListener('click', () => panel.classList.toggle('open'));
+    if (close) close.addEventListener('click', () => panel.classList.remove('open'));
+
+    // Close on outside click
+    document.addEventListener('click', e => {
+      if (panel.classList.contains('open') && !panel.contains(e.target) && e.target !== fab) {
+        panel.classList.remove('open');
+      }
+    });
+
+    // Tweak option buttons
+    document.querySelectorAll('.tweak-opt[data-key]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tweakState[btn.dataset.key] = btn.dataset.val;
+        applyTweaks();
+        // Re-render active tab so charts pick up new theme colors
+        if (typeof currentTab !== 'undefined') renderTab(currentTab);
+      });
+    });
   }
 
   /* ══════════════════════════════════════════════════════
@@ -557,7 +633,9 @@ const App = (() => {
 
     // Apply saved settings
     const s = DB.getSettings();
-    applyTheme(s.theme);
+    loadTweaks();
+    applyTweaks();
+    wireTweaksPanel();
     dateRange = s.dateRange || '30';
     dataMode  = s.dataMode  || 'all';
     document.querySelectorAll('#dateFilter .date-btn').forEach(btn => {
@@ -636,7 +714,7 @@ const App = (() => {
     });
 
     // Add tab modal
-    $('addTabBtn').addEventListener('click', openAddTabModal);
+    $('addTabBtn')?.addEventListener('click', openAddTabModal);
     $('addTabClose').addEventListener('click', closeAddTabModal);
     $('addTabCancel').addEventListener('click', closeAddTabModal);
     $('addTabConfirm').addEventListener('click', confirmAddTab);

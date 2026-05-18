@@ -64,10 +64,41 @@ const AICoachTab = (() => {
     return (s.inTok / 1e6) * m.inP + (s.outTok / 1e6) * m.outP;
   }
 
+  /* ── Local AI proxy (Claude Code CLI, port 8770) ───── */
+  const LOCAL_AI_URL = 'http://127.0.0.1:8770';
+  const LOCAL_KEY = 'jb_ai_local';   // 'on' | 'off'
+
+  function isLocalMode() { return get(LOCAL_KEY) === 'on'; }
+
+  async function _localAvailable() {
+    try {
+      const r = await fetch(LOCAL_AI_URL + '/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined });
+      return r.ok;
+    } catch { return false; }
+  }
+
+  async function _callLocal({ system, user }) {
+    const r = await fetch(LOCAL_AI_URL + '/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prompt: user, system }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
+    return { text: j.text, usage: { input_tokens: 0, output_tokens: 0 } };
+  }
+
   /* ── Claude API call ────────────────────────────────── */
   async function callClaude({ system, user, maxTokens = 1024, imageData = null }) {
+    // Use local Claude Code proxy if in local mode or no API key
     const apiKey = getKey();
-    if (!apiKey) throw new Error('No API key set — open AI Coach tab → Settings');
+    const useLocal = isLocalMode() || !apiKey;
+
+    if (useLocal && !imageData) {
+      return await _callLocal({ system, user });
+    }
+
+    if (!apiKey) throw new Error('No API key — set one in Settings, or run ai_local_server.py and enable Local mode');
     const model = getModel();
 
     const userContent = imageData
@@ -225,11 +256,28 @@ ${JSON.stringify(trades.map(t => ({
     const masked = apiKey
       ? (apiKey.length > 16 ? apiKey.slice(0,8) + '••••' + apiKey.slice(-4) : '••••')
       : '';
+    const localOn = isLocalMode();
     return `<div class="ai-section">
       <h3 class="ai-section-hdr">⚙️ Settings</h3>
+
+      <div class="ai-grid" style="margin-bottom:18px; padding:14px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:var(--heading);">🖥️ Local mode <span style="font-size:11px; font-weight:500; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:8px; margin-left:6px;">Free — uses Claude Code</span></div>
+            <div style="font-size:12px; color:var(--muted); margin-top:3px;">Routes all AI calls through your local Claude Code CLI (port 8770). No API credits needed.</div>
+            <div style="font-size:11px; color:var(--muted-2); margin-top:3px;">Start: <code style="font-size:10px;">cd automation && python3 ai_local_server.py</code></div>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink:0;">
+            <input type="checkbox" id="aiLocalToggle" ${localOn ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);" />
+            <span style="font-size:13px; font-weight:600;">${localOn ? 'On' : 'Off'}</span>
+          </label>
+        </div>
+        <div id="aiLocalStatus" style="margin-top:10px; font-size:11px; color:var(--muted);">Checking local server…</div>
+      </div>
+
       <div class="ai-grid">
         <div class="form-group">
-          <label>Anthropic API Key <span class="text-xs text-sub">(stored locally only)</span></label>
+          <label>Anthropic API Key <span class="text-xs text-sub">(fallback · stored locally only)</span></label>
           <input type="password" id="aiKey" value="${esc(apiKey)}" placeholder="sk-ant-api03-..."${apiKey?` title="Currently: ${esc(masked)}"`:''} />
           <div class="text-xs text-sub" style="margin-top:4px">
             Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> · ~$5 starter credit
@@ -354,10 +402,19 @@ ${JSON.stringify(trades.map(t => ({
       document.getElementById('aiSaveBtn')?.addEventListener('click', () => {
         const k = document.getElementById('aiKey')?.value.trim();
         const m = document.getElementById('aiModel')?.value;
+        const localChk = document.getElementById('aiLocalToggle');
         if (k !== undefined) setS(KEYS.apiKey, k);
         if (m) setS(KEYS.model, m);
+        if (localChk) localStorage.setItem(LOCAL_KEY, localChk.checked ? 'on' : 'off');
         if (typeof App !== 'undefined' && App.toast) App.toast('Settings saved');
         _settingsOpen = false; render();
+      });
+      // Probe local server status immediately when settings is shown
+      _localAvailable().then(ok => {
+        const el = document.getElementById('aiLocalStatus');
+        if (el) el.innerHTML = ok
+          ? '✅ Local server reachable at localhost:8770 — ready to use'
+          : '⚠️ Local server not found at localhost:8770 — start <code>ai_local_server.py</code> first';
       });
       return;
     }

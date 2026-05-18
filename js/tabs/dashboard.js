@@ -192,10 +192,14 @@ const DashboardTab = (() => {
           </div>
           <div class="chart-wrap" style="height:280px"><canvas id="equityCanvas"></canvas></div>
         </div>
-        <div class="hi-card">
-          <div class="hi-num">${fmt$(monthPL)}</div>
-          <div class="hi-lbl">P&amp;L this month</div>
-          <div class="hi-spark"><canvas id="heroSpark"></canvas></div>
+        <div class="card" style="display:flex;flex-direction:column">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Trading calendar</div>
+              <div class="card-sub">Click a day for trades</div>
+            </div>
+          </div>
+          <div id="calendarSection" style="flex:1"></div>
         </div>
       </div>
 
@@ -223,14 +227,6 @@ const DashboardTab = (() => {
           ${topSetupsHtml(pnlTrades)}
         </div>
       </div>
-
-      <div class="card" style="margin-bottom:var(--gap)">
-        <div class="card-head">
-          <div class="card-title">Trading calendar</div>
-          <div class="card-sub">Click a day for trades · drag across days to log a multi-day position</div>
-        </div>
-        <div id="calendarSection"></div>
-      </div>
     `;
 
     /* ── CHARTS ── */
@@ -252,9 +248,6 @@ const DashboardTab = (() => {
 
     // Equity curve
     drawEquity('equityCanvas', equitySeries(allTrades), accent, accent2);
-
-    // Hero P&L spark
-    drawHeroSpark('heroSpark', periodSeries(allTrades, 30).map(p => p.pl));
 
     // Top-setups donut
     drawSetupDonut('setupCanvas', _setupLast);

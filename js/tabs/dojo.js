@@ -460,12 +460,31 @@ You will receive OHLC data per TF (compact rows: [openTime, o, h, l, c]). Return
 
 Be concise but specific — every "key_level" must be a price (e.g. "63420" or "63,400 swing high"). Every "rationale" must reference what you see in the data, not generic ICT theory.`;
 
-  // Self-contained API caller — works even if ai_coach.js is stale-cached
-  // and AICoachTab.callClaude isn't exposed. Reads jb_ai_key + jb_ai_model
-  // from localStorage (same slots AICoachTab uses).
+  const LOCAL_AI_URL = 'http://127.0.0.1:8770';
+
+  // Self-contained API caller — tries local proxy first, falls back to Anthropic API.
   async function callClaudeDirect({ system, user, maxTokens }) {
+    // Use local Claude Code proxy if in local mode or no API key
+    const localMode = localStorage.getItem('jb_ai_local') === 'on';
     const apiKey = localStorage.getItem('jb_ai_key') || '';
-    if (!apiKey) throw new Error('No API key set. Paste your sk-ant-… key in the Top Down section.');
+
+    if (localMode || !apiKey) {
+      try {
+        const r = await fetch(LOCAL_AI_URL + '/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ prompt: user, system }),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
+        return { text: j.text };
+      } catch (e) {
+        if (!apiKey) throw new Error('No API key and local server (localhost:8770) not reachable. Enable local mode in AI Coach → Settings.');
+        // fall through to cloud if local failed but key exists
+      }
+    }
+
+    if (!apiKey) throw new Error('No API key. Enable Local mode in AI Coach → Settings (free via Claude Code).');
     const model = localStorage.getItem('jb_ai_model') || 'claude-sonnet-4-5';
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -486,13 +505,14 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
   }
 
   function hasApiKey() {
+    if (localStorage.getItem('jb_ai_local') === 'on') return true; // local mode = always "has key"
     if (window.AICoachTab && AICoachTab.hasKey) return AICoachTab.hasKey();
     return !!localStorage.getItem('jb_ai_key');
   }
 
   async function runTopDown(sym) {
     if (!hasApiKey()) {
-      throw new Error('No API key set. Paste your sk-ant-… key in the Top Down section.');
+      throw new Error('No API key. Enable Local mode in AI Coach → Settings (free via Claude Code).');
     }
     const { candles, lastErr } = await fetchTDCandles(sym);
     const got = Object.values(candles).filter(c => c && c.length).length;
