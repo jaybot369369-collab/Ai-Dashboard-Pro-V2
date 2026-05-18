@@ -71,22 +71,70 @@ const ConfluenceTab = (() => {
     return `${Math.floor(s/3600)}h ago`;
   }
 
-  /* ── kline fetch (cached) ────────────────────────────── */
+  /* ── kline fetch (cached, multi-source w/ fallback) ──────
+     Binance api.binance.com is geo-blocked from many regions
+     (and from US ISPs entirely). Bybit and OKX are open.
+     Try in order: Bybit → Binance → OKX.                  */
+  const TF_BYBIT = { '15m': '15', '1h': '60', '4h': '240' };
+  const TF_OKX   = { '15m': '15m', '1h': '1H', '4h': '4H' };
+
+  function _timeoutSignal(ms) {
+    return AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;
+  }
+
+  async function _fetchBybit(sym, tf, limit) {
+    const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}USDT&interval=${TF_BYBIT[tf]}&limit=${limit}`;
+    const r = await fetch(url, { mode: 'cors', cache: 'no-store', signal: _timeoutSignal(8000) });
+    if (!r.ok) throw new Error(`bybit ${r.status}`);
+    const j = await r.json();
+    if (j.retCode !== 0 || !j.result?.list) throw new Error('bybit bad payload');
+    // Bybit returns newest first — reverse for chronological order
+    return j.result.list.slice().reverse().map(k => ({
+      t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]
+    }));
+  }
+
+  async function _fetchBinance(sym, tf, limit) {
+    const url = `${BINANCE}?symbol=${sym}USDT&interval=${tf}&limit=${limit}`;
+    const r = await fetch(url, { mode: 'cors', cache: 'no-store', signal: _timeoutSignal(8000) });
+    if (!r.ok) throw new Error(`binance ${r.status}`);
+    const raw = await r.json();
+    return raw.map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
+  }
+
+  async function _fetchOKX(sym, tf, limit) {
+    const url = `https://www.okx.com/api/v5/market/candles?instId=${sym}-USDT&bar=${TF_OKX[tf]}&limit=${limit}`;
+    const r = await fetch(url, { mode: 'cors', cache: 'no-store', signal: _timeoutSignal(8000) });
+    if (!r.ok) throw new Error(`okx ${r.status}`);
+    const j = await r.json();
+    if (j.code !== '0' || !j.data) throw new Error('okx bad payload');
+    return j.data.slice().reverse().map(k => ({
+      t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]
+    }));
+  }
+
   async function _fetchKlines(sym, tf, limit = 220) {
     const key = `${sym}-${tf}`;
     const cached = _klineCache.get(key);
     if (cached && Date.now() - cached.t < KLINE_TTL) return cached.data;
-    try {
-      const url = `${BINANCE}?symbol=${sym}USDT&interval=${tf}&limit=${limit}`;
-      const r = await fetch(url, { mode: 'cors', cache: 'no-store' });
-      if (!r.ok) return null;
-      const raw = await r.json();
-      const data = raw.map(k => ({
-        t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5]
-      }));
-      _klineCache.set(key, { t: Date.now(), data });
-      return data;
-    } catch (e) { return null; }
+    const sources = [
+      { name: 'bybit',   fn: _fetchBybit },
+      { name: 'binance', fn: _fetchBinance },
+      { name: 'okx',     fn: _fetchOKX },
+    ];
+    for (const src of sources) {
+      try {
+        const data = await src.fn(sym, tf, limit);
+        if (data && data.length >= 50) {
+          _klineCache.set(key, { t: Date.now(), data, source: src.name });
+          return data;
+        }
+      } catch (e) {
+        console.warn(`[confluence] ${src.name} ${sym} ${tf} failed:`, e.message);
+      }
+    }
+    console.error(`[confluence] ALL sources failed for ${sym} ${tf}`);
+    return null;
   }
 
   async function _fetchLW() {
