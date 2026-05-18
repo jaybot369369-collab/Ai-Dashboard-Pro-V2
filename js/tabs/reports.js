@@ -7,6 +7,7 @@
 const ReportsTab = (() => {
 
   let activeSubTab = 'overview';
+  let _savedReport = null; // persists last generated report across tab switches
 
   function esc(s) {
     if (s === undefined || s === null) return '';
@@ -15,40 +16,55 @@ const ReportsTab = (() => {
 
   /* ── Template cards ─────────────────────────────────────── */
   function _renderTemplateCards() {
-    const templates = [
-      {
-        icon: '📋',
-        name: 'Weekly review',
-        desc: 'Auto-summary of last 7 days',
-        sub: 'overview',
-      },
-      {
-        icon: '📊',
-        name: 'Monthly review',
-        desc: 'Full performance breakdown',
-        sub: 'compare',
-      },
-      {
-        icon: '🔍',
-        name: 'Setup deep-dive',
-        desc: 'Single-setup analysis',
-        sub: 'tags',
-      },
-    ];
+    const setups = [...new Set(DB.getTrades().flatMap(t => t.setupTypes || (t.setupType ? [t.setupType] : [])))].filter(Boolean);
+    const setupOpts = setups.length
+      ? setups.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')
+      : '<option value="">— no setups logged —</option>';
 
     return `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px">
-        ${templates.map(t => `
-          <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
-            <div style="font-size:1.6rem;line-height:1">${t.icon}</div>
-            <div>
-              <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:2px">${esc(t.name)}</div>
-              <div style="font-size:.78rem;color:#888">${esc(t.desc)}</div>
-            </div>
-            <button class="btn-primary btn-sm" style="margin-top:auto;align-self:flex-start" onclick="ReportsTab._sub('${t.sub}')">Generate</button>
+
+        <!-- Weekly review -->
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:1.6rem;line-height:1">📋</div>
+          <div>
+            <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:2px">Weekly review</div>
+            <div style="font-size:.78rem;color:var(--text-dim)">AI-written summary of your last 7 days</div>
           </div>
-        `).join('')}
+          <button class="btn-primary btn-sm" style="margin-top:auto;align-self:flex-start" id="btnWeekly"
+                  onclick="ReportsTab._generateWeekly()">Generate</button>
+        </div>
+
+        <!-- Monthly review -->
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:1.6rem;line-height:1">📊</div>
+          <div>
+            <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:2px">Monthly review</div>
+            <div style="font-size:.78rem;color:var(--text-dim)">Full performance breakdown vs your rules</div>
+          </div>
+          <button class="btn-primary btn-sm" style="margin-top:auto;align-self:flex-start" id="btnMonthly"
+                  onclick="ReportsTab._generateMonthly()">Generate</button>
+        </div>
+
+        <!-- Setup deep-dive -->
+        <div class="card" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+          <div style="font-size:1.6rem;line-height:1">🔍</div>
+          <div>
+            <div style="font-size:.9rem;font-weight:700;color:var(--text);margin-bottom:2px">Setup deep-dive</div>
+            <div style="font-size:.78rem;color:var(--text-dim)">In-depth analysis of one setup type</div>
+          </div>
+          <select id="setupDiveSelect" style="font-size:.82rem;margin-top:4px">
+            <option value="">— pick a setup —</option>
+            ${setupOpts}
+          </select>
+          <button class="btn-primary btn-sm" style="align-self:flex-start" id="btnSetupDive"
+                  onclick="ReportsTab._generateSetupDive()">Generate</button>
+        </div>
+
       </div>
+
+      <!-- AI report output panel (hidden until generated) -->
+      <div id="reportOutput" style="display:none;margin-bottom:24px"></div>
     `;
   }
 
@@ -81,6 +97,12 @@ const ReportsTab = (() => {
       <div id="reportContent"></div>
     `;
     renderSub();
+
+    // Restore last generated report if one exists
+    if (_savedReport) {
+      const out = document.getElementById('reportOutput');
+      if (out) { out.innerHTML = _savedReport; out.style.display = 'block'; }
+    }
   }
 
   function subLabel(id) {
@@ -395,6 +417,234 @@ const ReportsTab = (() => {
     reader.readAsText(file);
   }
 
+  /* ── AI report generators ────────────────────────────── */
+
+  function _rulesText() {
+    const r = DB.getRules();
+    return [
+      'PRE-TRADE RULES:\n' + (r.scalp   ||[]).map((x,i)=>`${i+1}. ${x.text}`).join('\n'),
+      'RISK RULES:\n'      + (r.swing   ||[]).map((x,i)=>`${i+1}. ${x.text}`).join('\n'),
+      'PSYCHOLOGY RULES:\n'+ (r.longterm||[]).map((x,i)=>`${i+1}. ${x.text}`).join('\n'),
+    ].join('\n\n');
+  }
+
+  function _tradesSummary(trades) {
+    const closed = trades.filter(t => t.result !== '' && t.result !== undefined && t.result !== null);
+    if (!closed.length) return null;
+    const wins   = closed.filter(t => parseFloat(t.result) > 0);
+    const wr     = Math.round(wins.length / closed.length * 100);
+    const pl     = closed.reduce((s, t) => s + parseFloat(t.result), 0);
+    const rMults = closed.map(t => parseFloat(t.rMultiple)).filter(n => !isNaN(n));
+    const avgR   = rMults.length ? (rMults.reduce((a,b)=>a+b,0)/rMults.length).toFixed(2) : 'n/a';
+
+    const byS = {};
+    closed.forEach(t => {
+      const k = t.session || 'Other';
+      if (!byS[k]) byS[k] = { w:0, n:0 };
+      byS[k].n++; if (parseFloat(t.result) > 0) byS[k].w++;
+    });
+    const sessLines = Object.entries(byS)
+      .map(([k,v]) => `${k}: ${v.n} trades, ${Math.round(v.w/v.n*100)}% WR`).join(' | ');
+
+    const bySetup = {};
+    closed.forEach(t => {
+      (t.setupTypes||(t.setupType?[t.setupType]:['Untagged'])).forEach(k => {
+        if (!bySetup[k]) bySetup[k] = { w:0, n:0 };
+        bySetup[k].n++; if (parseFloat(t.result) > 0) bySetup[k].w++;
+      });
+    });
+    const setupLines = Object.entries(bySetup)
+      .sort((a,b)=>b[1].n-a[1].n).slice(0,6)
+      .map(([k,v]) => `${k}: ${v.n} trades, ${Math.round(v.w/v.n*100)}% WR`).join(' | ');
+
+    const sorted = [...closed].sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const tradeLines = sorted.map(t =>
+      `${t.date} ${t.symbol||'?'} ${t.direction||'?'} ${t.session||'?'} bias:${t.htfBias||'?'} setup:${(t.setupTypes||[t.setupType]||[]).join('+')||'?'} P&L:${parseFloat(t.result||0).toFixed(0)} R:${t.rMultiple||'?'}`
+    ).join('\n');
+
+    return { closed, wins, wr, pl, avgR, sessLines, setupLines, tradeLines };
+  }
+
+  function _renderReportCard(title, icon, dateRange, text) {
+    const out = document.getElementById('reportOutput');
+    if (!out) return;
+    const html = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/^#{1,3} (.+)$/gm, '<div style="font-size:1rem;font-weight:700;color:var(--text);margin:14px 0 6px">$1</div>')
+      .replace(/^[-•] (.+)$/gm, '<div style="padding:3px 0 3px 14px;position:relative">• $1</div>')
+      .replace(/\n\n/g, '<br>')
+      .replace(/\n/g, ' ');
+    const inner = `
+      <div class="card" style="border-left:3px solid var(--accent)">
+        <div class="card-header" style="margin-bottom:12px">
+          <div>
+            <div class="card-title">${icon} ${esc(title)}</div>
+            <div style="font-size:.83rem;color:var(--text-dim);margin-top:2px">${esc(dateRange)}</div>
+          </div>
+          <button class="btn-ghost btn-sm" onclick="ReportsTab._clearReport()">✕ Clear</button>
+        </div>
+        <div style="font-size:.94rem;line-height:1.7;color:var(--text)">${html}</div>
+        <div style="margin-top:14px;font-size:.78rem;color:var(--text-dim)">Generated ${new Date().toLocaleString()}</div>
+      </div>`;
+    out.style.display = 'block';
+    out.innerHTML = inner;
+    _savedReport = inner; // persist across tab switches
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function _setBtnState(id, loading) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = loading;
+    btn.textContent = loading ? '⏳ Generating…' : 'Generate';
+  }
+
+  async function _generateWeekly() {
+    const now   = new Date();
+    const cutoff = new Date(now); cutoff.setDate(now.getDate() - 7);
+    const trades = DB.getTrades().filter(t => t.date && new Date(t.date) >= cutoff);
+    if (!trades.length) { App.toast('No trades in the last 7 days to review.', 'info'); return; }
+
+    _setBtnState('btnWeekly', true);
+    const s = _tradesSummary(trades);
+    if (!s) { App.toast('No closed trades this week.', 'info'); _setBtnState('btnWeekly', false); return; }
+
+    const dateRange = `${cutoff.toISOString().slice(0,10)} → ${now.toISOString().slice(0,10)}`;
+    const system = `You are a trading performance coach writing a concise, honest weekly review. Use markdown bold for section headers.`;
+    const user   = `Write a weekly review for my last 7 days of trading.
+
+MY RULES:
+${_rulesText()}
+
+LAST 7 DAYS (${s.closed.length} closed trades):
+Win rate: ${s.wr}% | Total P&L: $${s.pl.toFixed(0)} | Avg R: ${s.avgR}
+By session: ${s.sessLines || 'n/a'}
+By setup: ${s.setupLines || 'n/a'}
+
+All trades (chronological):
+${s.tradeLines}
+
+Write these 4 sections using my actual data:
+**Week Summary** — headline numbers, overall verdict in 2 sentences
+**What Worked** — 2-3 specific bullets with data (sessions, setups, decisions)
+**What Didn't** — 2-3 specific bullets, reference any rule violations you spot
+**Next Week Focus** — 2 concrete, actionable targets based on the patterns
+
+Be direct and specific. Under 280 words. Reference rule text where relevant.`;
+
+    try {
+      const { text } = await AICoachTab.callClaude({ system, user, maxTokens: 900 });
+      _renderReportCard('Weekly Review', '📋', dateRange, text);
+    } catch (e) {
+      App.toast('AI error: ' + e.message, 'error');
+    } finally { _setBtnState('btnWeekly', false); }
+  }
+
+  async function _generateMonthly() {
+    const now    = new Date();
+    const cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+    const trades = DB.getTrades().filter(t => t.date && new Date(t.date) >= cutoff);
+    if (!trades.length) { App.toast('No trades this month yet.', 'info'); return; }
+
+    _setBtnState('btnMonthly', true);
+    const s = _tradesSummary(trades);
+    if (!s) { App.toast('No closed trades this month.', 'info'); _setBtnState('btnMonthly', false); return; }
+
+    // Drawdown
+    let eq = 0, peak = 0, maxDD = 0;
+    [...s.closed].sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t => {
+      eq += parseFloat(t.result||0); if (eq > peak) peak = eq;
+      const dd = peak - eq; if (dd > maxDD) maxDD = dd;
+    });
+    const monthLabel = now.toLocaleDateString('en-US', { month:'long', year:'numeric' });
+
+    const system = `You are a trading performance coach writing a monthly review. Use markdown bold for headers.`;
+    const user   = `Write a full monthly performance review for ${monthLabel}.
+
+MY RULES:
+${_rulesText()}
+
+${monthLabel.toUpperCase()} DATA (${s.closed.length} closed trades):
+Win rate: ${s.wr}% | Total P&L: $${s.pl.toFixed(0)} | Avg R: ${s.avgR}
+Max drawdown: $${maxDD.toFixed(0)}
+By session: ${s.sessLines || 'n/a'}
+By setup: ${s.setupLines || 'n/a'}
+
+All trades:
+${s.tradeLines}
+
+Write these 5 sections:
+**Month Summary** — headline numbers and one-line verdict
+**Performance Analysis** — best and worst session/setup with data, direction bias impact
+**Rule Compliance** — which of my rules I followed well and which I broke (be specific, use rule text)
+**Key Takeaways** — top 3 specific lessons from this month's data
+**Next Month Targets** — 2 measurable, concrete goals
+
+Under 400 words. Data-driven and honest.`;
+
+    try {
+      const { text } = await AICoachTab.callClaude({ system, user, maxTokens: 1200 });
+      _renderReportCard(`Monthly Review — ${monthLabel}`, '📊', `1 ${monthLabel} → today`, text);
+    } catch (e) {
+      App.toast('AI error: ' + e.message, 'error');
+    } finally { _setBtnState('btnMonthly', false); }
+  }
+
+  async function _generateSetupDive() {
+    const sel   = document.getElementById('setupDiveSelect');
+    const setup = sel?.value;
+    if (!setup) { App.toast('Pick a setup from the dropdown first.', 'info'); return; }
+
+    const allTrades = DB.getTrades();
+    const trades = allTrades.filter(t =>
+      (t.setupTypes||[]).includes(setup) || t.setupType === setup
+    );
+    if (!trades.length) { App.toast(`No trades found for "${setup}".`, 'info'); return; }
+
+    _setBtnState('btnSetupDive', true);
+    const s = _tradesSummary(trades);
+    if (!s) { App.toast('No closed trades for this setup.', 'info'); _setBtnState('btnSetupDive', false); return; }
+
+    // Best conditions
+    const bySession = {};
+    s.closed.forEach(t => {
+      const k = t.session||'Other';
+      if (!bySession[k]) bySession[k]={w:0,n:0};
+      bySession[k].n++; if (parseFloat(t.result)>0) bySession[k].w++;
+    });
+    const bestSess = Object.entries(bySession).sort((a,b)=>(b[1].w/b[1].n)-(a[1].w/a[1].n))[0];
+
+    const system = `You are a trading coach doing a deep-dive analysis of one specific setup. Use markdown bold for headers.`;
+    const user   = `Analyze my "${setup}" setup in depth.
+
+MY RULES:
+${_rulesText()}
+
+"${setup}" DATA (${s.closed.length} closed trades across all time):
+Win rate: ${s.wr}% | Total P&L: $${s.pl.toFixed(0)} | Avg R: ${s.avgR}
+Best session for this setup: ${bestSess ? `${bestSess[0]} (${Math.round(bestSess[1].w/bestSess[1].n*100)}% WR)` : 'n/a'}
+Sessions breakdown: ${s.sessLines || 'n/a'}
+
+All trades with this setup:
+${s.tradeLines}
+
+Write these 5 sections:
+**Setup Performance** — win rate, P&L, R:R verdict — is it profitable overall?
+**Best Conditions** — when does this setup work best (session, bias, specific patterns in winning trades)
+**Failure Modes** — when does it fail? What do the losers have in common?
+**Rule Check** — which of my rules am I following/breaking specifically with this setup?
+**Verdict** — Keep as-is, refine it, or stop trading it? Give one concrete improvement to implement immediately.
+
+Under 320 words. Be specific — reference actual dates/R-multiples from the data where useful.`;
+
+    try {
+      const { text } = await AICoachTab.callClaude({ system, user, maxTokens: 1100 });
+      _renderReportCard(`Setup Deep-Dive: ${setup}`, '🔍', `${s.closed.length} trades all-time`, text);
+    } catch (e) {
+      App.toast('AI error: ' + e.message, 'error');
+    } finally { _setBtnState('btnSetupDive', false); }
+  }
+
   /* ── Helpers ─────────────────────────────────────────── */
   function rs(label, value, color) {
     return `<div class="report-stat">
@@ -413,6 +663,14 @@ const ReportsTab = (() => {
       const type = document.getElementById('cmpType')?.value || 'month';
       runCompare(DB.getTrades(), type);
     },
-    _handleFile: e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; }
+    _handleFile: e => { const f = e.target.files[0]; if (f) handleFile(f); e.target.value = ''; },
+    _generateWeekly,
+    _generateMonthly,
+    _generateSetupDive,
+    _clearReport: () => {
+      _savedReport = null;
+      const out = document.getElementById('reportOutput');
+      if (out) { out.style.display = 'none'; out.innerHTML = ''; }
+    },
   };
 })();

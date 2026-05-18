@@ -545,20 +545,28 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
 
   function renderTopDown() {
     const cache = _td[_pair] || {};
+    const localOn = localStorage.getItem('jb_ai_local') === 'on';
     const hasKey = hasApiKey();
+    const localToggle = `<button class="btn-ghost btn-sm" title="${localOn ? 'Using local Claude Code (port 8770) — click to switch to API' : 'Switch to local mode (uses Claude Code subscription, no API credits)'}"
+      style="${localOn ? 'color:var(--green);border-color:var(--green)' : ''}"
+      onclick="DojoTab._toggleLocalMode()">🖥️ ${localOn ? 'Local ✓' : 'Local'}</button>`;
     const headerBtn = cache.loading
       ? `<button class="btn-ghost btn-sm" disabled>⏳ Analyzing…</button>`
       : `<button class="btn-ghost btn-sm" onclick="DojoTab._runTopDown()">${cache.result ? '↻ Re-run' : '🔍 Run'} Top Down on ${esc(_pair.replace('USDT',''))}</button>`;
-    const keyHint = hasKey ? '' : `<div style="margin-top:8px;padding:10px;background:var(--bg-mid);border:1px solid var(--border);border-radius:6px">
-        <div style="font-size:.82rem;margin-bottom:6px">⚠ <strong>Anthropic API key needed</strong> for Top Down Analysis.
-          Get one at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a> (~$5 starter credit).</div>
+    const localHint = localOn ? `<div style="margin-top:8px;padding:9px 12px;background:var(--bg-mid);border:1px solid var(--border);border-radius:6px;font-size:.8rem">
+        🖥️ <strong>Local mode on</strong> — routes to <code>http://127.0.0.1:8770/chat</code>.
+        Start the server first: <code style="background:var(--bg);padding:2px 6px;border-radius:3px">python3 scripts/local_ai_server.py</code>
+        <span class="text-dim" style="margin-left:6px">Uses your Claude Code subscription — no API credits.</span>
+      </div>` : '';
+    const keyHint = (!hasKey && !localOn) ? `<div style="margin-top:8px;padding:10px;background:var(--bg-mid);border:1px solid var(--border);border-radius:6px">
+        <div style="font-size:.82rem;margin-bottom:6px">⚠ <strong>No API key</strong> — use Local mode (🖥️ button above) or add an Anthropic key below.</div>
         <div style="display:flex;gap:6px;align-items:center">
           <input id="dojoApiKeyIn" type="password" placeholder="sk-ant-…" style="flex:1;padding:5px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:.78rem"
             onkeydown="if(event.key==='Enter'){DojoTab._saveApiKey(this.value)}">
           <button class="btn-ghost btn-sm" onclick="DojoTab._saveApiKey(document.getElementById('dojoApiKeyIn').value)">Save Key</button>
         </div>
-        <div class="text-dim" style="font-size:.72rem;margin-top:5px">Stored in localStorage as <code>jb_ai_key</code> (same key AI Coach uses). Never sent anywhere except direct to api.anthropic.com.</div>
-      </div>`;
+        <div class="text-dim" style="font-size:.72rem;margin-top:5px">Stored in localStorage as <code>jb_ai_key</code>. Never sent anywhere except direct to api.anthropic.com.</div>
+      </div>` : '';
     let body;
     if (cache.err) {
       body = `<div style="color:var(--red);font-size:.85rem;padding:10px">⚠ ${esc(cache.err)}</div>`;
@@ -570,13 +578,15 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
       const r = cache.result;
       const tfRow = (label, k) => {
         const x = r[k] || {};
-        const lvls = (x.key_levels || []).map(l => `<code style="display:inline-block;font-size:.72rem;background:var(--bg-mid);padding:1px 5px;border-radius:3px;margin:1px 3px 1px 0;white-space:nowrap">${esc(l)}</code>`).join('');
-        return `<tr>
-          <td style="font-weight:700">${label}</td>
-          <td>${biasIcon(x.bias)}</td>
-          <td style="word-break:break-word">${lvls || '<span class="text-dim">—</span>'}</td>
-          <td style="color:var(--text-sub);font-size:.78rem;word-break:break-word">${esc(x.invalidation || '—')}</td>
-          <td style="color:var(--text-sub);font-size:.78rem;font-style:italic;word-break:break-word">${esc(x.rationale || '')}</td>
+        const lvls = (x.key_levels || []).map(l =>
+          `<div style="font-size:.75rem;padding:2px 0;border-bottom:1px solid var(--border-sub,#f0f0f0);line-height:1.4;word-break:break-word">${esc(l)}</div>`
+        ).join('') || '<span class="text-dim">—</span>';
+        return `<tr style="vertical-align:top">
+          <td style="font-weight:700;padding-top:8px;white-space:nowrap">${label}</td>
+          <td style="padding-top:8px;white-space:nowrap">${biasIcon(x.bias)}</td>
+          <td style="padding:6px 8px">${lvls}</td>
+          <td style="color:var(--text-sub);font-size:.78rem;padding:8px 8px 8px 0;word-break:break-word">${esc(x.invalidation || '—')}</td>
+          <td style="color:var(--text-sub);font-size:.78rem;font-style:italic;padding:8px 0;word-break:break-word">${esc(x.rationale || '')}</td>
         </tr>`;
       };
       const v = r.verdict || {};
@@ -585,9 +595,9 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
       body = `
         <table class="data-table" style="width:100%;font-size:.82rem;margin-top:6px;table-layout:fixed">
           <colgroup>
-            <col style="width:50px">
-            <col style="width:90px">
-            <col style="width:22%">
+            <col style="width:38px">
+            <col style="width:100px">
+            <col style="width:34%">
             <col style="width:22%">
             <col>
           </colgroup>
@@ -623,9 +633,10 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
     return `<div class="dojo-section">
       <div class="dojo-sec-hdr">
         🔍 Top Down Analysis (M→W→D→4H→5m)
-        <span style="margin-left:auto">${headerBtn}</span>
+        <span style="margin-left:auto;display:flex;gap:6px;align-items:center">${localToggle}${headerBtn}</span>
       </div>
       ${body}
+      ${localHint}
       ${keyHint}
     </div>`;
   }
@@ -744,34 +755,6 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
                             `Custom symbols updated: ${_custom.join(', ')}`);
   }
 
-  /* ══════════════════════════════════════════════════════
-     DOJO CONCEPT CARDS
-  ══════════════════════════════════════════════════════ */
-  const CONCEPTS = [
-    { cat:'Entry',        catColor:'#7c5cff', title:'Silver Bullet',  desc:'15-min windows during London/NY open targeting FVG mitigation. Key times: 3am, 10am, 2pm NY.' },
-    { cat:'Structure',    catColor:'#3b82f6', title:'Fair Value Gap',  desc:'Imbalance between candle 1 high and candle 3 low. Price tends to revisit & rebalance these zones.' },
-    { cat:'Structure',    catColor:'#ea580c', title:'Order Block',     desc:'Last bullish/bearish candle before a strong move. High-probability reaction zone on return.' },
-    { cat:'Setup',        catColor:'#0891b2', title:'Liquidity Sweep', desc:'Price runs equal highs/lows to grab stops before reversing the true intended direction.' },
-    { cat:'Timing',       catColor:'#d97706', title:'Killzones',       desc:'London 02:00–05:00, NY 07:00–10:00 EST. Windows when institutional expansion is most likely.' },
-    { cat:'Framework',    catColor:'#7c3aed', title:'Power of 3',      desc:'Accumulation → Manipulation → Distribution. The anatomy of every Daily, Weekly & Monthly candle.' },
-    { cat:'Confirmation', catColor:'#16a34a', title:'CISD',            desc:'Change in State of Delivery. Confirms a shift from bullish to bearish delivery (or vice versa).' },
-    { cat:'Entry',        catColor:'#7c5cff', title:'OTE',             desc:'Optimal Trade Entry — 62% to 79% Fibonacci retracement into HTF discount or premium array.' },
-    { cat:'Structure',    catColor:'#dc2626', title:'Breaker Block',   desc:'A failed swing becomes a breaker. Acts as a reverse order block on retest — powerful reversal zone.' },
-  ];
-
-  function renderConceptCard(c) {
-    return `<div class="card" style="display:flex;flex-direction:column;gap:10px;padding:18px 20px;cursor:pointer;transition:transform .15s,box-shadow .15s"
-      onmouseenter="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.12)'"
-      onmouseleave="this.style.transform='';this.style.boxShadow=''">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:${c.catColor};background:${c.catColor}18;padding:3px 8px;border-radius:99px">${esc(c.cat)}</span>
-      </div>
-      <div style="font-size:15px;font-weight:700;color:var(--text)">${esc(c.title)}</div>
-      <div style="font-size:13px;color:var(--text-2);line-height:1.5;flex:1">${esc(c.desc)}</div>
-      <div style="font-size:12px;font-weight:600;color:var(--accent);margin-top:4px">Open lesson →</div>
-    </div>`;
-  }
-
   function renderDojoHero() {
     const now = new Date();
     const hour = now.getUTCHours();
@@ -784,27 +767,6 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
           <h1 style="margin:0;font-size:22px;font-weight:700;color:var(--text)">ICT Dojo</h1>
           <div style="font-size:13px;color:var(--text-2);margin-top:3px">Inner Circle Trader methodology · <span style="color:${sessionColor};font-weight:600">${session} session</span> active</div>
         </div>
-      </div>
-      <div class="hi-card" style="margin-bottom:20px;border-radius:16px;padding:28px 32px;position:relative;overflow:hidden">
-        <div style="position:relative;z-index:1">
-          <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin-bottom:8px">Master the Methodology</div>
-          <div style="font-size:28px;font-weight:800;line-height:1.2;margin-bottom:10px">Trade with institutional<br>precision</div>
-          <div style="font-size:14px;opacity:.8;max-width:480px;line-height:1.6">Learn the 9 core ICT concepts — from Order Blocks and Fair Value Gaps to Silver Bullet setups. Each lesson connects directly to your live session tools below.</div>
-          <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap">
-            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">9 Concepts</span>
-            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Live Setups</span>
-            <span style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer">Top Down Analysis</span>
-          </div>
-        </div>
-      </div>
-      <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);margin-bottom:14px">Core Concepts</div>
-      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:28px">
-        ${CONCEPTS.map(renderConceptCard).join('')}
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>
-        <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-2);white-space:nowrap">Live Session Tools</div>
-        <div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
     `;
   }
@@ -905,6 +867,13 @@ Be concise but specific — every "key_level" must be a price (e.g. "63420" or "
       } catch (e) {
         App.toast('Save failed: ' + e.message, 'error');
       }
+    },
+    _toggleLocalMode: () => {
+      const was = localStorage.getItem('jb_ai_local') === 'on';
+      localStorage.setItem('jb_ai_local', was ? 'off' : 'on');
+      // Clear any stale API error so it doesn't bleed into the new mode
+      if (_td[_pair]) { _td[_pair] = { ..._td[_pair], err: null }; saveTd(); }
+      updateBody();
     },
     _runTopDown: async () => {
       const sym = _pair;

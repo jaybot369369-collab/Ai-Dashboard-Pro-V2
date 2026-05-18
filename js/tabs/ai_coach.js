@@ -165,6 +165,24 @@ Return JSON only: {
     catch { return { notes: text, setup_type: '?', direction: '?', session: '?', key_features: [] }; }
   }
 
+  /* ── Local-mode text-based auto-tag (no vision) ────────── */
+  async function autoTagFromText(description) {
+    const system = `You are an ICT/SMC chart analyst. The trader has described their chart setup in text (vision not available). Identify the ICT/SMC setup from the description.
+Return JSON only: {
+  "setup_type": "FVG|OB|OTE|Sweep|BB|SilverBullet|TurtleSoup|Continuation|Other",
+  "direction": "Long|Short",
+  "session": "London|NY|Asian|Other",
+  "key_features": ["feature 1", "feature 2"],
+  "suggested_entry": "price level if mentioned, else null",
+  "suggested_stop": "price level if mentioned, else null",
+  "notes": "1 sentence read of the setup"
+}`;
+    const user = `Chart setup description: "${description}"`;
+    const { text } = await _callLocal({ system, user });
+    try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text); }
+    catch { return { notes: text, setup_type: '?', direction: '?', session: '?', key_features: [] }; }
+  }
+
   /* ══════════════════════════════════════════════════════
      FEATURE 2 — DAILY JOURNAL PROMPT
   ══════════════════════════════════════════════════════ */
@@ -483,7 +501,16 @@ ${JSON.stringify(trades.map(t => ({
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
         ${insights.length ? insights.map(insightCard).join('') : emptyCard}
       </div>
+
+      <!-- ── Patterns (Tendencies merged) ─────────────────── -->
+      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:24px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px">Patterns</div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Where you make money and where you don't</div>
+        <div id="tendencies-embed"></div>
+      </div>
     `;
+
+    if (typeof TendenciesTab !== 'undefined') TendenciesTab.renderInto('tendencies-embed');
   }
 
   function _renderSubTab(apiKey) {
@@ -625,6 +652,7 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
     },
     // Public API for use from other tabs (e.g. trade form auto-tag button)
     autoTagImage,
+    autoTagFromText,
     callClaude,
     hasKey: () => !!getKey(),
     saveKey: (key) => { setS(KEYS.apiKey, (key || '').trim()); },

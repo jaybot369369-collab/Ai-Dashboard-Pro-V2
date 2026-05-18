@@ -57,7 +57,6 @@ const DB = (() => {
     // Coach can compose those sections.
     { id: 'aicoach',    label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
     { id: 'goals',      label: 'Goals',            icon: '🎯', builtin: true, group: 'INSIGHTS' },
-    { id: 'tendencies', label: 'Tendencies',       icon: '🧭', builtin: true, group: 'INSIGHTS' },
     { id: 'reports',    label: 'My Reports',       icon: '📑', builtin: true, group: 'INSIGHTS' },
     { id: 'liquidity',  label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
@@ -68,7 +67,7 @@ const DB = (() => {
     { id: 'protools',   label: 'Pro Tools',        icon: '🛠', builtin: true, group: 'TOOLS'    },
   ];
   // Tabs from old versions that should be silently dropped from the sidebar
-  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach']);
+  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies']);
   function getTabs() {
     const stored = load(KEYS.tabs);
     // Always honor the canonical builtin order from DEFAULT_TABS;

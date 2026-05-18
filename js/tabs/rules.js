@@ -1,13 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    RULES TAB  (v2 visual redesign — 2026-05-17)
    Editable trading rules for scalp / swing / long-term
-   + Daily Pre-Trade Checklist (checkbox panel, resets daily)
    Layout: .page-head hero + .hi-card compliance hero + rule cards
 ════════════════════════════════════════════════════════════ */
 const RulesTab = (() => {
 
-  let _draft = null;          // working copy of rules being edited
-  let _checklistDraft = null; // working copy of today's checklist
+  let _draft = null; // working copy of rules being edited
 
   function esc(s) {
     if (s === undefined || s === null) return '';
@@ -16,7 +14,6 @@ const RulesTab = (() => {
 
   function load() {
     _draft = DB.getRules();
-    _checklistDraft = DB.getChecklist();
   }
 
   /* ── Compliance computation ───────────────────────────── */
@@ -47,10 +44,7 @@ const RulesTab = (() => {
     load();
     const content = document.getElementById('content');
     const stats = _complianceStats();
-    const activeCount = _checklistDraft.items.filter(i => i.checked).length;
-    const totalRules   = stats.totalItems + _checklistDraft.items.length;
-    const activeRules  = stats.totalEnabled + activeCount;
-    const overallPct   = totalRules > 0 ? Math.round((activeRules / totalRules) * 100) : 100;
+    const overallPct = stats.pct;
 
     // Hero bar color based on compliance
     const barColor = overallPct >= 80 ? '#22c55e' : overallPct >= 50 ? '#f59e0b' : '#ef4444';
@@ -96,38 +90,11 @@ const RulesTab = (() => {
 
       <!-- Rule cards grid -->
       <div style="display:grid;gap:16px">
-        ${renderChecklist()}
         ${renderRuleSet('scalp')}
         ${renderRuleSet('swing')}
         ${renderRuleSet('longterm')}
       </div>
     `;
-  }
-
-  /* ── Checklist card ───────────────────────────────────── */
-  function renderChecklist() {
-    const items = _checklistDraft.items;
-    const done  = items.filter(i => i.checked).length;
-    const total = items.length;
-    return `
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">📋 Daily Pre-Trade Checklist</div>
-        <div style="font-size:.78rem;color:var(--text-dim)">${done}/${total} done · resets at midnight</div>
-      </div>
-      <div>
-        ${items.map((item, i) => `
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-sub)">
-            <input type="checkbox" ${item.checked?'checked':''} onchange="RulesTab._toggleCheck(${i})"
-                   style="accent-color:#7c5cff;width:16px;height:16px;flex-shrink:0;cursor:pointer" />
-            <span style="flex:1;font-size:.85rem;${item.checked?'text-decoration:line-through;color:var(--text-dim)':''}">${esc(item.text)}</span>
-            <span style="font-size:.68rem;font-weight:600;padding:2px 7px;border-radius:10px;background:${item.checked?'rgba(34,197,94,.15)':'rgba(255,255,255,.06)'};color:${item.checked?'#22c55e':'var(--text-dim)'}">
-              ${item.checked?'ON':'–'}
-            </span>
-          </div>
-        `).join('')}
-      </div>
-    </div>`;
   }
 
   /* ── Rule-set card ────────────────────────────────────── */
@@ -181,11 +148,6 @@ const RulesTab = (() => {
   /* ── Public API ───────────────────────────────────────── */
   return {
     render,
-    _toggleCheck: i => {
-      _checklistDraft.items[i].checked = !_checklistDraft.items[i].checked;
-      DB.saveChecklist(_checklistDraft.items);
-      render();
-    },
     _toggleRule: (key, i) => {
       _draft[key][i].enabled = !(_draft[key][i].enabled !== false);
     },

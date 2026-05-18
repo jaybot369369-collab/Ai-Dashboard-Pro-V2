@@ -9,7 +9,6 @@ const DailyReportTab = (() => {
   let _reportErr = null;
   let _loading   = false;
   let _autoTimer = null;
-  let _todayKey  = '';
   let _viewDate  = '';
 
   const REFRESH_MS = 2 * 24 * 60 * 60 * 1000;
@@ -50,81 +49,8 @@ const DailyReportTab = (() => {
     return Math.round(h / 24) + 'd ago';
   }
 
-  function fmt$(n) {
-    const v = parseFloat(n) || 0;
-    const abs = Math.abs(v);
-    const sign = v < 0 ? '-' : '+';
-    if (abs >= 10000) return sign + '$' + (abs / 1000).toFixed(1) + 'K';
-    return sign + '$' + abs.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
-  }
-
-  function fmtR(n) {
-    const v = parseFloat(n) || 0;
-    return (v >= 0 ? '+' : '') + v.toFixed(2) + 'R';
-  }
-
   function chgColor(s) {
     return typeof s === 'string' && s.startsWith('-') ? 'var(--bad,#dc2626)' : 'var(--good,#16a34a)';
-  }
-
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.className = 'toast success';
-    clearTimeout(t._tid);
-    t._tid = setTimeout(() => { t.className = 'toast hidden'; }, 3000);
-  }
-
-  /* ── Session classifier ────────────────────────────────── */
-  function classifySession(trade) {
-    if (trade.session) return trade.session;
-    const src = trade.time || trade.date || '';
-    const d = new Date(src);
-    if (isNaN(d.getTime())) return '—';
-    const h = d.getUTCHours();
-    if (h >= 2  && h < 10) return 'London';
-    if (h >= 12 && h < 21) return 'NY';
-    return 'Asia';
-  }
-
-  function sessionBadge(sess) {
-    const colors = { London: '#3b82f6', NY: '#f59e0b', Asia: '#8b5cf6' };
-    const bg = colors[sess] || '#6b7280';
-    return `<span style="background:${bg}22;color:${bg};font-size:.7rem;padding:2px 7px;border-radius:99px;font-weight:600;letter-spacing:.03em">${esc(sess)}</span>`;
-  }
-
-  function isAGrade(t) {
-    return t.grade === 'A' || String(t.setupGrade || '').startsWith('A') || String(t.preGrade || '').startsWith('A');
-  }
-
-  function dirChip(dir) {
-    if (!dir) return '<span style="color:var(--muted,#8b90a8)">—</span>';
-    const long = String(dir).toLowerCase().startsWith('l');
-    return `<span class="dir ${long ? 'long' : 'short'}" style="font-size:.72rem;padding:2px 8px">
-      <span class="dir-arrow">${long ? '▲' : '▼'}</span> ${long ? 'Long' : 'Short'}
-    </span>`;
-  }
-
-  /* ── Today's trade stats ───────────────────────────────── */
-  function todayStats(dateKey) {
-    const all    = DB.getTrades();
-    const trades = all.filter(t => (t.date || '').slice(0,10) === dateKey);
-    const closed = trades.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
-    const wins   = closed.filter(t => parseFloat(t.result) > 0);
-    const dayPL  = closed.reduce((s, t) => s + (parseFloat(t.result) || 0), 0);
-    const totalR = closed.reduce((s, t) => s + (parseFloat(t.rMultiple) || 0), 0);
-    const aGrade = trades.filter(isAGrade).length;
-    return { trades, closed, wins, dayPL, totalR, aGrade };
-  }
-
-  /* ── Journal persistence ───────────────────────────────── */
-  function loadJournal(dateKey) {
-    try { return JSON.parse(localStorage.getItem('jb_journal_' + dateKey)) || { mood:5, discipline:5, recap:'' }; }
-    catch { return { mood:5, discipline:5, recap:'' }; }
-  }
-  function saveJournal(dateKey, data) {
-    localStorage.setItem('jb_journal_' + dateKey, JSON.stringify(data));
   }
 
   /* ── Report JSON fetch ─────────────────────────────────── */
@@ -174,141 +100,80 @@ const DailyReportTab = (() => {
     return `<span style="background:${fg}18;color:${fg};font-size:.7rem;padding:2px 8px;border-radius:4px;font-weight:600">${esc(i)}</span>`;
   }
 
-  /* ── Hero card ─────────────────────────────────────────── */
-  function renderHeroCard(stats) {
-    const { closed, wins, dayPL, totalR } = stats;
-    const wr     = closed.length ? Math.round(wins.length / closed.length * 100) : 0;
-    const plCol  = dayPL >= 0 ? 'var(--good,#16a34a)' : 'var(--bad,#dc2626)';
-    const rCol   = totalR >= 0 ? 'var(--good,#16a34a)' : 'var(--bad,#dc2626)';
-    return `
-      <div class="hi-card" style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:var(--gap,16px)">
-        <div>
-          <div class="hi-num" style="color:${plCol}">${fmt$(dayPL)}</div>
-          <div class="hi-lbl" style="margin-top:6px">Day P&amp;L &nbsp;·&nbsp; ${closed.length} trade${closed.length !== 1?'s':''} &nbsp;·&nbsp; ${wr}% win rate</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:2.2rem;font-weight:800;letter-spacing:-.03em;color:${rCol}">${fmtR(totalR)}</div>
-          <div style="font-size:.78rem;color:rgba(255,255,255,.7);margin-top:2px">Total R captured</div>
-        </div>
-      </div>`;
-  }
-
-  /* ── KPI row ───────────────────────────────────────────── */
-  function renderKpiRow(stats) {
-    const { trades, closed, wins, aGrade, dayPL } = stats;
-    const wr = closed.length ? (wins.length / closed.length * 100).toFixed(1) + '%' : '—';
-    const mvColor = dayPL >= 0 ? 'var(--good,#16a34a)' : 'var(--bad,#dc2626)';
-
-    const ICONS = {
-      cal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
-      target: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`,
-      star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-      wallet: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>`,
-    };
-
-    function kpi(iconHtml, value, label, color, bgCls) {
-      return `<div class="kpi ${bgCls||'kpi-1'}">
-        <div class="kpi-ic">${iconHtml}</div>
-        <div style="flex:1;min-width:0">
-          <div class="kpi-num"${color ? ` style="color:${color}"` : ''}>${value}</div>
-          <div class="kpi-lbl">${label}</div>
-        </div>
+  /* ── Freshness banner ──────────────────────────────────── */
+  function renderFreshnessBanner(d) {
+    if (!d) return '';
+    const asOf = d.news_as_of || d.generated;
+    const ageMs = asOf ? Date.now() - new Date(asOf).getTime() : Infinity;
+    const ageH  = ageMs / 3_600_000;
+    const stale = ageH > 12;
+    const fng   = d.fear_greed;
+    const fngBg  = fng ? (fng.score < 30 ? '#fee2e2' : fng.score > 60 ? '#dcfce7' : '#fef9c3') : '';
+    const fngFg  = fng ? (fng.score < 30 ? '#dc2626' : fng.score > 60 ? '#16a34a' : '#d97706') : '';
+    const fngHtml = fng
+      ? `<span style="margin-left:10px;padding:2px 10px;border-radius:4px;font-size:.74rem;font-weight:700;background:${fngBg};color:${fngFg}">F&G ${esc(String(fng.score))} · ${esc(fng.label)}</span>`
+      : '';
+    if (stale) {
+      return `<div style="background:#dc2626;color:#fff;padding:10px 16px;border-radius:8px;margin-bottom:14px;font-size:.82rem;font-weight:600">
+        ⚠ STALE NEWS — verified ${esc(fmtAge(asOf))} (threshold 12h). Run <code style="background:#0002;border-radius:3px;padding:1px 5px">/THE_DAILY_REPORT</code> to refresh.
       </div>`;
     }
-
-    return `<div class="kpi-grid" style="margin-bottom:var(--gap,16px)">
-      ${kpi(ICONS.cal,    trades.length,       'Trades today',    '',       'kpi-1')}
-      ${kpi(ICONS.target, wr,                  'Win rate today',  '',       'kpi-2')}
-      ${kpi(ICONS.star,   aGrade,              'A-grade trades',  '',       'kpi-3')}
-      ${kpi(ICONS.wallet, fmt$(dayPL),          'Account move',   mvColor,  'kpi-4')}
+    return `<div style="background:var(--surface-2,#f5f6fa);border:1px solid var(--border,#e5e7eb);padding:8px 14px;border-radius:8px;margin-bottom:14px;font-size:.78rem;color:var(--muted,#8b90a8);display:flex;align-items:center;flex-wrap:wrap;gap:4px">
+      <span>📡 News verified <strong style="color:var(--text,#111)">${esc(fmtAge(asOf))}</strong> · prices live-fetched at run time</span>
+      ${fngHtml}
     </div>`;
   }
 
-  /* ── Today's trades table ──────────────────────────────── */
-  function renderTradesTable(trades) {
-    if (!trades.length) {
-      return `<div style="padding:32px;text-align:center;color:var(--muted,#8b90a8);font-size:.88rem">No trades logged for this session yet.</div>`;
-    }
-    const thStyle = 'text-align:left;padding:6px 10px;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);font-weight:600;white-space:nowrap';
-    const tdStyle = 'padding:8px 10px;border-top:1px solid var(--border,#e5e7eb)22';
-    const rows = trades.map(t => {
-      const pl  = parseFloat(t.result  || 0);
-      const r   = parseFloat(t.rMultiple || 0);
-      const hasPL = t.result   !== undefined && t.result   !== null && t.result   !== '';
-      const hasR  = t.rMultiple !== undefined && t.rMultiple !== null && t.rMultiple !== '';
-      const plCol = pl > 0 ? 'var(--good,#16a34a)' : pl < 0 ? 'var(--bad,#dc2626)' : '';
-      const rCol  = r  > 0 ? 'var(--good,#16a34a)' : r  < 0 ? 'var(--bad,#dc2626)' : '';
-      const sess  = classifySession(t);
-      const timeStr = t.time ? String(t.time).slice(0,5) : (t.date ? String(t.date).slice(11,16) : '');
-      const setup = t.setupType || (Array.isArray(t.setupTypes) ? t.setupTypes[0] : '') || '—';
-      return `<tr>
-        <td style="${tdStyle}">
-          ${sessionBadge(sess)}
-          ${timeStr ? `<span style="font-size:.72rem;color:var(--muted,#8b90a8);margin-left:5px">${esc(timeStr)}</span>` : ''}
-        </td>
-        <td style="${tdStyle};font-weight:600">${esc(t.symbol || t.sym || '—')}</td>
-        <td style="${tdStyle}">${dirChip(t.direction || t.dir || t.type)}</td>
-        <td style="${tdStyle};font-size:.8rem;color:var(--muted,#8b90a8)">${esc(setup)}</td>
-        <td style="${tdStyle};font-weight:600;text-align:right;color:${rCol}">${hasR ? fmtR(r) : '—'}</td>
-        <td style="${tdStyle};font-weight:600;text-align:right;color:${plCol}">${hasPL ? fmt$(pl) : '—'}</td>
-      </tr>`;
+  /* ── Hidden signals ────────────────────────────────────── */
+  function renderHiddenSignals(signals) {
+    if (!signals || !signals.length) return '';
+    const items = signals.map((s, i) => {
+      const letter = s.letter || String.fromCharCode(97 + i);
+      const age = s.as_of ? ` <span style="color:var(--muted,#8b90a8);font-size:.72rem">· verified ${fmtAge(s.as_of)}</span>` : '';
+      return `<div style="display:flex;gap:10px;padding:9px 12px;border-radius:6px;background:var(--surface-2,#f5f6fa);margin-bottom:8px;border-left:3px solid var(--accent,#7c5cff)">
+        <span style="font-weight:700;color:var(--accent,#7c5cff);flex-shrink:0;font-size:.82rem;min-width:16px">${esc(letter)}</span>
+        <span style="font-size:.81rem;line-height:1.6;color:var(--text,#111)">${esc(s.body)}${age}</span>
+      </div>`;
     }).join('');
-    return `<div class="table-wrap" style="margin:-4px -4px 0">
+    return `<div class="card" style="margin-bottom:var(--gap,16px)">
+      <div class="card-head">
+        <div>
+          <div class="card-title">What the screen isn't showing you</div>
+          <div class="card-sub">${signals.length} under-tracked signals · fetched this run</div>
+        </div>
+      </div>
+      ${items}
+    </div>`;
+  }
+
+  /* ── Live feed ─────────────────────────────────────────── */
+  function renderLiveFeed(feed) {
+    if (!feed || !feed.length) return '';
+    const thS = 'text-align:left;padding:5px 10px 5px 0;font-size:.69rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);font-weight:600';
+    const tdS = 'padding:7px 10px 7px 0;border-top:1px solid var(--border,#e5e7eb)33';
+    const rows = feed.slice(0, 12).map(h => `<tr>
+      <td style="${tdS};font-size:.79rem;font-weight:500;color:var(--text,#111)">${esc(h.headline)}</td>
+      <td style="${tdS};font-size:.74rem;color:var(--muted,#8b90a8);white-space:nowrap;padding-left:10px">${esc(h.source)}</td>
+      <td style="${tdS};font-size:.74rem;color:var(--muted,#8b90a8);white-space:nowrap;padding-left:6px">${h.age_h != null ? esc(String(h.age_h)) + 'h' : ''}</td>
+      <td style="${tdS};padding-left:6px">${h.sym ? `<span style="background:var(--surface-2,#f5f6fa);padding:2px 7px;border-radius:4px;font-size:.72rem;font-weight:600">${esc(h.sym)}</span>` : ''}</td>
+    </tr>`).join('');
+    return `<div class="card" style="margin-bottom:var(--gap,16px)">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Live feed</div>
+          <div class="card-sub">Last 24–48h · ${feed.length} headline${feed.length !== 1 ? 's' : ''} from 20+ sources</div>
+        </div>
+      </div>
       <table style="width:100%;border-collapse:collapse">
         <thead><tr>
-          <th style="${thStyle}">Time</th>
-          <th style="${thStyle}">Symbol</th>
-          <th style="${thStyle}">Dir</th>
-          <th style="${thStyle}">Setup</th>
-          <th style="${thStyle};text-align:right">R</th>
-          <th style="${thStyle};text-align:right">P&amp;L</th>
+          <th style="${thS}">Headline</th>
+          <th style="${thS};padding-left:10px">Source</th>
+          <th style="${thS};padding-left:6px">Age</th>
+          <th style="${thS};padding-left:6px">Asset</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
-  }
-
-  /* ── Journal card ──────────────────────────────────────── */
-  function renderJournalCard(dateKey) {
-    const j = loadJournal(dateKey);
-
-    function chips(prefix, stored, accentVar) {
-      return Array.from({length:10}, (_,i) => {
-        const v = i+1, sel = v === stored;
-        return `<span id="${prefix}${v}" onclick="DailyReportTab._${prefix.replace('-','').slice(0,-1)}(${v})"
-          style="cursor:pointer;display:inline-block;width:28px;height:28px;line-height:26px;text-align:center;
-                 border-radius:6px;font-size:.8rem;font-weight:600;user-select:none;transition:background .15s,color .15s;
-                 ${sel
-                   ? `background:var(${accentVar},#7c5cff);color:#fff;border:2px solid var(${accentVar},#7c5cff)`
-                   : 'background:transparent;color:var(--muted,#8b90a8);border:2px solid var(--border,#e5e7eb)'}">${v}</span>`;
-      }).join('');
-    }
-
-    return `
-      <div class="card-head">
-        <div><div class="card-title">Daily journal</div><div class="card-sub">${esc(fmtDateLong(dateKey))}</div></div>
-      </div>
-      <div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);margin-bottom:8px">Mood</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">${chips('mood-chip-', j.mood || 5, '--accent')}</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);margin-bottom:8px">Discipline</div>
-          <div style="display:flex;gap:5px;flex-wrap:wrap">${chips('disc-chip-', j.discipline || 5, '--accent-2')}</div>
-        </div>
-        <div style="margin-bottom:14px">
-          <div style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);margin-bottom:8px">Recap</div>
-          <textarea id="journalRecap" rows="6"
-            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:8px;
-                   background:var(--surface,#fff);color:var(--text,#111);font-size:.86rem;font-family:inherit;resize:vertical;line-height:1.6;outline:none"
-            placeholder="How did the session go? Execution quality? What to repeat or avoid tomorrow?">${esc(j.recap || '')}</textarea>
-        </div>
-        <button onclick="DailyReportTab._saveJournal()"
-          style="width:100%;padding:9px;border-radius:8px;border:none;background:var(--accent,#7c5cff);color:#fff;font-size:.86rem;font-weight:600;cursor:pointer;letter-spacing:.02em">
-          Save journal
-        </button>
-      </div>`;
   }
 
   /* ── Ticker card (market brief) ────────────────────────── */
@@ -352,6 +217,16 @@ const DailyReportTab = (() => {
           style="height:110px;border-radius:6px;object-fit:cover;flex:1;min-width:60px;background:var(--border,#e5e7eb)">
       </div>` : '';
 
+    const liveHeadlinesHtml = (t.live_headlines && t.live_headlines.length) ? `
+      <div style="margin-top:14px">
+        <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted,#8b90a8);margin-bottom:5px">Live ${esc(t.sym)} headlines</div>
+        ${t.live_headlines.slice(0,3).map(h => `
+          <div style="font-size:.79rem;padding:6px 0;border-top:1px solid var(--border,#e5e7eb)33;display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+            <span style="color:var(--text,#111)">${esc(h.headline)}</span>
+            <span style="color:var(--muted,#8b90a8);font-size:.72rem;white-space:nowrap;flex-shrink:0">${esc(h.source)}${h.age_h != null ? ' · ' + h.age_h + 'h' : ''}</span>
+          </div>`).join('')}
+      </div>` : '';
+
     return `
       <div class="card" style="margin-bottom:var(--gap,16px)">
         <div class="card-head">
@@ -381,6 +256,7 @@ const DailyReportTab = (() => {
         </div>
 
         ${chartsHtml}
+        ${liveHeadlinesHtml}
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
           <div>
@@ -440,7 +316,6 @@ const DailyReportTab = (() => {
   async function render() {
     const content = document.getElementById('content');
     const dateKey = _viewDate || todayISO();
-    _todayKey = dateKey;
 
     if (isReportStale()) {
       content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted,#8b90a8)">Loading market brief…</div>`;
@@ -449,7 +324,6 @@ const DailyReportTab = (() => {
 
     startAutoRefresh();
 
-    const stats = todayStats(dateKey);
     const d     = _report;
     const macroCount = d ? tomorrowMacroCount(d.macro_today) : 0;
 
@@ -473,26 +347,9 @@ const DailyReportTab = (() => {
         </div>
       </div>
 
-      ${renderHeroCard(stats)}
-      ${renderKpiRow(stats)}
-
-      <div class="row row-12-8" style="margin-bottom:var(--gap,16px)">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">Today's trades</div>
-              <div class="card-sub">${stats.trades.length} logged &nbsp;·&nbsp; ${stats.closed.length} closed</div>
-            </div>
-            <button class="pill-select" onclick="App.navigate('tradelog')"><span>View all</span><span class="chev">→</span></button>
-          </div>
-          ${renderTradesTable(stats.trades)}
-        </div>
-        <div class="card">
-          ${renderJournalCard(dateKey)}
-        </div>
-      </div>
-
       ${d ? `
+        ${renderFreshnessBanner(d)}
+        ${renderLiveFeed(d.live_feed)}
         ${d.context ? `
           <div class="card" style="margin-bottom:var(--gap,16px)">
             <div class="card-head">
@@ -503,6 +360,7 @@ const DailyReportTab = (() => {
         ${(d.tickers||[]).map(renderTickerCard).join('')}
         ${renderMacroTable(d.macro_today)}
         ${renderInsights(d.insights)}
+        ${renderHiddenSignals(d.hidden_signals)}
       ` : _reportErr ? `
         <div class="card" style="margin-bottom:var(--gap,16px)">
           <div style="padding:24px;text-align:center;color:var(--muted,#8b90a8);font-size:.87rem">
@@ -527,46 +385,11 @@ const DailyReportTab = (() => {
     }, CHECK_MS);
   }
 
-  /* ── Chip handlers (in-place update, no full re-render) ── */
-  function _setMood(v) {
-    const dateKey = _todayKey || todayISO();
-    const j = loadJournal(dateKey); j.mood = v; saveJournal(dateKey, j);
-    document.querySelectorAll('[id^="mood-chip-"]').forEach(el => {
-      const n = parseInt(el.id.split('-').pop());
-      const sel = n === v;
-      el.style.background   = sel ? 'var(--accent,#7c5cff)' : 'transparent';
-      el.style.color        = sel ? '#fff' : 'var(--muted,#8b90a8)';
-      el.style.borderColor  = sel ? 'var(--accent,#7c5cff)' : 'var(--border,#e5e7eb)';
-    });
-  }
-
-  function _setDisc(v) {
-    const dateKey = _todayKey || todayISO();
-    const j = loadJournal(dateKey); j.discipline = v; saveJournal(dateKey, j);
-    document.querySelectorAll('[id^="disc-chip-"]').forEach(el => {
-      const n = parseInt(el.id.split('-').pop());
-      const sel = n === v;
-      el.style.background   = sel ? 'var(--accent-2,#5b3df0)' : 'transparent';
-      el.style.color        = sel ? '#fff' : 'var(--muted,#8b90a8)';
-      el.style.borderColor  = sel ? 'var(--accent-2,#5b3df0)' : 'var(--border,#e5e7eb)';
-    });
-  }
-
-  function _saveJournal() {
-    const dateKey = _todayKey || todayISO();
-    const recap = document.getElementById('journalRecap')?.value || '';
-    const j = loadJournal(dateKey); j.recap = recap; saveJournal(dateKey, j);
-    showToast('Journal saved ✓');
-  }
-
   function _goToday() { _viewDate = todayISO(); render(); }
 
   return {
     render,
     _refresh: async () => { _report = null; await loadReport(); render(); },
-    _setMood,
-    _setDisc,
-    _saveJournal,
     _goToday,
   };
 

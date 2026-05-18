@@ -31,7 +31,6 @@ const App = (() => {
     coach:      () => CoachTab.render(),
     aicoach:    () => AICoachTab.render(),
     goals:      () => GoalsTab.render(),
-    tendencies: () => TendenciesTab.render(),
     reports:    () => ReportsTab.render(),
     liquidity:  () => LiquidityWatcherTab.render(),
     marketintel:() => MarketIntelTab.render(),
@@ -238,12 +237,15 @@ const App = (() => {
         <button type="button" class="thumb-remove" onclick="App._removeScreenshot(${i})">✕</button>
       </div>`
     ).join('');
-    // Show auto-tag button if there's at least one base64 image (vision-capable) and AI key is set
+    // Show auto-tag button: vision mode (API key + image) OR local mode (no image needed)
     const btn = $('fAutoTagBtn');
     if (btn) {
-      const hasImg = _pendingScreenshots.some(u => u.startsWith('data:image'));
-      const hasKey = !!localStorage.getItem('jb_ai_key');
-      btn.style.display = (hasImg && hasKey) ? 'inline-block' : 'none';
+      const hasImg    = _pendingScreenshots.some(u => u.startsWith('data:image'));
+      const hasKey    = !!localStorage.getItem('jb_ai_key');
+      const localMode = localStorage.getItem('jb_ai_local') === 'on';
+      const show = (hasImg && hasKey && !localMode) || localMode;
+      btn.style.display = show ? 'inline-block' : 'none';
+      btn.textContent = localMode ? '✨ Auto-tag with AI (local)' : '✨ Auto-tag last screenshot with AI';
     }
   }
 
@@ -270,6 +272,58 @@ const App = (() => {
     }
   }
 
+  /* ── Rules checklist helpers ────────────────────────── */
+  const RULE_SET_META = {
+    scalp:    { label: 'Pre-trade Rules',  color: '#7c5cff' },
+    swing:    { label: 'Risk Rules',       color: '#ef4444' },
+    longterm: { label: 'Psychology Rules', color: '#f59e0b' },
+  };
+
+  function renderRulesChecklist() {
+    const grid = $('fRulesGrid');
+    if (!grid) return;
+    const rules = DB.getRules();
+    grid.innerHTML = ['scalp','swing','longterm'].map(k => {
+      const items = rules[k] || [];
+      const meta  = RULE_SET_META[k];
+      const rows  = items.map((r, i) => `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-sub)">
+          <input type="checkbox" id="fRuleCheck_${k}_${i}" onchange="App._updateRulesCount()"
+                 style="accent-color:${meta.color};width:14px;height:14px;flex-shrink:0;margin-top:2px;cursor:pointer" />
+          <label for="fRuleCheck_${k}_${i}" style="font-size:.8rem;line-height:1.35;cursor:pointer">${r.text}</label>
+        </div>`).join('');
+      return `<div>
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.05em;color:${meta.color};text-transform:uppercase;margin-bottom:6px">${meta.label}</div>
+        ${rows || '<div style="font-size:.78rem;color:var(--text-dim);padding:4px 0">No rules set</div>'}
+      </div>`;
+    }).join('');
+    updateRulesCount();
+  }
+
+  function updateRulesCount() {
+    const grid = $('fRulesGrid');
+    if (!grid) return;
+    const all  = grid.querySelectorAll('input[type=checkbox]');
+    const done = [...all].filter(c => c.checked).length;
+    const el   = $('fRulesCount');
+    if (el) {
+      el.textContent = `${done}/${all.length} checked`;
+      el.style.color = done === all.length ? '#22c55e' : done > 0 ? '#f59e0b' : 'var(--text-dim)';
+    }
+  }
+
+  function collectRuleChecks() {
+    const out = {};
+    ['scalp','swing','longterm'].forEach(k => {
+      const rules = DB.getRules()[k] || [];
+      out[k] = rules.map((_, i) => {
+        const cb = document.getElementById(`fRuleCheck_${k}_${i}`);
+        return cb ? cb.checked : false;
+      });
+    });
+    return out;
+  }
+
   function openTradeModal(editId) {
     const modal = $('tradeModal');
     const form  = $('tradeForm');
@@ -278,6 +332,15 @@ const App = (() => {
     // Reset pending state
     _pendingScreenshots = [];
     _pendingSetups      = [];
+
+    // Build rules checklist panel
+    renderRulesChecklist();
+    $('fAnalyseOut').innerHTML = '';
+    $('fAnalyseStatus').textContent = '';
+    // Collapse panel on new modal open
+    const rb = $('fRulesBody'), rc = $('fRulesChevron');
+    if (rb) { rb.style.display = 'none'; }
+    if (rc) { rc.textContent = '▼'; }
 
     // Populate setup picker from playbook
     const picker = $('fSetupPicker');
@@ -387,6 +450,17 @@ const App = (() => {
     // Load screenshots
     _pendingScreenshots = DB.getScreenshots(t);
     renderScreenshotPrev();
+    // Restore rule checks
+    if (t.ruleChecks) {
+      const rules = DB.getRules();
+      ['scalp','swing','longterm'].forEach(k => {
+        (t.ruleChecks[k] || []).forEach((checked, i) => {
+          const cb = document.getElementById(`fRuleCheck_${k}_${i}`);
+          if (cb) cb.checked = !!checked;
+        });
+      });
+      updateRulesCount();
+    }
   }
 
   function closeTradeModal() {
@@ -429,6 +503,7 @@ const App = (() => {
       screenshotUrls: [..._pendingScreenshots],
       screenshotUrl: '',   // clear legacy field on save
       date: f('fDate'),
+      ruleChecks: collectRuleChecks(),
     };
 
     const editId = f('tradeId');
@@ -761,24 +836,151 @@ const App = (() => {
     _switchTab: navigate,
     getDateFilter,
     getDataMode,
+
+    _toggleRulesPanel: () => {
+      const body = $('fRulesBody'), chev = $('fRulesChevron');
+      if (!body) return;
+      const open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : 'block';
+      if (chev) chev.textContent = open ? '▼' : '▲';
+    },
+    _updateRulesCount: () => updateRulesCount(),
+
+    _analyseSetup: async () => {
+      const out    = $('fAnalyseOut');
+      const status = $('fAnalyseStatus');
+      const btn    = $('fAnalyseBtn');
+
+      // Collect form values
+      const f  = id => document.getElementById(id)?.value?.trim() ?? '';
+      const sym = f('fSymbol') === 'custom' ? f('fSymbolCustom') : f('fSymbol');
+      const dir = f('fDirection'), entry = f('fEntry'), sl = f('fSl'), tp = f('fTp');
+      const session = f('fSession'), bias = f('fHtfBias'), notes = f('fNotes');
+      const setups  = _pendingSetups.join(', ') || '(not specified)';
+
+      // Collect rule checks
+      const rules     = DB.getRules();
+      const checks    = collectRuleChecks();
+      let totalR = 0, doneR = 0;
+      const ruleLines = ['scalp','swing','longterm'].map(k => {
+        const meta  = RULE_SET_META[k];
+        const items = rules[k] || [];
+        const lines = items.map((r, i) => {
+          const ticked = checks[k]?.[i];
+          totalR++; if (ticked) doneR++;
+          return `  [${ticked ? '✓' : '○'}] ${r.text}`;
+        }).join('\n');
+        return `${meta.label}:\n${lines || '  (none)'}`;
+      }).join('\n\n');
+
+      // Construct prompt
+      const system = `You are an ICT trading coach reviewing a trade before entry. Be direct and concise. Format your reply in 3 clear sections: RULES CHECK, PROBABILITY, and KEY INSIGHT.`;
+      const user   = `Review this trade:
+
+SETUP:
+• Symbol: ${sym} | Direction: ${dir}
+• Entry: ${entry || 'n/a'} | SL: ${sl || 'n/a'} | TP: ${tp || 'n/a'}
+• Session: ${session} | HTF Bias: ${bias}
+• Setup type(s): ${setups}
+• Notes: ${notes || 'none'}
+• Self-checked rules: ${doneR}/${totalR}
+
+MY RULES:
+${ruleLines}
+
+Please analyse:
+
+**RULES CHECK** — For each rule category, state which rules appear MET ✓ and which are UNCERTAIN or BROKEN ✗ based on the trade details above. Be specific.
+
+**PROBABILITY** — Give a probability band (Low <40%, Medium 40-60%, High 60-75%, Very High >75%) that this trade works out, with 2-3 reasons.
+
+**KEY INSIGHT** — One important thing I should know before pressing the button.`;
+
+      // Get image if available
+      const lastImg = [..._pendingScreenshots].reverse().find(u => u.startsWith('data:image'));
+      let imageData = null;
+      if (lastImg) {
+        const m = lastImg.match(/^data:(image\/[^;]+);base64,(.+)$/);
+        if (m) imageData = { mediaType: m[1], b64: m[2] };
+      }
+
+      btn.disabled = true;
+      status.textContent = 'Analysing…';
+      out.innerHTML = '';
+
+      try {
+        const { text } = await AICoachTab.callClaude({ system, user, maxTokens: 1200, imageData });
+        // Render result as styled card
+        const html = text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+        const probMatch = text.match(/Very High|High|Medium|Low/i);
+        const probLabel = probMatch ? probMatch[0] : null;
+        const probColor = probLabel === 'Very High' ? '#22c55e'
+                        : probLabel === 'High'      ? '#86efac'
+                        : probLabel === 'Medium'    ? '#f59e0b'
+                        : '#ef4444';
+        out.innerHTML = `<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:.83rem;line-height:1.6">
+          ${probLabel ? `<div style="display:inline-block;background:${probColor}22;color:${probColor};border:1px solid ${probColor}55;border-radius:20px;padding:2px 12px;font-size:.75rem;font-weight:700;margin-bottom:10px">Probability: ${probLabel}</div>` : ''}
+          <div>${html}</div>
+        </div>`;
+        status.textContent = imageData ? '📸 chart analysed' : '';
+      } catch (e) {
+        out.innerHTML = `<span style="color:var(--red);font-size:.82rem">⚠ ${e.message}</span>`;
+        status.textContent = '';
+      } finally {
+        btn.disabled = false;
+      }
+    },
+
     _aiAutoTag: async () => {
       const out = $('fAutoTagOut');
       const btn = $('fAutoTagBtn');
+      const localMode = localStorage.getItem('jb_ai_local') === 'on';
+
+      // Local mode — no vision available; show inline description input
+      if (localMode) {
+        out.innerHTML = `
+          <div style="margin-top:4px">
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:5px">Local mode — describe your chart setup and Claude will tag it:</div>
+            <textarea id="fAutoTagDesc" rows="2" placeholder="e.g. 15m BTC NY AM, swept equal highs, FVG at 94200, long bias…"
+              style="width:100%;box-sizing:border-box;font-size:.82rem;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);resize:none;font-family:inherit"></textarea>
+            <button type="button" class="btn-ghost btn-sm" style="margin-top:5px" onclick="App._aiAutoTagLocal()">✨ Analyze</button>
+          </div>`;
+        setTimeout(() => $('fAutoTagDesc')?.focus(), 50);
+        return;
+      }
+
+      // API / vision mode
       const lastImg = [..._pendingScreenshots].reverse().find(u => u.startsWith('data:image'));
       if (!lastImg) { out.textContent = 'No image to tag'; return; }
       btn.disabled = true; out.innerHTML = '<span style="color:var(--gold)">✨ Analyzing chart…</span>';
       try {
         const r = await AICoachTab.autoTagImage(lastImg);
-        out.innerHTML = `<div class="ai-autotag-out">
-          <div><strong>Setup:</strong> ${r.setup_type||'?'} · <strong>Direction:</strong> ${r.direction||'?'} · <strong>Session:</strong> ${r.session||'?'}</div>
-          ${r.suggested_entry ? `<div><strong>Suggested entry:</strong> ${r.suggested_entry}${r.suggested_stop?` · <strong>Stop:</strong> ${r.suggested_stop}`:''}</div>` : ''}
-          ${r.notes ? `<div class="text-sub" style="margin-top:4px">${r.notes}</div>` : ''}
-          ${r.key_features?.length ? `<ul style="margin:6px 0 0 18px">${r.key_features.map(f=>`<li>${f}</li>`).join('')}</ul>` : ''}
-          <button type="button" class="btn-ghost btn-sm" onclick="App._applyAutoTag(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="margin-top:6px">⬇ Apply to form</button>
-        </div>`;
+        out.innerHTML = App._autoTagResultHTML(r);
       } catch (e) { out.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`; }
       finally { btn.disabled = false; }
     },
+
+    _aiAutoTagLocal: async () => {
+      const out    = $('fAutoTagOut');
+      const desc   = $('fAutoTagDesc')?.value?.trim();
+      if (!desc) { $('fAutoTagDesc')?.focus(); return; }
+      const analyzeBtn = out.querySelector('button');
+      if (analyzeBtn) { analyzeBtn.disabled = true; analyzeBtn.textContent = '⏳ Analyzing…'; }
+      try {
+        const r = await AICoachTab.autoTagFromText(desc);
+        out.innerHTML = App._autoTagResultHTML(r);
+      } catch (e) { out.innerHTML = `<span style="color:var(--red)">⚠ ${e.message}</span>`; }
+    },
+
+    _autoTagResultHTML: (r) => `<div class="ai-autotag-out">
+      <div><strong>Setup:</strong> ${r.setup_type||'?'} · <strong>Direction:</strong> ${r.direction||'?'} · <strong>Session:</strong> ${r.session||'?'}</div>
+      ${r.suggested_entry ? `<div><strong>Suggested entry:</strong> ${r.suggested_entry}${r.suggested_stop?` · <strong>Stop:</strong> ${r.suggested_stop}`:''}</div>` : ''}
+      ${r.notes ? `<div class="text-sub" style="margin-top:4px">${r.notes}</div>` : ''}
+      ${r.key_features?.length ? `<ul style="margin:6px 0 0 18px">${r.key_features.map(f=>`<li>${f}</li>`).join('')}</ul>` : ''}
+      <button type="button" class="btn-ghost btn-sm" onclick="App._applyAutoTag(${JSON.stringify(r).replace(/"/g,'&quot;')})" style="margin-top:6px">⬇ Apply to form</button>
+    </div>`,
     _applyAutoTag: (r) => {
       // Apply suggestions to form fields where empty
       if (r.direction && $('fDirection').value !== r.direction) $('fDirection').value = (r.direction.toLowerCase().startsWith('l') ? 'Long' : 'Short');

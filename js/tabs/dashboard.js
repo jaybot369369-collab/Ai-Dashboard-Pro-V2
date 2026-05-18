@@ -153,7 +153,7 @@ const DashboardTab = (() => {
       <div class="page-head">
         <div>
           <h1>Overview</h1>
-          <div class="sub">${greeting()}, Alex K. · ${todayLabel()}</div>
+          <div class="sub">${greeting()} · ${todayLabel()}</div>
         </div>
         <div class="right">
           <div class="pill-select" id="dashPeriod">

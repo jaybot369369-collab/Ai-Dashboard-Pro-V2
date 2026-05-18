@@ -12,6 +12,14 @@ const TendenciesTab = (() => {
   let _dowChart = null;
   let _dirChart = null;
 
+  // When renderInto() is active, store the container id so CRUD actions
+  // re-render the embedded section in-place instead of overwriting #content.
+  let _embedId = null;
+
+  function _rerenderCurrent() {
+    if (_embedId) renderInto(_embedId); else render();
+  }
+
   function esc(s) {
     if (s === undefined || s === null) return '';
     return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -280,6 +288,7 @@ const TendenciesTab = (() => {
 
   /* ── Public render ──────────────────────────────────────── */
   function render() {
+    _embedId = null;   // standalone mode — reset embed tracking
     const content = document.getElementById('content');
     const trades = DB.getTrades();
     const analytics = _renderAnalytics(trades);
@@ -305,6 +314,36 @@ const TendenciesTab = (() => {
 
     document.querySelectorAll('.tend-sub-btn').forEach(b => {
       b.addEventListener('click', () => { saveSub(b.dataset.sub); render(); });
+    });
+
+    requestAnimationFrame(() => {
+      _drawDOW(analytics.dowData);
+      _drawDir(analytics.dirData);
+    });
+  }
+
+  /* ── Embed render — slot into an existing container ──────── */
+  function renderInto(containerId) {
+    _embedId = containerId;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const trades = DB.getTrades();
+    const analytics = _renderAnalytics(trades);
+
+    container.innerHTML = `
+      ${analytics.html}
+      <div style="border-top:1px solid var(--border-sub);margin-bottom:20px"></div>
+      <div class="tend-wrap">
+        <div class="tend-subnav">
+          <button class="tend-sub-btn${_sub==='mistakes' ?' active mistakes':''}" data-sub="mistakes">⚠️ Mistakes</button>
+          <button class="tend-sub-btn${_sub==='strengths'?' active strengths':''}" data-sub="strengths">💪 Strengths</button>
+        </div>
+        <div id="tendBody">${renderGrid(_sub)}</div>
+      </div>
+    `;
+
+    container.querySelectorAll('.tend-sub-btn').forEach(b => {
+      b.addEventListener('click', () => { saveSub(b.dataset.sub); renderInto(containerId); });
     });
 
     requestAnimationFrame(() => {
@@ -346,7 +385,7 @@ const TendenciesTab = (() => {
     };
     items.push(newItem);
     if (kind === 'mistakes') DB.saveMistakes(items); else DB.saveStrengths(items);
-    render();
+    _rerenderCurrent();
   }
 
   function _delete(kind, id) {
@@ -354,7 +393,7 @@ const TendenciesTab = (() => {
     let items = kind === 'mistakes' ? DB.getMistakes() : DB.getStrengths();
     items = items.filter(x => x.id !== id);
     if (kind === 'mistakes') DB.saveMistakes(items); else DB.saveStrengths(items);
-    render();
+    _rerenderCurrent();
   }
 
   function _inc(kind, id) {
@@ -364,41 +403,205 @@ const TendenciesTab = (() => {
     it.seenCount = (it.seenCount || 0) + 1;
     it.lastSeen = new Date().toISOString().slice(0,10);
     if (kind === 'mistakes') DB.saveMistakes(items); else DB.saveStrengths(items);
-    render();
+    _rerenderCurrent();
   }
 
-  function _autoAnalyze() {
-    const trades = DB.getTrades();
-    if (!trades.length) { alert('No trades to analyze yet — log some trades first.'); return; }
-    const found = DB.analyzePatterns(trades);
-    if (!found.mistakes.length && !found.strengths.length) {
-      alert('No clear patterns found yet. Need at least 5 trades per session/setup to surface a tendency.');
-      return;
+  /* ── Build a compact trade summary for the AI prompt ─── */
+  function _buildTradeSummary(trades) {
+    const closed = trades.filter(t => t.result !== '' && t.result !== undefined && t.result !== null);
+    if (!closed.length) return null;
+
+    const wins = closed.filter(t => parseFloat(t.result) > 0);
+    const losses = closed.filter(t => parseFloat(t.result) < 0);
+    const wr = Math.round(wins.length / closed.length * 100);
+    const totalPL = closed.reduce((s, t) => s + parseFloat(t.result), 0);
+    const rMults = closed.map(t => parseFloat(t.rMultiple)).filter(n => !isNaN(n));
+    const avgR = rMults.length ? (rMults.reduce((a, b) => a + b, 0) / rMults.length).toFixed(2) : 'n/a';
+
+    // By session
+    const bySess = {};
+    closed.forEach(t => {
+      const k = t.session || 'Other';
+      if (!bySess[k]) bySess[k] = { w: 0, n: 0 };
+      bySess[k].n++; if (parseFloat(t.result) > 0) bySess[k].w++;
+    });
+    const sessTable = Object.entries(bySess)
+      .map(([k, v]) => `${k}: ${v.n} trades, ${Math.round(v.w/v.n*100)}% WR`).join(' | ');
+
+    // By setup
+    const bySetup = {};
+    closed.forEach(t => {
+      (t.setupTypes || (t.setupType ? [t.setupType] : ['Untagged'])).forEach(k => {
+        if (!bySetup[k]) bySetup[k] = { w: 0, n: 0 };
+        bySetup[k].n++; if (parseFloat(t.result) > 0) bySetup[k].w++;
+      });
+    });
+    const setupTable = Object.entries(bySetup)
+      .sort((a, b) => b[1].n - a[1].n).slice(0, 8)
+      .map(([k, v]) => `${k}: ${v.n} trades, ${Math.round(v.w/v.n*100)}% WR`).join(' | ');
+
+    // HTF alignment
+    const aligned   = closed.filter(t => (t.direction==='Long'&&t.htfBias==='Bullish') || (t.direction==='Short'&&t.htfBias==='Bearish'));
+    const misaligned = closed.filter(t => (t.direction==='Long'&&t.htfBias==='Bearish') || (t.direction==='Short'&&t.htfBias==='Bullish'));
+    const alignWR   = aligned.length ? Math.round(aligned.filter(t=>parseFloat(t.result)>0).length/aligned.length*100) : 'n/a';
+    const misalWR   = misaligned.length ? Math.round(misaligned.filter(t=>parseFloat(t.result)>0).length/misaligned.length*100) : 'n/a';
+
+    // Rule check stats (if saved on trades)
+    const withChecks = closed.filter(t => t.ruleChecks);
+    let ruleCheckLine = '';
+    if (withChecks.length) {
+      let totalRules = 0, totalChecked = 0;
+      withChecks.forEach(t => {
+        ['scalp','swing','longterm'].forEach(k => {
+          const arr = t.ruleChecks[k] || [];
+          totalRules += arr.length;
+          totalChecked += arr.filter(Boolean).length;
+        });
+      });
+      ruleCheckLine = `\nRule checklist compliance on ${withChecks.length} trades: ${Math.round(totalChecked/totalRules*100)}% of boxes ticked before entry`;
     }
-    const stamp = new Date().toISOString().slice(0,10);
-    const existingM = DB.getMistakes();
-    const exM = new Set(existingM.map(x => x.title));
-    const newMistakes = found.mistakes.filter(m => !exM.has(m.title)).map(m => ({
-      id: 'auto_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-      title: m.title, description: m.description,
-      seenCount: m.seenCount || 0, lastSeen: m.lastSeen || stamp,
-      linkedTradeIds: m.linkedTradeIds || [], dateAdded: stamp, auto: true,
-    }));
-    if (newMistakes.length) DB.saveMistakes([...existingM, ...newMistakes]);
 
-    const existingS = DB.getStrengths();
-    const exS = new Set(existingS.map(x => x.title));
-    const newStrengths = found.strengths.filter(s => !exS.has(s.title)).map(s => ({
-      id: 'auto_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-      title: s.title, description: s.description,
-      seenCount: s.seenCount || 0, lastSeen: s.lastSeen || stamp,
-      linkedTradeIds: s.linkedTradeIds || [], dateAdded: stamp, auto: true,
-    }));
-    if (newStrengths.length) DB.saveStrengths([...existingS, ...newStrengths]);
+    // Revenge trade count
+    const sorted = [...closed].sort((a, b) => new Date(a.date) - new Date(b.date));
+    let revCount = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].date === sorted[i-1].date && parseFloat(sorted[i-1].result) < 0) revCount++;
+    }
 
-    if (typeof toast === 'function') toast(`Added ${newMistakes.length} mistake${newMistakes.length===1?'':'s'} + ${newStrengths.length} strength${newStrengths.length===1?'':'s'}`, 'success');
-    render();
+    // Recent 20 trades (compact)
+    const recent = [...closed].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 20);
+    const recentLines = recent.map(t =>
+      `${t.date} ${t.symbol||'?'} ${t.direction||'?'} ${t.session||'?'} bias:${t.htfBias||'?'} setup:${(t.setupTypes||[t.setupType]||[]).join('+')||'?'} P&L:${parseFloat(t.result||0).toFixed(0)} R:${t.rMultiple||'?'}`
+    ).join('\n');
+
+    return `STATISTICS (${closed.length} closed trades):
+Win rate: ${wr}% | Avg R: ${avgR} | Total P&L: $${totalPL.toFixed(0)}
+Longs: ${closed.filter(t=>t.direction==='Long').length} | Shorts: ${closed.filter(t=>t.direction==='Short').length}
+By session: ${sessTable || 'n/a'}
+By setup: ${setupTable || 'n/a'}
+HTF-aligned (${aligned.length} trades): ${alignWR}% WR | HTF-counter (${misaligned.length} trades): ${misalWR}% WR
+Possible revenge trades (same-day re-entry after loss): ${revCount}${ruleCheckLine}
+
+RECENT 20 TRADES:
+${recentLines}`;
   }
 
-  return { render, _edit, _add, _delete, _inc, _autoAnalyze };
+  /* ── AI-powered analysis ────────────────────────────── */
+  async function _aiAnalyze(trades) {
+    const summary = _buildTradeSummary(trades);
+    if (!summary) return null;
+
+    const rules = DB.getRules();
+    const ruleText = [
+      'PRE-TRADE RULES:\n' + (rules.scalp||[]).map((r,i)=>`${i+1}. ${r.text}`).join('\n'),
+      'RISK RULES:\n'      + (rules.swing||[]).map((r,i)=>`${i+1}. ${r.text}`).join('\n'),
+      'PSYCHOLOGY RULES:\n'+ (rules.longterm||[]).map((r,i)=>`${i+1}. ${r.text}`).join('\n'),
+    ].join('\n\n');
+
+    const system = `You are an expert trading coach analyzing a trader's history against their personal rules. Be specific and data-driven. Return ONLY valid JSON — no markdown, no preamble.`;
+
+    const user = `Analyze this trader's history and identify their key mistakes and strengths.
+
+${ruleText}
+
+${summary}
+
+Return JSON only in this exact format:
+{
+  "mistakes": [
+    {"title": "Short title under 50 chars", "description": "Specific finding with numbers, 1-2 sentences", "seenCount": N}
+  ],
+  "strengths": [
+    {"title": "Short title under 50 chars", "description": "Specific finding with numbers, 1-2 sentences", "seenCount": N}
+  ]
+}
+
+Rules for analysis:
+- Cross-reference trade patterns against the rules listed above — name the specific rule being broken or followed
+- Include 3-6 mistakes and 3-6 strengths
+- Only include findings backed by at least 3 data points
+- seenCount = number of trades/instances this pattern appears
+- Be honest and specific — vague findings are useless`;
+
+    const { text } = await AICoachTab.callClaude({ system, user, maxTokens: 1800 });
+    // Strip any markdown fences then parse
+    const clean = text.replace(/```json|```/g, '').trim();
+    const json = JSON.parse(clean);
+    return json;
+  }
+
+  /* ── Merge helper — updates existing by title, adds new ─ */
+  function _mergeItems(existing, found, stamp) {
+    const updated = [...existing];
+    let addedCount = 0, refreshedCount = 0;
+    found.forEach(f => {
+      const idx = updated.findIndex(x => x.title.toLowerCase() === f.title.toLowerCase());
+      if (idx >= 0) {
+        // Update existing entry
+        updated[idx] = {
+          ...updated[idx],
+          description: f.description || updated[idx].description,
+          seenCount: Math.max(updated[idx].seenCount || 0, f.seenCount || 0),
+          lastSeen: stamp,
+        };
+        refreshedCount++;
+      } else {
+        updated.push({
+          id: 'auto_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+          title: f.title, description: f.description,
+          seenCount: f.seenCount || 1, lastSeen: stamp,
+          linkedTradeIds: [], dateAdded: stamp, auto: true,
+        });
+        addedCount++;
+      }
+    });
+    return { merged: updated, addedCount, refreshedCount };
+  }
+
+  async function _autoAnalyze() {
+    const trades = DB.getTrades();
+    if (!trades.length) { App.toast('No trades to analyze yet — log some first.', 'error'); return; }
+
+    // Show loading state on whichever button triggered this
+    const btns = document.querySelectorAll('[onclick*="_autoAnalyze"]');
+    btns.forEach(b => { b.disabled = true; b.textContent = '⏳ Analysing…'; });
+
+    const stamp = new Date().toISOString().slice(0,10);
+    let found = null;
+
+    try {
+      found = await _aiAnalyze(trades);
+    } catch (e) {
+      console.warn('[tendencies] AI analysis failed, falling back to stats:', e.message);
+      found = null;
+    }
+
+    // Fall back to stats engine if AI failed / no key
+    if (!found || (!found.mistakes?.length && !found.strengths?.length)) {
+      found = DB.analyzePatterns(trades);
+      if (!found.mistakes.length && !found.strengths.length) {
+        App.toast('Not enough data yet — need 5+ trades per session/setup.', 'info');
+        btns.forEach(b => { b.disabled = false; b.textContent = '🧠 Auto-Analyze Trades'; });
+        return;
+      }
+    }
+
+    // Merge into existing
+    const { merged: mergedM, addedCount: mA, refreshedCount: mR } = _mergeItems(DB.getMistakes(), found.mistakes || [], stamp);
+    const { merged: mergedS, addedCount: sA, refreshedCount: sR } = _mergeItems(DB.getStrengths(), found.strengths || [], stamp);
+
+    DB.saveMistakes(mergedM);
+    DB.saveStrengths(mergedS);
+
+    const parts = [];
+    if (mA) parts.push(`${mA} new mistake${mA===1?'':'s'}`);
+    if (mR) parts.push(`${mR} updated`);
+    if (sA) parts.push(`${sA} new strength${sA===1?'':'s'}`);
+    if (sR) parts.push(`${sR} refreshed`);
+    App.toast('Analysis complete — ' + (parts.join(', ') || 'no changes'), 'success');
+
+    _rerenderCurrent();
+  }
+
+  return { render, renderInto, _edit, _add, _delete, _inc, _autoAnalyze };
 })();

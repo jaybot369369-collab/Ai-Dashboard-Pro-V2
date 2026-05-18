@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/styles.css?v=dash7" />
+  <link rel="stylesheet" href="css/styles.css?v=dash12" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -269,6 +269,23 @@
           </div>
         </fieldset>
 
+        <!-- Pre-Trade Rules Check -->
+        <fieldset id="fRulesFieldset">
+          <legend style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none" onclick="App._toggleRulesPanel()">
+            <span>✅ Pre-Trade Rules Check</span>
+            <span id="fRulesCount" style="font-size:.72rem;font-weight:400;color:var(--text-dim)"></span>
+            <span id="fRulesChevron" style="margin-left:auto;font-size:.8rem">▼</span>
+          </legend>
+          <div id="fRulesBody" style="display:none">
+            <div id="fRulesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:14px"></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button type="button" class="btn-primary btn-sm" id="fAnalyseBtn" onclick="App._analyseSetup()">🔍 Analyse Setup</button>
+              <span id="fAnalyseStatus" style="font-size:.8rem;color:var(--text-dim)"></span>
+            </div>
+            <div id="fAnalyseOut" style="margin-top:12px"></div>
+          </div>
+        </fieldset>
+
         <!-- Notes & Screenshot -->
         <fieldset>
           <legend>Notes &amp; Screenshot</legend>
@@ -362,7 +379,7 @@
 <!-- ═══════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════ -->
-<script src="js/data.js?v=lw2"></script>
+<script src="js/data.js?v=lw3"></script>
 <script src="js/data/macro_events.js"></script>
 <script src="js/integrations/telegram.js"></script>
 <script src="js/integrations/r2.js"></script>
@@ -371,29 +388,29 @@
 <script src="js/integrations/cloud_sync.js?v=cs3"></script>
 <script src="js/integrations/repo_writer.js?v=rw1"></script>
 <script src="js/charts.js"></script>
-<script src="js/tabs/dashboard.js?v=dash4"></script>
-<script src="js/tabs/daily_report.js"></script>
+<script src="js/tabs/dashboard.js?v=dash5"></script>
+<script src="js/tabs/daily_report.js?v=dash3"></script>
 <script src="js/tabs/tradelog.js?v=tl2"></script>
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
 <script src="js/tabs/watchlist.js"></script>
-<script src="js/tabs/playbook.js?v=pb2"></script>
+<script src="js/tabs/playbook.js?v=pb4"></script>
 <script src="js/tabs/mistakes.js"></script>
 <script src="js/tabs/strengths.js"></script>
-<script src="js/tabs/tendencies.js?v=tend2"></script>
+<script src="js/tabs/tendencies.js?v=tend4"></script>
 <script src="js/tabs/goals.js?v=goals2"></script>
-<script src="js/tabs/reports.js?v=rep2"></script>
+<script src="js/tabs/reports.js?v=rep4"></script>
 <script src="js/tabs/coach.js?v=co3"></script>
-<script src="js/tabs/ai_coach.js?v=ac7"></script>
-<script src="js/tabs/dojo.js?v=dojo2"></script>
+<script src="js/tabs/ai_coach.js?v=ac9"></script>
+<script src="js/tabs/dojo.js?v=dojo7"></script>
 <script src="js/tabs/quickstats.js"></script>
 <script src="js/tabs/pro_tools.js?v=pt2"></script>
-<script src="js/tabs/rules.js?v=rules2"></script>
-<script src="js/tabs/liquidity_watcher.js?v=lw4"></script>
+<script src="js/tabs/rules.js?v=rules3"></script>
+<script src="js/tabs/liquidity_watcher.js?v=lw5"></script>
 <script src="js/tabs/market_intel.js?v=mi2"></script>
 <script src="js/tabs/fund.js?v=fund3"></script>
 <script src="js/tabs/sensei.js?v=sn2"></script>
-<script src="js/app.js?v=app6-importfix"></script>
+<script src="js/app.js?v=app9"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">
