@@ -40,7 +40,9 @@ const ConfluenceTab = (() => {
     bos_1h:'continuation',
   };
 
-  let _autoOn = (localStorage.getItem('jb_conf_auto') ?? 'on') === 'on';
+  // Manual refresh only by default — data sits in memory until the
+  // user clicks "Pull data". Auto-refresh is opt-in via the toggle.
+  let _autoOn = localStorage.getItem('jb_conf_auto') === 'on';
   let _refreshTimer = null;
   let _lastRun = null;
   let _klineCache = new Map();   // key `${sym}-${tf}` → { t, data }
@@ -410,26 +412,56 @@ const ConfluenceTab = (() => {
     if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
   }
 
+  function _renderEmpty() {
+    const root = document.getElementById('confluenceRoot');
+    if (!root) return;
+    root.innerHTML = `
+      <div class="card" style="text-align:center;padding:48px 24px">
+        <div style="font-size:2.4rem;margin-bottom:12px">🎯</div>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:6px">No data yet</div>
+        <div class="muted" style="font-size:.86rem;max-width:420px;margin:0 auto">
+          Click <strong>Pull Data</strong> above to fetch fresh klines and compute confluence across BTC · ETH · XRP · SOL · SUI. Data sits here until you pull again.
+        </div>
+      </div>`;
+  }
+
+  function _renderLoading() {
+    const root = document.getElementById('confluenceRoot');
+    if (!root) return;
+    root.innerHTML = `
+      <div class="card" style="text-align:center;padding:48px 24px">
+        <div class="muted">Fetching klines and computing confluence…</div>
+      </div>`;
+  }
+
+  // Wrap _refresh so we can show loading state and disable the button mid-fetch
+  async function _pullData() {
+    const btn = document.getElementById('confRefreshBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⟳ Pulling…'; }
+    if (!_lastRun) _renderLoading();
+    try {
+      await _refresh();
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = '⟳ Pull Data'; }
+    }
+  }
+
   function render() {
     const content = document.getElementById('content');
     content.innerHTML = `
       <div class="page-head">
         <div>
           <h1 class="page-title">Confluence</h1>
-          <p class="page-sub">Live ICT alignment across BTC · ETH · XRP · SOL · SUI</p>
+          <p class="page-sub">Manual ICT alignment scan across BTC · ETH · XRP · SOL · SUI</p>
         </div>
         <div class="page-actions">
-          <button class="btn-soft" id="confRefreshBtn">⟳ Refresh</button>
-          <button class="btn-soft" id="confAutoBtn">${_autoOn ? 'Auto ✓' : 'Auto off'}</button>
+          <button class="btn-primary" id="confRefreshBtn">⟳ Pull Data</button>
+          <button class="btn-soft" id="confAutoBtn" title="Toggle 60s auto-refresh">${_autoOn ? 'Auto ✓' : 'Auto off'}</button>
         </div>
       </div>
-      <div id="confluenceRoot">
-        <div class="card" style="text-align:center;padding:32px">
-          <div class="muted">Fetching klines and computing confluence…</div>
-        </div>
-      </div>`;
+      <div id="confluenceRoot"></div>`;
 
-    document.getElementById('confRefreshBtn').addEventListener('click', _refresh);
+    document.getElementById('confRefreshBtn').addEventListener('click', _pullData);
     document.getElementById('confAutoBtn').addEventListener('click', () => {
       _autoOn = !_autoOn;
       localStorage.setItem('jb_conf_auto', _autoOn ? 'on' : 'off');
@@ -437,8 +469,13 @@ const ConfluenceTab = (() => {
       if (_autoOn) _startAutoRefresh(); else _stopAutoRefresh();
     });
 
-    _refresh();
-    _startAutoRefresh();
+    // If we already have data from a prior session in memory, keep it.
+    // Otherwise show the empty state — wait for the user to click Pull Data.
+    if (_lastRun) _renderTable();
+    else _renderEmpty();
+
+    // Only spin up the auto-refresh interval if the user opted in
+    if (_autoOn) _startAutoRefresh();
   }
 
   return { render, _refresh, _scoreAsset };
