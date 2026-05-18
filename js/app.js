@@ -28,6 +28,7 @@ const App = (() => {
     tradelog:   () => TradeLogTab.render(),
     playbook:   () => PlaybookTab.render(),
     rules:      () => RulesTab.render(),
+    confluence: () => ConfluenceTab.render(),
     coach:      () => CoachTab.render(),
     aicoach:    () => AICoachTab.render(),
     goals:      () => GoalsTab.render(),

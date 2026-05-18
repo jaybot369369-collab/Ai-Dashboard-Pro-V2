@@ -52,6 +52,7 @@ const DB = (() => {
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
     { id: 'playbook',   label: 'Playbook',         icon: '📖', builtin: true, group: 'TRADING'  },
     { id: 'rules',      label: 'Rules',            icon: '📜', builtin: true, group: 'TRADING'  },
+    { id: 'confluence', label: 'Confluence',       icon: '🎯', builtin: true, group: 'TRADING'  },
     // 'coach' (Dr. Coach) merged into 'aicoach' on 2026-05-10. Module
     // kept (CoachTab._renderAlerts/Grading/Catalogue exposed) so AI
     // Coach can compose those sections.
