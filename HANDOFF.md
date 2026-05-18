@@ -1,5 +1,23 @@
 # AI Dashboard Pro V2 — Design Handoff
-*Last updated: 2026-05-17 | Picking up from Claude Sonnet 4.6 session*
+*Last updated: 2026-05-19 | Confluence tab added by Opus 4.7 session*
+
+## 🎯 Confluence tab (added 2026-05-19)
+
+New TRADING-group tab that runs live ICT pattern detection across BTC/ETH/XRP/SOL/SUI and ranks alignment. **Manual pull only** (button: "⟳ Pull Data"). See `CLAUDE.md` § "Confluence tab" for full details.
+
+**Files:**
+- `js/lib/ict_detectors.js` (`?v=ictd1`) — pure detectors (FVG / OB / Sweep / CISD / BOS / Bias / ADX / nearLevel / killzone)
+- `js/tabs/confluence.js` (`?v=conf4`) — engine + UI + embedded user guide at bottom
+- CSS in `styles.css` (`?v=dash13`) — `.conf-*` block at end
+
+**Klines:** Bybit (primary) → Binance → OKX fallback. 8s timeout per attempt. Binance is geo-blocked in US so Bybit is the real source.
+
+**Registered:** `data.js` DEFAULT_TABS (`?v=lw4`), `app.js` RENDERERS (`?v=app10`).
+
+**Verification last done:** pushed to github.io main, syntax-check passes, OBxADX bot selftest still passes. User confirmed tab renders. Multi-source fix shipped after user reported Binance hanging on first pull.
+
+---
+
 
 ## What this project is
 A tab-by-tab visual redesign of `_CLAUDE PROJECTS/AI Dashboard Pro V2/` to match the Claude.ai exported design reference at `~/Downloads/AI Dashboard Pro - Single File.html` (decoded to `/tmp/claude_design_decoded.html`).
