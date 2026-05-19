@@ -1,304 +1,645 @@
 {
-  "generated": "2026-05-18T11:55:00Z",
-  "date": "2026-05-18",
-  "news_as_of": "2026-05-18T11:55:00Z",
-  "fear_greed": { "score": 28, "label": "Fear" },
-  "context": "Post-CLARITY sell-the-news flush confirmed. Bill cleared Senate Banking on May 14 and crypto has sold off board-wide: BTC -4.6% on the week, XRP -4.3%, SUI -17% from its ETF-inflow highs, ETH -8.5%. Fear & Greed dropped to 28 (Fear) — first sub-30 reading since April. This is a macro-driven pullback: DXY recovering, US equities soft, yields mixed. Key binary this week is FOMC Meeting Minutes (Wed May 20, 14:00 ET) — any hawkish tone extends crypto weakness toward BTC $74.8k; dovish tilt refuels a recovery to $80k+. Until then: reduce size, trade tight ranges, no new longs above key resistance.",
+  "generated": "2026-05-19T10:26:09Z",
+  "date": "2026-05-19",
+  "news_as_of": "2026-05-19T05:50:00Z",
+  "fear_greed": {
+    "score": 25,
+    "label": "Extreme Fear"
+  },
+  "context": "Tuesday May 19 pre-market (Asian session, post-Monday liq cascade). Monday's NY open didn't bounce — instead the leg lower extended through Iran-tension headlines, dragging BTC sub-$77K and triggering an additional $657M in 24h crypto liquidations (per CoinDesk). Fear & Greed dropped from 28 (Fear) Monday to 25 (EXTREME FEAR) Tuesday — a 3-point slide in 24 hours typically signals capitulation. Live tape: BTC $77,000 (-1.36%), ETH $2,109 (-3.23%, worst major again, lost $2,100 demand cluster overnight), XRP $1.39 (-1.60%), SUI ~$1.05 area. CLARITY: Banking + Agriculture committee staff merger negotiations underway THIS WEEK, but multiple sources now confirm the merged-bill floor vote pushed to EARLY JUNE — pre-Memorial Day vote effectively dead. Macro backdrop unchanged: Powell out, Warsh in but tone-only first speech, CPI 3.8% / PPI 6.0% sitting on the FOMC desk, CME 97% rate-HOLD for June 16-17. Trade plan today: ZERO momentum entries until we see capitulation candle + reclaim. ETH bias remains SHORT below $2,100. SUI's $1.05 floor is the basket tell — if it breaks $1.03 the cycle target shifts to $0.95. BTC's $76K → $74K → $70K stairstep is now in play. The only near-term catalyst: CME SUI futures launch May 29 (10 days). Otherwise the macro headwind continues to dominate the regulatory tailwind.",
   "tickers": [
     {
       "sym": "XRP",
-      "price": "$1.39",
-      "chg24": "-2.33%",
-      "chg7": "-4.32%",
-      "vol": "$1.79B",
-      "mcap": "$85.98B",
-      "bias": "NEUTRAL",
+      "price": "$1.37",
+      "chg24": "-0.42%",
+      "chg7": "-6.26%",
+      "vol": "$1.78B",
+      "mcap": "$84.85B",
+      "bias": "LONG",
       "priority": "HIGH",
-      "thesis": "XRP flushed from the CLARITY markup high (~$1.65 intraday May 14) all the way back to $1.38-$1.39 — the exact breaker block support called last week. Textbook sell-the-news. Now the decision: does $1.38 hold as institutional re-accumulation floor, or is this the start of a deeper flush to $1.28? Coinbase XRP perp funding is turning slightly negative — first sign of capitulation, historically a near-term buy signal. Hold cash or very small long at $1.38-$1.40 with stop below $1.33. No position sizing above 50% until FOMC Minutes clears Wednesday.",
+      "thesis": "XRP live: $1.37 (3-source median, 0.34% cross-exchange divergence). No fresh (≤24h) XRP-specific headlines in the pool — see LIVE FEED above for cross-asset context.",
       "levels": [
-        ["Resistance 3", "$1.65", "CLARITY markup intraday high (May 14)"],
-        ["Resistance 2", "$1.55", "Breakout level — still unreclaimed"],
-        ["Resistance 1", "$1.43", "24h high / immediate resistance"],
-        ["Spot Price",   "$1.39", "Current — testing breaker block"],
-        ["Support 1",   "$1.38", "24h low / breaker block defense"],
-        ["Support 2",   "$1.32", "Weekly demand zone"],
-        ["Support 3",   "$1.28", "Deeper demand — pre-markup base"],
-        ["Support 4",   "$1.15", "Monthly open / macro pivot"]
+        [
+          "R3 — Broken monthly ceiling",
+          "$1.50",
+          "CLARITY-rally extension, now overhead supply"
+        ],
+        [
+          "R2 — Broken monthly resist",
+          "$1.45",
+          "Lost on Saturday — now sell-side liq trigger"
+        ],
+        [
+          "R1 — 24h high",
+          "$1.42",
+          "Sunday/Monday Asian session high"
+        ],
+        [
+          "─── Spot ───",
+          "$1.37",
+          "Current price (live-fetched at 10:26Z)"
+        ],
+        [
+          "S1 — 24h low / Asian",
+          "$1.36",
+          "Sunday Asian session low / first demand"
+        ],
+        [
+          "S2 — Weekly demand",
+          "$1.30",
+          "Pre-CLARITY support zone"
+        ],
+        [
+          "S3 — Cycle floor",
+          "$1.20",
+          "April low / hard structural support"
+        ]
       ],
       "setup": {
-        "entry": "$1.38–$1.40 (already at entry if $1.38 holds — limit into breaker) OR stand aside until FOMC Wednesday",
-        "stop": "$1.33 (below weekly demand, 1.5% buffer)",
-        "tp1": "$1.48",
-        "tp2": "$1.55",
-        "invalidation": "Daily close below $1.35 — confirms 'sell the news' flush extends to $1.28"
+        "entry": "$1.40 – $1.43  (ICT OTE 61.8–70.5% of $1.35–$1.49 swing; paper trade Wed+Thu killzones)",
+        "stop": "$1.37  (padded below $1.38 OTE 79%, outside visible $1.40 round-number cluster)",
+        "tp1": "$1.52  (R:R ~2.5R — exit 50% at prior swing high / markup session open)",
+        "tp2": "$1.60  (R:R ~3.9R — hold 30% runner on post-CLARITY follow-through)",
+        "invalidation": "Daily close below $1.36; or CLARITY markup delayed past May 21 Memorial Day recess"
       },
       "catalysts": [
-        "FOMC Minutes Wed — any hawkish tone kills the XRP re-accumulation bid; dovish = immediate recovery",
-        "Coinbase XRP perp funding turning negative — historically precedes near-term low and reversal",
-        "Floor Senate vote timeline uncertain (2–6 weeks) — sustained catalyst removed, volatility compresses",
-        "3 whale wallets (50M+ XRP each) moved to Binance in last 48h — near-term supply overhang",
-        "Ripple ODL corridor volume still elevated post-markup — structural demand underpinning $1.38 floor"
+        "⚡ CLARITY Act markup — Senate Banking Committee, Thu May 14, 10:30 AM ET (BINARY trigger; Polymarket 62%)",
+        "Big-bank groups (ICBA/BPI/ABA) rejected Tillis-Alsobrooks stablecoin compromise May 9 — markup risk",
+        "Senate Banking 309-page draft released May 11 — bill in the flesh, amendments now visible",
+        "XRP spot ETF inflows $34.2M week of May 9 — institutional pre-positioning continues",
+        "Korean Kimchi premium hit 1.98% on May 7 (highest since late Feb) — XRP premium wider than BTC"
       ],
       "liq_above": [
-        ["Daily", "$1.43", "24h high — breakout stops above"],
-        ["4H",    "$1.48", "Last week's support, now first resistance"],
-        ["1H",    "$1.41", "Session high cluster"]
+        [
+          "1D",
+          "~$1.52",
+          "Est. ~$120M short liq cluster at swing high"
+        ],
+        [
+          "1W",
+          "~$1.65",
+          "Est. ~$280M shorts above post-CLARITY range"
+        ]
       ],
       "liq_below": [
-        ["Daily", "$1.35", "Heavy stop cluster below breaker block"],
-        ["4H",    "$1.38", "24h low / current floor"],
-        ["1H",    "$1.39", "Asia session VWAP"]
+        [
+          "1D",
+          "~$1.38",
+          "Est. ~$95M long liq — stop-hunt zone at OTE"
+        ],
+        [
+          "1W",
+          "~$1.30",
+          "Est. ~$210M long liq below weekly demand"
+        ]
       ],
       "charts": {
-        "daily": "charts/XRP_0518_d.png",
-        "h1":    "charts/XRP_0518_h.png",
-        "m15":   "charts/XRP_0518_m.png"
+        "daily": "charts/XRP_0519_d.png",
+        "h1": "charts/XRP_0519_h.png",
+        "m15": "charts/XRP_0519_m.png"
       },
-      "live_headlines": []
+      "live_headlines": [
+        {
+          "headline": "XRP Price Prediction as the CLARITY Act Advances - Yahoo Finance",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Curious About What The CLARITY Act Says About XRP? Here Are The Parts To Focus ON - TradingView",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "$Ripple (XRP.CC)$ July 4 Trump will sign the clarity act it'... - moomoo Community - Moomoo",
+          "source": "Google News",
+          "age_h": 0
+        }
+      ]
     },
     {
       "sym": "BTC",
-      "price": "$77,191",
-      "chg24": "-1.51%",
-      "chg7": "-4.63%",
-      "vol": "$31.61B",
-      "mcap": "$1.55T",
+      "price": "$76,729",
+      "chg24": "-0.05%",
+      "chg7": "-5.03%",
+      "vol": "$38.97B",
+      "mcap": "$1.54T",
       "bias": "NEUTRAL",
       "priority": "HIGH",
-      "thesis": "BTC confirmed the triple-rejection at $82k and retraced below $78k — the daily demand zone from early May. The 24h low at $76,696 is now critical intraday support. FOMC Minutes (Wed) is the macro binary: hawkish tone = flush to $74.8k (breaker block); dovish = recovery back toward $80k. Spot ETF flows were flat-to-negative last two sessions — the institutional bid has paused. Range-trade $75k–$79k until Wednesday. No new longs above $78,444 (24h high) without FOMC clarity.",
+      "thesis": "BTC live: $76,809 (3-source median, 0.11% cross-exchange divergence). No fresh (≤24h) BTC-specific headlines in the pool — see LIVE FEED above for cross-asset context.",
       "levels": [
-        ["Resistance 3", "$82,000",  "Critical breakout — 3x rejected"],
-        ["Resistance 2", "$80,000",  "Psychological / old support-turned-resistance"],
-        ["Resistance 1", "$78,444",  "24h high / first ceiling"],
-        ["Spot Price",   "$77,191",  "Current"],
-        ["Support 1",   "$76,696",  "24h low / intraday floor"],
-        ["Support 2",   "$75,000",  "Round-number demand"],
-        ["Support 3",   "$74,800",  "Breaker block"],
-        ["Support 4",   "$72,500",  "Monthly open / macro pivot"]
+        [
+          "R3 — Broken $80K floor",
+          "$80,000",
+          "Lost Saturday — now sell-side supply / key reclaim level"
+        ],
+        [
+          "R2 — Weekly mid",
+          "$78,500",
+          "Sunday lower-high / interim resistance"
+        ],
+        [
+          "R1 — 24h high",
+          "$77,800",
+          "Monday Asian session high"
+        ],
+        [
+          "─── Spot ───",
+          "$76,729",
+          "Current price (live-fetched at 10:26Z)"
+        ],
+        [
+          "S1 — 24h low / Asian",
+          "$76,200",
+          "Sunday Asian flush low / first demand"
+        ],
+        [
+          "S2 — Daily demand",
+          "$74,000",
+          "Next demand cluster on the way down"
+        ],
+        [
+          "S3 — Cycle extreme",
+          "$70,000",
+          "Round-number magnet / hard bottom scenario"
+        ]
       ],
       "setup": {
-        "entry": "$76,500–$77,000 (limit into 24h low / daily demand) OR wait for 4H close above $79,000 post-FOMC",
-        "stop": "$74,800 (below breaker block, 1.8% buffer)",
-        "tp1": "$80,000",
-        "tp2": "$82,000",
-        "invalidation": "Daily close below $75,000 — confirms range breakdown"
+        "entry": "$79,400 – $80,000  (OTE pullback — reload on post-CPI flush into the $80K-cluster demand)",
+        "stop": "$78,800  (below $79,200 daily demand; pads the round-number stop hunt)",
+        "tp1": "$81,800  (R:R ~1.5R — take 50% at first major resistance retest)",
+        "tp2": "$83,500  (R:R ~3.0R — hold runner; Inv H&S neckline at $82,500 is the gate)",
+        "invalidation": "Daily close below $79,200; or Wednesday PPI also prints hot (>+0.4% MoM)"
       },
       "catalysts": [
-        "FOMC Minutes Wed 14:00 ET — primary macro driver this week; dovish = BTC $80k+; hawkish = $74.8k",
-        "Spot BTC ETF flows paused (flat-to-negative 2 sessions) — need return of IBIT/FBTC inflows to clear $82k",
-        "CME BTC OI down ~8% week-over-week — institutional de-risking, not retail panic",
-        "Senate CLARITY Act now on floor calendar — 2–6 week wait; sustained crypto catalyst removed",
-        "Korean Kimchi premium compressed to +0.3% (was +0.8% last week) — Asian retail not stepping in"
+        "⚡ April CPI RELEASED HOT — headline 3.8% (vs 3.7%), core 2.8% (vs 2.7%); Fed cuts pushed out",
+        "Warsh final Senate confirmation vote expected Tue/Wed — dovish-pivot catalyst (if it lands)",
+        "Wednesday PPI is the second inflation confirmation — hot PPI = $79K test risk",
+        "BTC ETF April record: $2.44B net inflows, IBIT holds 812K BTC (~$62B AUM)",
+        "Exchange reserves 6-year low (2.693M BTC, -170K in 6 months) — supply structurally thin (this is what just held the line)"
       ],
       "liq_above": [
-        ["Daily", "$78,444", "24h high — breakout stops above"],
-        ["4H",    "$79,000", "Round-number stop cluster"],
-        ["1H",    "$78,000", "Session high"]
+        [
+          "1D",
+          "~$84,000",
+          "Est. ~$800M short liq squeeze zone above weekly resistance"
+        ],
+        [
+          "1W",
+          "~$86,500",
+          "Est. ~$1.4B shorts clustered above monthly range"
+        ]
       ],
       "liq_below": [
-        ["Daily", "$76,000", "Round-number stop cluster"],
-        ["4H",    "$76,696", "24h low IRL"],
-        ["1H",    "$77,000", "Round number / Asia VWAP"]
+        [
+          "1D",
+          "~$79,500",
+          "Est. ~$650M long liq at $80K round number cluster"
+        ],
+        [
+          "1W",
+          "~$77,800",
+          "Est. ~$1.1B longs below weekly demand zone"
+        ]
       ],
       "charts": {
-        "daily": "charts/BTC_0518_d.png",
-        "h1":    "charts/BTC_0518_h.png",
-        "m15":   "charts/BTC_0518_m.png"
+        "daily": "charts/BTC_0519_d.png",
+        "h1": "charts/BTC_0519_h.png",
+        "m15": "charts/BTC_0519_m.png"
       },
-      "live_headlines": []
+      "live_headlines": [
+        {
+          "headline": "Live markets: Bitcoin gives up all of May's gains, slipping below $77,000 - CoinDesk",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Bitcoin Hits Two-Week Low as Liquidations Top Half a Billion - Bloomberg.com",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Bitcoin Depot, North America's largest bitcoin ATM operator, files for bankruptcy - CoinDesk",
+          "source": "Google News",
+          "age_h": 0
+        }
+      ]
     },
     {
       "sym": "SUI",
-      "price": "$1.04",
-      "chg24": "-2.70%",
-      "chg7": "-17.25%",
-      "vol": "$0.48B",
-      "mcap": "$4.18B",
+      "price": "$1.06",
+      "chg24": "+3.37%",
+      "chg7": "-16.74%",
+      "vol": "$0.51B",
+      "mcap": "$4.27B",
       "bias": "NEUTRAL",
-      "priority": "MEDIUM",
-      "thesis": "SUI gave back most of its CLARITY-week gains (-17% from $1.25 high) on heavy profit-taking. Structural drivers are unchanged: ~74% of supply staked, three US spot ETFs trading (TSUI/GSUI/SUIS), Mysticeti V2 upgrade, CME futures listing pending. The selloff is floating-supply liquidation, not staker exits. $1.00 is the key psychological floor — a daily close below it would be the first signal of structural damage. If $1.00–$1.04 holds through FOMC Wednesday, next rally leg targets $1.12+.",
+      "priority": "MED",
+      "thesis": "SUI live: $1.07 (3-source median, 0.22% cross-exchange divergence). No fresh (≤24h) SUI-specific headlines in the pool — see LIVE FEED above for cross-asset context.",
       "levels": [
-        ["Resistance 2", "$1.22",  "24h high from CLARITY week"],
-        ["Resistance 1", "$1.073", "24h high today"],
-        ["Spot Price",   "$1.04",  "Current — pullback zone"],
-        ["Support 1",   "$1.029", "24h low"],
-        ["Support 2",   "$1.00",  "Psychological round-number floor"],
-        ["Support 3",   "$0.96",  "Daily MA200 proxy"],
-        ["Support 4",   "$0.88",  "Macro pivot / pre-ETF base"]
+        [
+          "R3 — Broken OTE",
+          "$1.20",
+          "Lost last week — overhead supply / first reclaim target"
+        ],
+        [
+          "R2 — Broken $1.13 demand",
+          "$1.13",
+          "Lost Saturday — old support flipped to resistance"
+        ],
+        [
+          "R1 — 24h high",
+          "$1.08",
+          "Sunday rejection / immediate resistance"
+        ],
+        [
+          "─── Spot ───",
+          "$1.06",
+          "Current price (live-fetched at 10:26Z)"
+        ],
+        [
+          "S1 — 24h low / Asian",
+          "$1.03",
+          "Monday Asian session demand"
+        ],
+        [
+          "S2 — Round number",
+          "$1.00",
+          "Psychological floor / next sell-side liq"
+        ],
+        [
+          "S3 — Cycle extreme",
+          "$0.95",
+          "April low / hard structural support"
+        ]
       ],
       "setup": {
-        "entry": "$1.00–$1.03 (limit into psychological support zone)",
-        "stop": "$0.95 (below daily MA200 proxy, 4.5% buffer for SUI volatility)",
-        "tp1": "$1.073",
-        "tp2": "$1.15",
-        "invalidation": "Daily close below $1.00 — ETF narrative losing momentum"
+        "entry": "$1.19 – $1.22  (ICT OTE 61.8–70.5% on $1.15–$1.32 micro-swing; wait for pullback)",
+        "stop": "$1.13  (below $1.15 micro-support; padded outside obvious $1.15 round cluster)",
+        "tp1": "$1.32  (R:R ~1.4R — at 24h high, take 50%)",
+        "tp2": "$1.45  (R:R ~3.0R — momentum extension; hold runner toward weekly extension)",
+        "invalidation": "Daily close below $1.10; ETF flows turn negative; SUI Group Holdings dilutes treasury"
       },
       "catalysts": [
-        "TSUI/GSUI/SUIS ETF daily flows — track via SoSoValue; positive flow = re-accumulation signal at $1.00",
-        "Staking ratio remains ~74% despite selloff — no unusual un-staking, structural bull case intact",
-        "CME SUI futures listing expected late-May quarterly review — hard catalyst approaching",
-        "Mysticeti V2 consensus upgrade rolling out — reduced latency drives DeFi TVL",
-        "SUI Group Holdings (Nasdaq) adding to staking-treasury balance sheet"
+        "⚡ CME SUI futures launch CONFIRMED for May 29 — 17 days out; institutional access mechanism",
+        "SUI Group Holdings (Nasdaq) staked full 108.7M SUI treasury (~2.7% float) — drove ~50% short squeeze + $3M liq",
+        "Three US spot ETFs trading — 21shares TSUI (Nasdaq), Grayscale GSUI (NYSE), Canary SUIS (Nasdaq)",
+        "Mysten Labs shipping confidential transactions + free stablecoin transfers — mainstream payment use-case",
+        "TVL $1B leads Aptos $500M with 2× monthly active devs — Move ecosystem race won outright"
       ],
       "liq_above": [
-        ["Daily", "$1.073", "24h high — stops above"],
-        ["4H",    "$1.10",  "Previous demand, now first resistance"],
-        ["1H",    "$1.056", "Session high cluster"]
+        [
+          "1D",
+          "~$1.35",
+          "Est. ~$40M short liq just above 24h high"
+        ],
+        [
+          "1W",
+          "~$1.45",
+          "Est. ~$90M shorts at weekly round-number target"
+        ]
       ],
       "liq_below": [
-        ["Daily", "$1.00",  "Psychological stop cluster"],
-        ["4H",    "$1.029", "24h low IRL"],
-        ["1H",    "$1.035", "Asia VWAP"]
+        [
+          "1D",
+          "~$1.22",
+          "Est. ~$35M long liq at OTE entry zone — stop-hunt risk"
+        ],
+        [
+          "1W",
+          "~$1.10",
+          "Est. ~$75M longs below weekly demand / hard floor"
+        ]
       ],
       "charts": {
-        "daily": "charts/SUI_0518_d.png",
-        "h1":    "charts/SUI_0518_h.png",
-        "m15":   "charts/SUI_0518_m.png"
+        "daily": "charts/SUI_0519_d.png",
+        "h1": "charts/SUI_0519_h.png",
+        "m15": "charts/SUI_0519_m.png"
       },
-      "live_headlines": []
+      "live_headlines": [
+        {
+          "headline": "Sui outperforms bitcoin and ether as Mysten Labs promotes privacy tech - CoinDesk",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Mysten Labs Launches Blockchain Platform Sui - Blockworks",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Mysten Labs' Abiodun says Sui processed over $1 trillion in stablecoin volume since August as it eyes free, private payments - The Block",
+          "source": "Google News",
+          "age_h": 0
+        }
+      ]
     },
     {
       "sym": "ETH",
-      "price": "$2,131",
-      "chg24": "-2.71%",
-      "chg7": "-8.50%",
-      "vol": "$13.06B",
-      "mcap": "$257.31B",
-      "bias": "NEUTRAL",
-      "priority": "LOW",
-      "thesis": "ETH continues to be the week's biggest laggard: -8.5% while the CLARITY narrative catalyzed everything else. ETH/BTC ratio bleeding toward 0.027 — a 5-year low. No near-term catalyst: Pectra upgrade timeline murky, staking yield at 2.8%, ETF flows net-negative 3 of last 5 days. $2,108 (today's low) is key intraday support; close below $2,100 opens the weekly demand zone at $2,000–$2,050. Stay flat or short the ETH/BTC pair — do not bottom-fish without a catalyst.",
+      "price": "$2,113",
+      "chg24": "-0.07%",
+      "chg7": "-7.73%",
+      "vol": "$16.96B",
+      "mcap": "$254.94B",
+      "bias": "SHORT",
+      "priority": "MED",
+      "thesis": "ETH live: $2,116 (3-source median, 0.11% cross-exchange divergence). No fresh (≤24h) ETH-specific headlines in the pool — see LIVE FEED above for cross-asset context.",
       "levels": [
-        ["Resistance 2", "$2,320",   "Last week's 24h high"],
-        ["Resistance 1", "$2,195",   "24h high today"],
-        ["Spot Price",   "$2,131",   "Current"],
-        ["Support 1",   "$2,108",   "24h low / intraday floor"],
-        ["Support 2",   "$2,050",   "Weekly demand zone"],
-        ["Support 3",   "$1,950",   "Breaker block"],
-        ["Support 4",   "$1,800",   "Monthly open"]
+        [
+          "R3 — Broken $2,300 floor",
+          "$2,300",
+          "Lost mid-week — major reclaim target"
+        ],
+        [
+          "R2 — Broken $2,250 demand",
+          "$2,250",
+          "Stop-out level from Wed short setup"
+        ],
+        [
+          "R1 — 24h high",
+          "$2,180",
+          "Sunday lower-high / immediate resistance"
+        ],
+        [
+          "─── Spot ───",
+          "$2,113",
+          "Current price (live-fetched at 10:26Z)"
+        ],
+        [
+          "S1 — 24h low / Asian",
+          "$2,100",
+          "Monday Asian demand cluster"
+        ],
+        [
+          "S2 — Weekly support",
+          "$2,050",
+          "Pre-rally swing low / next downside target"
+        ],
+        [
+          "S3 — Cycle extreme",
+          "$1,950",
+          "Round-number magnet / hard bottom scenario"
+        ]
       ],
       "setup": {
-        "entry": "Stand aside spot. Optional: short ETH/BTC pair while ratio below 0.0280.",
-        "stop": "ETH/BTC 0.0295",
-        "tp1": "$2,050",
-        "tp2": "ETH/BTC 0.026",
-        "invalidation": "ETH daily close above $2,250 or ETH/BTC reclaim of 0.0290"
+        "entry": "$2,310 – $2,335  (SHORT into rejection rallies — fade lower-high at 24h high $2,343)",
+        "stop": "$2,360  (above $2,343 reclaim + buffer; invalidates the failed-retest thesis)",
+        "tp1": "$2,210  (R:R ~3.5R — take 50% at round-number support test)",
+        "tp2": "$2,080  (R:R ~7R — hold runner toward weekly demand at $2,050)",
+        "invalidation": "Daily close back above $2,343; or BTC reclaims $82K with strong volume"
       },
       "catalysts": [
-        "ETH spot ETF flows net-negative 3 of last 5 sessions — no institutional catalyst present",
-        "Pectra upgrade timeline shifting — no confirmed activation date removes near-term excitement",
-        "L2 TVL at ~$48B combined but doesn't translate to ETH mainnet price",
-        "Staking yield compressed to 2.8% — not attractive enough to pull new capital in",
-        "Watch RWA tokenization on ETH mainnet for any sudden narrative catalyst"
+        "Wednesday PPI is the second inflation confirmation — hot PPI = $2,200 test",
+        "Glamsterdam upgrade targeting June 2026 — 3× L1 throughput; not yet priced in (the only longer-term offset)",
+        "140K ETH whale accumulation ($322M in 96h) — now resolving as distribution given the $2,300 break",
+        "37M ETH staked (~30% supply) — removes structural sell pressure long-term (not a short-term offset)",
+        "ETH/BTC ratio recovery requires BTC reclaim $82K AND altcoin rotation — neither in play today"
       ],
       "liq_above": [
-        ["Daily", "$2,195", "24h high — stops above"],
-        ["4H",    "$2,170", "Session high cluster"],
-        ["1H",    "$2,150", "Round number"]
+        [
+          "1D",
+          "~$2,420",
+          "Est. ~$420M short liq at key breakout resistance"
+        ],
+        [
+          "1W",
+          "~$2,600",
+          "Est. ~$850M shorts above monthly range"
+        ]
       ],
       "liq_below": [
-        ["Daily", "$2,100", "Round-number stop cluster"],
-        ["4H",    "$2,108", "24h low IRL"],
-        ["1H",    "$2,120", "Asia VWAP"]
+        [
+          "1D",
+          "~$2,200",
+          "Est. ~$380M long liq at round-number cluster"
+        ],
+        [
+          "1W",
+          "~$2,050",
+          "Est. ~$720M longs below weekly demand"
+        ]
       ],
       "charts": {
-        "daily": "charts/ETH_0518_d.png",
-        "h1":    "charts/ETH_0518_h.png",
-        "m15":   "charts/ETH_0518_m.png"
+        "daily": "charts/ETH_0519_d.png",
+        "h1": "charts/ETH_0519_h.png",
+        "m15": "charts/ETH_0519_m.png"
       },
-      "live_headlines": []
+      "live_headlines": [
+        {
+          "headline": "What’s Dragging Ethereum Down? BitMine’s Tom Lee Has an Answer - Yahoo Finance",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Vitalik Buterin says AI 'formal verification' could actually make crypto much more secure - CoinDesk",
+          "source": "Google News",
+          "age_h": 0
+        },
+        {
+          "headline": "Ethereum’s onchain conviction grows as staked ETH rises, even as price underperforms - The Block",
+          "source": "Google News",
+          "age_h": 0
+        }
+      ]
     }
   ],
   "macro_today": [
     {
-      "date": "Mon May 19 · 10:00 ET",
-      "name": "Pending Home Sales m/m",
-      "impact": "ORANGE",
-      "desc": "Housing demand indicator. Consensus +1.2% vs prev +1.5%. Low direct crypto impact but feeds DXY sentiment."
+      "date": "Fri 22 May",
+      "name": "⏳ Revised UoM Consumer Sentiment",
+      "impact": "🔴 MED",
+      "desc": "forecast 48.3 | prev 48.2"
     },
     {
-      "date": "Tue May 20 · 14:00 ET",
-      "name": "FOMC Meeting Minutes ⚡",
-      "impact": "RED",
-      "desc": "Most critical event this week. Minutes from the May 6–7 meeting where rates were held. Hawkish language (higher-for-longer) = DXY up, BTC $74.8k target. Dovish tilt = recovery to $80k+. Options pricing a 3% surprise premium — unusually high for a Minutes event."
+      "date": "Thu 21 May",
+      "name": "⏳ Philly Fed Manufacturing Index",
+      "impact": "🔴 MED",
+      "desc": "forecast 17.8 | prev 26.7"
     },
     {
-      "date": "Wed May 21 · 08:30 ET",
-      "name": "Unemployment Claims",
-      "impact": "ORANGE",
-      "desc": "Consensus 210K vs prev 211K. Low claims = strong labor = less urgency to cut. High claims = risk-on."
+      "date": "Thu 21 May",
+      "name": "⏳ Unemployment Claims",
+      "impact": "🔴 MED",
+      "desc": "forecast 210K | prev 211K"
     },
     {
-      "date": "Wed May 21 · 09:45 ET",
-      "name": "Flash Manufacturing PMI",
-      "impact": "ORANGE",
-      "desc": "Consensus 53.6 vs prev 54.0. Slight contraction expected. PMI below 50 would be risk-off signal."
+      "date": "Thu 21 May",
+      "name": "⏳ Flash Manufacturing PMI",
+      "impact": "🔴 MED",
+      "desc": "forecast 53.7 | prev 54.0"
     },
     {
-      "date": "Wed May 21 · 09:45 ET",
-      "name": "Flash Services PMI",
-      "impact": "ORANGE",
-      "desc": "Consensus 51.1 vs prev 51.3. Services above 50 keeps employment narrative intact."
+      "date": "Thu 21 May",
+      "name": "⏳ Flash Services PMI",
+      "impact": "🔴 MED",
+      "desc": "forecast 51.1 | prev 51.3"
     },
     {
-      "date": "Thu May 22 · 10:00 ET",
-      "name": "Revised UoM Consumer Sentiment",
-      "impact": "ORANGE",
-      "desc": "Consensus 48.2 (unchanged from preliminary). Sub-50 confirms consumer caution — historically mild risk-off for crypto."
+      "date": "Tue 19 May",
+      "name": "⏱ Pending Home Sales m/m",
+      "impact": "🔴 LIVE",
+      "desc": "forecast 1.0% | prev 1.5%"
+    },
+    {
+      "date": "Wed 20 May",
+      "name": "⏳ FOMC Meeting Minutes",
+      "impact": "🔴 HIGH",
+      "desc": "high-impact USD event"
     }
   ],
   "insights": [
     {
-      "title": "Post-CLARITY Sell-the-News — Textbook, Not Over",
-      "body": "The May 14 markup-day played out exactly as modeled: XRP tagged $1.65, BTC hit $82k, both reversed hard. Fear & Greed is now 28 (Fear) vs ~65 on markup day. This is classic event-driven mean reversion — the easy money was made on the run-up. The second trade is buying the post-flush re-accumulation once OI bleeds out and funding goes negative. Watch for Coinbase premium returning to +0.2% and XRP funding flipping negative — that's the re-entry signal, likely post-FOMC Wednesday."
+      "title": "Sentiment deepening: F&G 25 (Extreme Fear), Δ -3 vs yesterday",
+      "body": "Crypto Fear & Greed Index printed 25 (Extreme Fear) at 10:26Z — -3 vs yesterday's reading. F&G under 30 historically aligns with bounce-watch zones; under 20 with capitulation. Combined with the recent price action and live headlines (see LIVE FEED), the regime is risk-off until a sweep-and-reclaim candle prints. No new longs until F&G stops falling AND BTC reclaims its 24h high."
     },
     {
-      "title": "FOMC Minutes Wednesday — Crypto's Next Binary",
-      "body": "FOMC Minutes from the May 6–7 meeting drop Wednesday 14:00 ET. Options market is pricing a 3% surprise premium — unusually high for a Minutes release (normal is ~1.5%). The May meeting held rates; the question is what tone the minutes strike about future cuts. Hawkish language around inflation persistence = DXY recovery, BTC flush to $74.8k. Dovish signals = immediate crypto reversal. Position light Monday–Tuesday, add after Wednesday print resolves."
+      "title": "Cross-exchange divergence on XRP: 0.34%",
+      "body": "Multi-source price triangulation (CoinGecko + Binance + Bybit) shows XRP divergence of 0.34% at 10:26Z. Divergence >0.5% across major venues is a thin-liquidity / arb-window signal. At 0.34% it's still in normal range but worth monitoring — widening = exit signal for sized trades on XRP."
     },
     {
-      "title": "XRP at the Exact Breaker Block — Watch Carefully",
-      "body": "The Support 2 level called in last week's report ($1.38) is exactly where XRP is trading today. This is a classic ICT breaker block defense: the institutional accumulation that drove the pre-markup bid is providing a floor. Three data points to watch: (1) funding going negative on Coinbase perps — early capitulation, (2) whale wallets NOT adding more supply to exchanges, (3) XRP holding $1.38 on the daily close. Two of three hold = viable long entry at current levels with $1.33 stop."
+      "title": "Grassroots: top Reddit posts trending now",
+      "body": "Highest-engagement post per tracked subreddit (real-time): r/CryptoCurrency: \"Daily Crypto Discussion - May 18, 2026 (GMT+0)\" (↑6) · r/Bitcoin: \"Bitcoin Newcomers FAQ - Please read!\" (↑174) · r/ethfinance: \"Ethfinance Daily is now the /r/ethereum daily!\" (↑164) · r/XRP: \"XRP Subreddit Rules, Partner Subs, and Helpful Links\" (↑410) · r/suinetwork: \"r/suinetwork Lounge\" (↑2). Retail/grassroots concerns often lead institutional positioning by 24-48h. Worth scanning for narratives the journalist outlets haven't picked up yet."
     },
     {
-      "title": "SUI -17% But Staking Ratio Unchanged — Structure Intact",
-      "body": "SUI's -17% selloff is alarming on the surface but the staking ratio remains ~74% — no unusual un-staking activity, meaning the drop is entirely floating-supply profit-taking by ETF arbitrageurs and momentum traders. The structural thesis (CME futures pending, Mysticeti V2, SUI Group Holdings) hasn't changed. $1.00 is the key psychological support: a daily close below it would be first sign of structural damage. Above $1.00, this is a dip in an uptrend."
-    },
-    {
-      "title": "ETH/BTC at 5-Year Lows — Trade the Pair, Not the Spot",
-      "body": "ETH/BTC approaching 0.027, a 5-year low. Historically violent mean-reverts follow (Dec 2020, Jul 2022), but those had catalysts: the Merge narrative, Shapella staking withdrawal. Today's catalyst is missing — Pectra is delayed, staking yield at 2.8% doesn't attract fresh capital, ETF flows negative. Stay flat ETH spot or short the ETH/BTC pair until 0.030 reclaims. The risk is a surprise Pectra announcement or ETF-flow reversal; both would be fast-moving events worth monitoring."
+      "title": "Tuesday Capitulation Tell — F&G Dropped Into Extreme Fear (25)",
+      "body": "Crypto F&G dropped 28→25 overnight (Monday→Tuesday) into EXTREME FEAR for the first time this cycle. Combined with Monday's $657M liq cascade (Iran-tension trigger), this is the classic capitulation profile — BUT only if it's accompanied by a sweep low + reclaim within the next 12-24h. The risk is this is a continuation flush to BTC $74K and ETH $2,050 before the buyers step in. Trade plan for Tuesday NY session: NO new longs until BTC reclaims $77.5K with volume. SHORT bias intact on ETH below $2,100 (target $2,050, then $1,950). XRP $1.39 is the basket-strongest by relative weakness math but with the merged-CLARITY-bill floor vote now pushed to early June (per multiple sources Tuesday), there's no near-term legislative catalyst to drive a bid. Watch the Asian-session $1.36 low — break = wash to $1.30, hold + reclaim $1.42 = first basket-bounce signal of the week. SUI is the highest-beta tell at $1.05 — same logic as yesterday but the line is now $1.03; below that, $0.95 cycle extreme. CME SUI futures launch May 29 (10 days) is the only hard catalyst on the horizon."
     }
   ],
   "hidden_signals": [
     {
       "letter": "a",
-      "body": "CME BTC open interest down ~8% week-over-week — institutional de-risking, not retail panic. Historically this kind of OI drainage precedes a sharp directional move once it bottoms. Watch for OI to stabilize or reverse as the re-entry signal, typically 24–48h after the low.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "Fear & Greed at 25 (Extreme Fear), Δ -3 vs yesterday — sub-30 zones historically align with bounce setups but require a sweep-and-reclaim candle to confirm",
+      "as_of": "2026-05-19T10:26:09Z"
     },
     {
       "letter": "b",
-      "body": "Coinbase premium index turned slightly negative this morning (US institutional demand has cooled from the May 14 markup-day spike). Watch for return to +0.2% as the institutional re-entry signal — historically this leads XRP/BTC by ~4h.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "r/CryptoCurrency top post: \"Daily Crypto Discussion - May 18, 2026 (GMT+0)\" (↑6) — grassroots signal often leads institutional positioning",
+      "as_of": "2026-05-19T10:26:09Z"
     },
     {
       "letter": "c",
-      "body": "Kimchi premium compressed to +0.3% (was +0.8% last week) — Asian retail is not stepping in at these levels. Historically a Kimchi premium below +0.5% with falling prices indicates limited demand from Asia until BTC clears $79k. Watch for premium widening back above +1.0% as a leading indicator of retail momentum.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "r/Bitcoin top post: \"Bitcoin Newcomers FAQ - Please read!\" (↑174) — grassroots signal often leads institutional positioning",
+      "as_of": "2026-05-19T10:26:09Z"
     },
     {
       "letter": "d",
-      "body": "3 whale wallets holding 50M+ XRP each moved funds toward exchanges in the last 48h (Whale Alert). These movements typically precede 5–8% near-term downside as supply hits the order book. Counterpoint: if these were already factored into the $1.38 flush, the next exchange-wallet drain is a bullish signal.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "r/ethfinance top post: \"Ethfinance Daily is now the /r/ethereum daily!\" (↑164) — grassroots signal often leads institutional positioning",
+      "as_of": "2026-05-19T10:26:09Z"
     },
     {
       "letter": "e",
-      "body": "FOMC Minutes options market pricing a 3% surprise premium — unusually high for a Minutes release (normal is ~1.5%). This suggests either large players are positioned for a hawkish surprise or the market is hedging against unexpected language around rate paths. Either way: the options market is telling you Wednesday is bigger than usual.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "r/XRP top post: \"XRP Subreddit Rules, Partner Subs, and Helpful Links\" (↑410) — grassroots signal often leads institutional positioning",
+      "as_of": "2026-05-19T10:26:09Z"
     },
     {
       "letter": "f",
-      "body": "SUI staking ratio unchanged at ~74% despite -17% price drop — stakers are not exiting. This is the most bullish hidden signal in the current selloff: the long-term holders are unmoved. Contrast with BTC/ETH where OI and ETF flows are visibly de-risking.",
-      "as_of": "2026-05-18T11:55:00Z"
+      "body": "r/suinetwork top post: \"r/suinetwork Lounge\" (↑2) — grassroots signal often leads institutional positioning",
+      "as_of": "2026-05-19T10:26:09Z"
+    },
+    {
+      "letter": "g",
+      "body": "HackerNews trending crypto-tagged: \"Elon Musk has lost his lawsuit against Sam Altman and OpenAI\" (↑958)",
+      "as_of": "2026-05-19T10:26:09Z"
+    },
+    {
+      "letter": "a",
+      "body": "Sen. John Kennedy (R-LA) publicly committed to YES on CLARITY overnight — locks the 13 Republican votes on Senate Banking's 13R-11D split; CLARITY clears committee regardless of Democrats; the May-21-Memorial-Day binary risk is effectively OFF; pass outcome now ~80%+ priced (was 62% Tuesday)",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "b",
+      "body": "Kevin Warsh CONFIRMED as Fed Chair overnight, succeeds Powell Friday May 15; J.P. Morgan expects Warsh to argue AI productivity gains give the Fed room to cut without re-igniting inflation; first signaling speech is the next key event window (likely mid-late May)",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "c",
+      "body": "CLARITY Act markup TOMORROW 10:30 AM ET — Senate Banking 13R-11D, all 13 R votes needed; Polymarket pass-odds 62% (from 80% high); big-bank rejection of Tillis-Alsobrooks stablecoin compromise + Trump-family ethics fight are the two amendment-risk wildcards; flatten XRP by 10:00 AM Thu",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "d",
+      "body": "Kimchi premium 1.98% on May 7 (highest since late Feb); on-chain BTC holders realized 14,600 BTC in single-day profits May 4 (largest since Dec 10) — that combo is the mid-cycle distribution tell; XRP Korean premium is wider than BTC's into the Asian markup-day session",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "e",
+      "body": "BTC exchange reserves at 6-year low (2.693M BTC, -170K in 6 months); IBIT holds 812K BTC (62% ETF market share) — THIS is why BTC absorbed a hot CPI yesterday with only -1.19%; any catalyst-driven demand surge today hits a structurally thin book and amplifies upward moves",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "f",
+      "body": "XRP recovered overnight from $1.42 (post-CPI low) to $1.46 — broke back above the $1.45 monthly-resistance level that has rejected every rally attempt since the US-Iran war started; if today's NY session HOLDS $1.45, that's the 'pass' setup pre-positioning forming",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "g",
+      "body": "SUI held the OTE buy zone overnight at $1.20-$1.25 through post-CPI risk-off — bullish structural confirmation; CME SUI futures launch May 29 (16 days), Mysten Labs shipping confidential txs + free stablecoin transfers; add into pullbacks to $1.19-$1.22 with stop $1.13",
+      "as_of": "UNVERIFIED"
+    },
+    {
+      "letter": "h",
+      "body": "Powell delivers his FINAL Fed Chair public statement today — last chance for dovish-or-hawkish forward guidance before Warsh takes over Friday; specifically watch language on the September dissents (4 — highest since 1992) and any acknowledgment of post-CPI rate-path repricing",
+      "as_of": "UNVERIFIED"
     }
   ],
-  "live_feed": []
+  "live_feed": [
+    {
+      "headline": "Echo Protocol suffers $76 million exploit in eBTC minting attack on Monad",
+      "source": "CoinDesk",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "A DeFi exchange becomes the first to offer equity perpetuals powered by Nasdaq data",
+      "source": "CoinDesk",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "XRP and Solana funds attract inflows as bitcoin outflows hit nearly $1 billion",
+      "source": "CoinDesk",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "‘Follow the gigawatts’: Bernstein sees upside in several bitcoin miners amid $90 billion in AI data center deals",
+      "source": "The Block",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "Japan’s ruling party advances proposal to build national AI-blockchain financial system",
+      "source": "The Block",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "WLFI treasury firm AI Financial posts $271 million quarterly net loss, flags doubt over survival within one year",
+      "source": "The Block",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "Ohio Man Gets 9 Years for $10M Bitcoin Trading Ponzi Scheme",
+      "source": "Decrypt",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "Lawyers Apologize After Fake Claude-Generated Quotes Appear in Trump Layoffs Case",
+      "source": "Decrypt",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "AI Still Can't Beat the On-Call Engineer: Here's Why",
+      "source": "Decrypt",
+      "age_h": 0,
+      "sym": ""
+    },
+    {
+      "headline": "Swan Bitcoin sued for nearly $1B over pre-bankruptcy transfers from Prime Trust",
+      "source": "Cointelegraph",
+      "age_h": 0,
+      "sym": ""
+    }
+  ]
 }
