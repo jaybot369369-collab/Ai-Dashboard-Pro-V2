@@ -494,11 +494,13 @@ const ConfluenceTab = (() => {
   }
 
   /* ── refresh cycle ───────────────────────────────────── */
-  async function _refresh() {
+  async function _refresh({ quiet = false } = {}) {
     const root = document.getElementById('confluenceRoot');
     if (!root) return;
-    const lastUpdEl = document.getElementById('confLastUpd');
-    if (lastUpdEl) lastUpdEl.textContent = 'fetching…';
+    if (!quiet) {
+      const lastUpdEl = document.getElementById('confLastUpd');
+      if (lastUpdEl) lastUpdEl.textContent = 'fetching…';
+    }
 
     // Snapshot prev for alert comparison BEFORE we overwrite
     const prevSnap = _loadPerTF()[_anchorTF];
@@ -544,7 +546,7 @@ const ConfluenceTab = (() => {
     // Fire browser + telegram alerts on threshold crossings
     _fireAlerts(prevSnap, results);
 
-    _renderTable();
+    if (!quiet) _renderTable();
   }
 
   /* ── Hit-rate: log + follow-up check ──────────────────── */
@@ -607,17 +609,29 @@ const ConfluenceTab = (() => {
   /* ── Pull All TFs sequentially ────────────────────────── */
   async function _pullAllTFs(progressCb) {
     const original = _anchorTF;
+
+    // Helper: highlight the currently-being-pulled anchor pill
+    function _setPillActive(tf) {
+      document.querySelectorAll('.conf-tf-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tf === tf);
+      });
+    }
+
     for (let i = 0; i < TF_OPTIONS.length; i++) {
       const tf = TF_OPTIONS[i];
       _anchorTF = tf;
+      _setPillActive(tf);
       progressCb?.(`Pulling ${tf} (${i+1}/${TF_OPTIONS.length})…`);
-      try { await _refresh(); }
+      // quiet=true: score + save per-TF data without touching the table DOM
+      try { await _refresh({ quiet: true }); }
       catch (e) { console.warn('[confluence] pull-all', tf, e?.message); }
     }
+
     _anchorTF = original;
     localStorage.setItem('jb_conf_tf', original);
-    progressCb?.(`Done — restored ${original}`);
-    // Final refresh so the visible table matches active anchor
+    _setPillActive(original);
+    progressCb?.(`Done — rendering ${original}…`);
+    // One final render for the active anchor so the table reflects fresh data
     await _refresh();
   }
 
