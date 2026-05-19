@@ -30,6 +30,9 @@ const ConfluenceTab = (() => {
     bos:        1.0,
     near_level: 1.3,
     lw_align:   1.2,
+    lw_funding: 1.0,
+    lw_oi:      0.8,
+    lw_liq:     0.9,
   };
   // Detector type → playbook setup name fragment for fuzzy weight lookup
   const SETUP_MAP_BY_TYPE = {
@@ -54,6 +57,15 @@ const ConfluenceTab = (() => {
   let _autoOn = localStorage.getItem('jb_conf_auto') === 'on';
   let _anchorTF = TF_OPTIONS.includes(localStorage.getItem('jb_conf_tf'))
     ? localStorage.getItem('jb_conf_tf') : '15m';
+
+  // Alerts: fire browser notification + Telegram on threshold crossings
+  let _alertsOn  = localStorage.getItem('jb_conf_alerts_on') !== 'off';   // default on
+  let _alertThr  = parseInt(localStorage.getItem('jb_conf_alert_thr') || '70', 10);
+  // Direction + setup-count filters (UI quick filters on the table)
+  let _dirFilter = localStorage.getItem('jb_conf_dir_filter') || 'all';   // all|bull|bear
+  let _minSetups = parseInt(localStorage.getItem('jb_conf_min_setups') || '0', 10);
+  // Guide starts collapsed by default after first visit
+  let _guideCollapsed = localStorage.getItem('jb_conf_guide_collapsed') !== 'off';
   let _refreshTimer = null;
   let _lastRun = null;
   let _klineCache = new Map();   // key `${sym}-${tf}` → { t, data }
@@ -200,7 +212,7 @@ const ConfluenceTab = (() => {
   }
 
   /* ── score one asset ─────────────────────────────────── */
-  async function _scoreAsset(sym, daily, lw) {
+  async function _scoreAsset(sym, daily, lw, btcShock = null) {
     const { ltf, mtf, htf } = TF_SETS[_anchorTF];
     const [kLTF, kMTF, kHTF] = await Promise.all([
       _fetchKlines(sym, ltf),
@@ -233,17 +245,50 @@ const ConfluenceTab = (() => {
     const levels = _levelsFromDaily(daily, sym);
     run('near_level', 'near_level', () => ICTDetect.nearLevel(price, levels, 0.5));
 
-    // lw_align: bias from LW
+    // LW family: bias + funding extremity + OI ROC + liquidation rate
     if (lw?.scores) {
       const row = lw.scores.find(s => (s.asset || '').toUpperCase() === sym);
-      if (row && row.bias && ['bull','bear'].includes(row.bias)) {
-        detectors.push({
-          id: 'lw_align', type: 'lw_align', fired: true, dir: row.bias,
-          strength: Math.min(1, Math.abs(50 - (row.score ?? 50)) / 50),
-          evidence: `LW 4h bias ${row.bias} (score ${row.score?.toFixed?.(0) ?? '—'})`,
-        });
-      } else {
-        detectors.push({ id: 'lw_align', type: 'lw_align', fired: false, dir: null, strength: 0, evidence: 'LW neutral/unavailable' });
+      if (row) {
+        // 1) Bias
+        if (row.bias && ['bull','bear'].includes(row.bias)) {
+          detectors.push({
+            id: 'lw_align', type: 'lw_align', fired: true, dir: row.bias,
+            strength: Math.min(1, Math.abs(50 - (row.score ?? 50)) / 50),
+            evidence: `LW 4h bias ${row.bias} (score ${row.score?.toFixed?.(0) ?? '—'})`,
+          });
+        } else {
+          detectors.push({ id: 'lw_align', type: 'lw_align', fired: false, dir: null, strength: 0, evidence: 'LW neutral/unavailable' });
+        }
+        // 2) Funding extremity — positive funding = longs paying = bearish contrarian
+        const fz = row.components?.funding_extremity?.z;
+        if (typeof fz === 'number' && Math.abs(fz) > 1.5) {
+          const dir = fz > 0 ? 'bear' : 'bull';
+          detectors.push({
+            id: 'lw_funding', type: 'lw_funding', fired: true, dir,
+            strength: Math.min(1, (Math.abs(fz) - 1.5) / 1.5),
+            evidence: `Funding z ${fz.toFixed(2)} — ${dir === 'bear' ? 'longs paying (squeeze setup)' : 'shorts paying (rip setup)'}`,
+          });
+        }
+        // 3) OI 1h ROC — rapid OI rise = leverage building, neutral dir but adds strength to existing bias
+        const oz = row.components?.oi_1h_roc?.z;
+        if (typeof oz === 'number' && Math.abs(oz) > 1.5) {
+          detectors.push({
+            id: 'lw_oi', type: 'lw_oi', fired: true, dir: null,
+            strength: Math.min(1, (Math.abs(oz) - 1.5) / 1.5),
+            evidence: `OI ROC z ${oz.toFixed(2)} — leverage ${oz > 0 ? 'building' : 'unwinding'}`,
+          });
+        }
+        // 4) Liquidation rate — fresh liqs in direction confirm sweep narrative
+        const lz = row.components?.liq_usd_per_hour?.z;
+        const lvalue = row.components?.liq_usd_per_hour?.value;
+        if (typeof lz === 'number' && lz > 1.5) {
+          // Heavy liquidations alone are neutral but we tag with dominant dir of detected fires
+          detectors.push({
+            id: 'lw_liq', type: 'lw_liq', fired: true, dir: null,
+            strength: Math.min(1, (lz - 1.5) / 1.5),
+            evidence: `Liquidations z ${lz.toFixed(2)} ($${(lvalue/1e6 || 0).toFixed(1)}M/h) — flush in progress`,
+          });
+        }
       }
     }
 
@@ -251,7 +296,12 @@ const ConfluenceTab = (() => {
     let bullSum = 0, bearSum = 0;
     detectors.forEach(d => {
       if (!d.fired || !d.dir) return;
-      const w = _playbookAdjusted(d.type || d.id);
+      let w = _playbookAdjusted(d.type || d.id);
+      // BTC correlation veto: alts that point opposite to BTC's recent shock get dimmed.
+      // BTC itself is exempt. Bias detector exempt (it's already HTF context).
+      if (btcShock && sym !== 'BTC' && d.type !== 'bias' && d.dir !== btcShock.dir) {
+        w *= 0.5;
+      }
       if (d.dir === 'bull') bullSum += d.strength * w;
       else if (d.dir === 'bear') bearSum += d.strength * w;
     });
@@ -308,6 +358,106 @@ const ConfluenceTab = (() => {
     catch (e) { console.warn('[confluence] per-tf save failed', e); }
   }
 
+  /* ── Hit-rate tracking ──────────────────────────────────
+     localStorage `jb_conf_calls` — array of
+       { ts, sym, anchor, score, dir, price, status:'pending'|'hit'|'miss'|'expired', outcome_r?, checked_at? }
+     A "call" is logged for every asset crossing actionable on a fresh pull (we
+     don't double-log; we only log if the previous pull at this anchor wasn't
+     also actionable in the same direction). After 4 hours we check current
+     price vs entry — moved ≥1 LTF-ATR in dir → hit, opposite → miss, neither → expired.
+  */
+  function _loadCalls() {
+    try { return JSON.parse(localStorage.getItem('jb_conf_calls') || '[]'); }
+    catch { return []; }
+  }
+  function _saveCalls(arr) {
+    try { localStorage.setItem('jb_conf_calls', JSON.stringify(arr.slice(-200))); }
+    catch (e) { console.warn('[confluence] calls save failed', e); }
+  }
+
+  // Returns { totalChecked, hits, misses, expired, hitRate, lastN }
+  function _hitRateSummary() {
+    const calls = _loadCalls();
+    const checked = calls.filter(c => c.status !== 'pending');
+    const hits    = checked.filter(c => c.status === 'hit').length;
+    const misses  = checked.filter(c => c.status === 'miss').length;
+    const expired = checked.filter(c => c.status === 'expired').length;
+    const hitRate = checked.length ? (hits / checked.length) * 100 : null;
+    return { totalChecked: checked.length, hits, misses, expired, hitRate, totalCalls: calls.length };
+  }
+
+  /* ── Alerts (browser + Telegram) ──────────────────────── */
+  function _maybeRequestNotifPermission() {
+    try {
+      if (typeof Notification === 'undefined') return;
+      if (Notification.permission === 'default') Notification.requestPermission();
+    } catch {}
+  }
+
+  async function _fireAlerts(prevSnap, newResults) {
+    if (!_alertsOn) return;
+    const prev = prevSnap?.scores || {};
+    for (const r of newResults) {
+      if (!r || r.score == null) continue;
+      const prevScore = prev[r.sym]?.score ?? null;
+      const wasActionable = prevScore != null && (prevScore >= _alertThr || prevScore <= (100 - _alertThr));
+      const isActionable  = (r.score >= _alertThr || r.score <= (100 - _alertThr));
+      // Fire on the transition into actionable
+      if (isActionable && !wasActionable) {
+        const arrow = r.dir === 'bull' ? '▲' : r.dir === 'bear' ? '▼' : '─';
+        const msg = `${arrow} ${r.sym} ${r.score.toFixed(0)} (${_anchorTF}) — ${r.fired.length}/${r.totalDetectors} setups fired`;
+        // Browser notification
+        try {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            const n = new Notification('Confluence alert', {
+              body: msg, tag: `conf-${r.sym}-${_anchorTF}`, silent: false,
+            });
+            setTimeout(() => n.close(), 12000);
+          }
+        } catch (e) { console.warn('[confluence] notif fail', e); }
+        // Telegram
+        try {
+          if (typeof Telegram !== 'undefined' && Telegram.isEnabled?.()) {
+            const fired = r.fired.slice(0, 5).map(d => d.id).join(', ');
+            const tgMsg = `🎯 *Confluence alert*\n${msg}\nTop fires: ${fired}\nKZ: ${r.kzActive ? r.kzName : 'off'}`;
+            Telegram.send(tgMsg, { parse_mode: 'Markdown' }).catch(() => {});
+          }
+        } catch (e) { console.warn('[confluence] tg fail', e); }
+      }
+    }
+  }
+
+  /* ── BTC dominance shock (correlation veto) ─────────────
+     If BTC's last 1h close moved > 2× 1h ATR, dim alt signals
+     that point opposite. Returns null if no shock. */
+  async function _btcShockCheck() {
+    const k1h = await _fetchKlines('BTC', '1h');
+    if (!k1h || k1h.length < 30) return null;
+    const last = k1h[k1h.length - 1];
+    const prev = k1h[k1h.length - 2];
+    const atr1h = ICTDetect.atr(k1h, 14);
+    if (!atr1h) return null;
+    const move = last.c - prev.c;
+    const mag = Math.abs(move);
+    if (mag < atr1h * 2) return null;
+    return {
+      dir: move > 0 ? 'bull' : 'bear',
+      pct: (move / prev.c) * 100,
+      atrMult: mag / atr1h,
+    };
+  }
+
+  /* ── Macro news guard ───────────────────────────────────
+     Returns the nearest high-impact event if it's today (no times in
+     dataset, treat date-only as full-day guard). Caller dims signals. */
+  function _macroGuardActive() {
+    if (typeof MacroEvents === 'undefined') return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const onToday = MacroEvents.onDate?.(today) || [];
+    const hi = onToday.find(e => e.impact === 'high');
+    return hi || null;
+  }
+
   // Return ordered list of {ts, score, dir} for a symbol at the current anchor
   function _historyForSym(sym, anchor = _anchorTF, limit = 8) {
     return _loadHistory()
@@ -346,8 +496,16 @@ const ConfluenceTab = (() => {
     const lastUpdEl = document.getElementById('confLastUpd');
     if (lastUpdEl) lastUpdEl.textContent = 'fetching…';
 
-    const [daily, lw] = await Promise.all([_fetchDailyReport(), _fetchLW()]);
-    const results = await Promise.all(SYMBOLS.map(s => _scoreAsset(s, daily, lw)));
+    // Snapshot prev for alert comparison BEFORE we overwrite
+    const prevSnap = _loadPerTF()[_anchorTF];
+
+    // Macro + BTC shock context fetched in parallel with data
+    const [daily, lw, btcShock] = await Promise.all([
+      _fetchDailyReport(), _fetchLW(), _btcShockCheck(),
+    ]);
+    const macroGuard = _macroGuardActive();
+
+    const results = await Promise.all(SYMBOLS.map(s => _scoreAsset(s, daily, lw, btcShock)));
 
     // sort by most extreme score (distance from 50), tiebreak fired count
     results.sort((a, b) => {
@@ -357,12 +515,16 @@ const ConfluenceTab = (() => {
       return (b.fired?.length || 0) - (a.fired?.length || 0);
     });
 
-    _lastRun = { ts: Date.now(), results, lwOk: !!lw, dailyOk: !!daily };
+    _lastRun = {
+      ts: Date.now(), results,
+      lwOk: !!lw, dailyOk: !!daily,
+      btcShock, macroGuard,
+    };
 
-    // Persist history entry + per-TF snapshot
+    // Persist history + per-TF snapshot
     const scoreMap = {};
     results.forEach(r => {
-      scoreMap[r.sym] = { score: r.score, dir: r.dir, fired: r.fired?.length || 0 };
+      scoreMap[r.sym] = { score: r.score, dir: r.dir, fired: r.fired?.length || 0, price: r.price };
     });
     const history = _loadHistory();
     history.push({ ts: _lastRun.ts, anchor: _anchorTF, scores: scoreMap });
@@ -371,7 +533,88 @@ const ConfluenceTab = (() => {
     perTF[_anchorTF] = { ts: _lastRun.ts, scores: scoreMap };
     _savePerTF(perTF);
 
+    // Hit-rate: log new actionable calls + check pending ones
+    _logActionableCalls(results, prevSnap);
+    _checkPendingCalls();
+
+    // Fire browser + telegram alerts on threshold crossings
+    _fireAlerts(prevSnap, results);
+
     _renderTable();
+  }
+
+  /* ── Hit-rate: log + follow-up check ──────────────────── */
+  function _logActionableCalls(results, prevSnap) {
+    const calls = _loadCalls();
+    const prevScores = prevSnap?.scores || {};
+    let added = 0;
+    for (const r of results) {
+      if (r.score == null) continue;
+      const isAct = r.score >= 70 || r.score <= 30;
+      if (!isAct) continue;
+      const prev = prevScores[r.sym];
+      const prevAct = prev && (prev.score >= 70 || prev.score <= 30) && prev.dir === r.dir;
+      if (prevAct) continue; // already logged on prior actionable pull
+      calls.push({
+        ts: _lastRun.ts, sym: r.sym, anchor: _anchorTF,
+        score: r.score, dir: r.dir, price: r.price,
+        status: 'pending',
+      });
+      added += 1;
+    }
+    if (added) _saveCalls(calls);
+  }
+
+  // For each pending call >4h old, fetch current price and decide outcome.
+  // Hit  = price moved ≥1× kLTF ATR in the called direction.
+  // Miss = price moved ≥1× ATR opposite direction.
+  // Else = expired (chop).
+  async function _checkPendingCalls() {
+    const calls = _loadCalls();
+    const FOUR_H = 4 * 3600 * 1000;
+    const pending = calls.filter(c => c.status === 'pending' && (Date.now() - c.ts) > FOUR_H);
+    if (!pending.length) return;
+    for (const c of pending) {
+      try {
+        const tf = TF_SETS[c.anchor]?.ltf || '1h';
+        const klines = await _fetchKlines(c.sym, tf);
+        if (!klines || klines.length < 30) continue;
+        const a = ICTDetect.atr(klines, 14);
+        if (!a) continue;
+        const cur = klines[klines.length - 1].c;
+        const move = cur - c.price;
+        const r = move / a;
+        if (c.dir === 'bull') {
+          c.status = r >= 1 ? 'hit' : r <= -1 ? 'miss' : 'expired';
+        } else if (c.dir === 'bear') {
+          c.status = r <= -1 ? 'hit' : r >= 1 ? 'miss' : 'expired';
+        } else {
+          c.status = 'expired';
+        }
+        c.outcome_r = +r.toFixed(2);
+        c.checked_at = Date.now();
+      } catch (e) {
+        console.warn('[confluence] call check failed', c.sym, e?.message);
+      }
+    }
+    _saveCalls(calls);
+  }
+
+  /* ── Pull All TFs sequentially ────────────────────────── */
+  async function _pullAllTFs(progressCb) {
+    const original = _anchorTF;
+    for (let i = 0; i < TF_OPTIONS.length; i++) {
+      const tf = TF_OPTIONS[i];
+      _anchorTF = tf;
+      progressCb?.(`Pulling ${tf} (${i+1}/${TF_OPTIONS.length})…`);
+      try { await _refresh(); }
+      catch (e) { console.warn('[confluence] pull-all', tf, e?.message); }
+    }
+    _anchorTF = original;
+    localStorage.setItem('jb_conf_tf', original);
+    progressCb?.(`Done — restored ${original}`);
+    // Final refresh so the visible table matches active anchor
+    await _refresh();
   }
 
   /* ── render ──────────────────────────────────────────── */
@@ -455,10 +698,11 @@ const ConfluenceTab = (() => {
       ob_ltf: 'OB', ob_mtf: 'OB',
       sweep_ltf: 'Sweep', sweep_mtf: 'Sweep',
       cisd: 'CISD', bos: 'BOS',
-      near_level: 'Near Level', lw_align: 'LW Align',
+      near_level: 'Near Level',
+      lw_align: 'LW Bias', lw_funding: 'LW Funding', lw_oi: 'LW OI', lw_liq: 'LW Liq',
     };
     const prefix = PREFIX[type] || id;
-    if (type === 'near_level' || type === 'lw_align') return prefix;
+    if (['near_level','lw_align','lw_funding','lw_oi','lw_liq'].includes(type)) return prefix;
     // Extract TF suffix from id (last _segment)
     const tf = id.split('_').pop();
     return `${prefix} ${tf}`;
@@ -511,9 +755,31 @@ const ConfluenceTab = (() => {
   function _renderTable() {
     const root = document.getElementById('confluenceRoot');
     if (!root || !_lastRun) return;
-    const { ts, results, lwOk, dailyOk } = _lastRun;
+    const { ts, results, lwOk, dailyOk, btcShock, macroGuard } = _lastRun;
     const aligned = results.filter(r => r.score != null && (r.score >= 65 || r.score <= 35)).length;
     const kz = ICTDetect.activeKillzone();
+    const hr = _hitRateSummary();
+
+    // Banners
+    const banners = [];
+    if (macroGuard) {
+      banners.push(`<div class="conf-banner conf-banner-warn">⚠️ <strong>Macro guard:</strong> ${esc(macroGuard.icon)} ${esc(macroGuard.name)} today — volatility risk. Confluence signals discounted.</div>`);
+    }
+    if (btcShock) {
+      const arrow = btcShock.dir === 'bull' ? '▲' : '▼';
+      banners.push(`<div class="conf-banner conf-banner-shock">🌊 <strong>BTC shock:</strong> ${arrow} ${btcShock.pct.toFixed(2)}% in last 1h (${btcShock.atrMult.toFixed(1)}×ATR) — alt signals opposite to BTC are weighted ×0.5.</div>`);
+    }
+    const bannersHtml = banners.join('');
+
+    // Filter rendering
+    const filterApplies = (r) => {
+      if (r.score == null) return true;   // still show error rows
+      if (_dirFilter === 'bull' && r.dir !== 'bull') return false;
+      if (_dirFilter === 'bear' && r.dir !== 'bear') return false;
+      if (_minSetups && (r.fired?.length || 0) < _minSetups) return false;
+      return true;
+    };
+    const filteredResults = results.filter(filterApplies);
 
     const kpiHtml = `
       <div class="kpi-row" style="margin-bottom:16px">
@@ -537,23 +803,32 @@ const ConfluenceTab = (() => {
 
     const agreement = _crossTFAgreement();
 
-    const rows = results.map((r, i) => {
+    const rows = filteredResults.map((r, i) => {
       if (r.score == null) {
-        return `<tr class="conf-row"><td>${i+1}</td><td>${esc(r.sym)}</td><td colspan="8" class="muted">${esc(r.error || 'no data')}</td></tr>`;
+        return `<tr class="conf-row"><td>${i+1}</td><td>${esc(r.sym)}</td><td colspan="9" class="muted">${esc(r.error || 'no data')}</td></tr>`;
       }
       const isExpanded = _expandedSym === r.sym;
       const hist = _historyForSym(r.sym, _anchorTF, 8);
+      const isActionable = r.score >= 70 || r.score <= 30;
       const mainRow = `
         <tr class="conf-row ${isExpanded ? 'is-open' : ''}" data-sym="${esc(r.sym)}">
           <td class="conf-rank">${i+1}</td>
-          <td class="conf-sym">${esc(r.sym)}</td>
+          <td class="conf-sym">
+            <span>${esc(r.sym)}</span>
+            <a class="conf-tv-link" href="https://www.tradingview.com/symbols/${esc(r.sym)}USDT/" target="_blank" rel="noopener" title="Open ${esc(r.sym)} on TradingView" onclick="event.stopPropagation()">📊</a>
+          </td>
           <td>${_dirBadge(r.dir, r.score)}</td>
           <td>${_scoreBar(r.score)}</td>
           <td class="conf-spark-cell">${_sparkline(hist)}</td>
           <td class="conf-xtf">${_xtfChip(agreement[r.sym])}</td>
           <td><span class="conf-count">${r.fired.length}<span class="muted">/${r.totalDetectors}</span></span></td>
           <td class="conf-fired">${_topFired(r.fired)}</td>
-          <td class="conf-px">$${fmtPrice(r.price)}</td>
+          <td class="conf-px">
+            <div class="conf-px-cell">
+              <span>$${fmtPrice(r.price)}</span>
+              ${isActionable ? `<button class="conf-take" data-take="${esc(r.sym)}" title="Log this as a trade in the New Trade modal" onclick="event.stopPropagation();ConfluenceTab._takeTrade('${esc(r.sym)}')">📝 Trade</button>` : ''}
+            </div>
+          </td>
         </tr>`;
       return isExpanded ? mainRow + _expandPanel(r) : mainRow;
     }).join('');
@@ -563,29 +838,49 @@ const ConfluenceTab = (() => {
         Anchor <strong>${_anchorTF}</strong> (entry ${TF_SETS[_anchorTF].ltf} · mid ${TF_SETS[_anchorTF].mtf} · bias ${TF_SETS[_anchorTF].htf}) · Klines: Bybit→Binance→OKX · ${dailyOk ? 'Daily Report ✓' : 'Daily Report —'} · ${lwOk ? 'LW ✓' : 'LW —'} · Playbook weights from <code>jb_playbook</code>
       </div>`;
 
+    const hitRatePill = hr.totalChecked >= 5
+      ? `<span class="conf-hitrate" title="Calls ≥70 / ≤30 followed-through ≥1×ATR within 4h. Tracked: ${hr.totalChecked}, hits: ${hr.hits}, misses: ${hr.misses}, expired: ${hr.expired}.">📈 Hit-rate ${hr.hitRate.toFixed(0)}% <span class="muted">(${hr.hits}/${hr.totalChecked})</span></span>`
+      : `<span class="muted conf-hitrate-dim" title="${hr.totalChecked} of ${hr.totalCalls} actionable calls have been follow-up checked. Need 5+ checked calls for a meaningful hit-rate.">📈 Hit-rate — <span class="muted">(${hr.totalChecked}/${hr.totalCalls})</span></span>`;
+
+    const filterBar = `
+      <div class="conf-filterbar">
+        <span class="conf-filter-label">Filter</span>
+        <button class="conf-filter-pill ${_dirFilter==='all'?'active':''}"  data-dirf="all">All</button>
+        <button class="conf-filter-pill ${_dirFilter==='bull'?'active':''} conf-filter-bull" data-dirf="bull">▲ Bulls</button>
+        <button class="conf-filter-pill ${_dirFilter==='bear'?'active':''} conf-filter-bear" data-dirf="bear">▼ Bears</button>
+        <span class="conf-filter-sep"></span>
+        <span class="conf-filter-label">Setups ≥</span>
+        ${[0,3,4,5].map(n => `<button class="conf-filter-pill ${_minSetups===n?'active':''}" data-minsetups="${n}">${n||'any'}</button>`).join('')}
+        ${hitRatePill}
+      </div>`;
+
     root.innerHTML = `
       ${kpiHtml}
+      ${bannersHtml}
       <div class="card conf-card">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
           <span>Ranked Alignment</span>
-          <span class="muted" style="font-size:.78rem;text-transform:none;letter-spacing:0">click row for detector breakdown</span>
+          <span class="muted" style="font-size:.78rem;text-transform:none;letter-spacing:0">click row for detector breakdown · 📊 opens TradingView · 📝 logs trade</span>
         </div>
-        <table class="conf-table">
-          <thead>
-            <tr>
-              <th style="width:36px">#</th>
-              <th style="width:64px">Asset</th>
-              <th style="width:96px">Dir</th>
-              <th style="width:130px">Score</th>
-              <th style="width:90px" title="Last 8 pulls at this anchor">History</th>
-              <th style="width:90px" title="Agreement across saved anchor TFs">Cross-TF</th>
-              <th style="width:74px">Setups</th>
-              <th>Top fired</th>
-              <th style="width:100px;text-align:right">Price</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+        ${filterBar}
+        <div class="conf-table-wrap">
+          <table class="conf-table">
+            <thead>
+              <tr>
+                <th style="width:36px">#</th>
+                <th style="width:108px">Asset</th>
+                <th style="width:96px">Dir</th>
+                <th style="width:130px">Score</th>
+                <th style="width:90px" title="Last 8 pulls at this anchor">History</th>
+                <th style="width:90px" title="Agreement across saved anchor TFs">Cross-TF</th>
+                <th style="width:74px">Setups</th>
+                <th>Top fired</th>
+                <th style="width:160px;text-align:right">Price</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
         ${sourceLine}
       </div>`;
 
@@ -597,6 +892,107 @@ const ConfluenceTab = (() => {
         _renderTable();
       });
     });
+
+    // Filter pills
+    root.querySelectorAll('[data-dirf]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _dirFilter = btn.dataset.dirf;
+        localStorage.setItem('jb_conf_dir_filter', _dirFilter);
+        _renderTable();
+      });
+    });
+    root.querySelectorAll('[data-minsetups]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        _minSetups = parseInt(btn.dataset.minsetups, 10) || 0;
+        localStorage.setItem('jb_conf_min_setups', String(_minSetups));
+        _renderTable();
+      });
+    });
+  }
+
+  /* ── Take Trade — pre-fill the New Trade modal ───────── */
+  function _takeTrade(sym) {
+    if (!_lastRun) return;
+    const r = _lastRun.results.find(x => x.sym === sym);
+    if (!r) return;
+    // Open the modal via the FAB
+    const fab = document.getElementById('fab');
+    if (fab) fab.click();
+    // Defer field population to next tick
+    setTimeout(() => {
+      const set = (id, v) => { const el = document.getElementById(id); if (el && v != null) el.value = v; };
+      // Symbol — try select first, else custom
+      const sel = document.getElementById('fSymbol');
+      const symPair = `${sym}/USDT`;
+      if (sel) {
+        const has = Array.from(sel.options).some(o => o.value === symPair);
+        if (has) {
+          sel.value = symPair;
+        } else {
+          sel.value = 'custom';
+          set('fSymbolCustom', symPair);
+          const grp = document.getElementById('fSymbolCustomGroup');
+          if (grp) grp.classList.remove('hidden');
+        }
+      }
+      set('fDirection', r.dir === 'bull' ? 'Long' : r.dir === 'bear' ? 'Short' : 'Long');
+      set('fEntry', r.price?.toFixed?.(r.price >= 1000 ? 1 : 4));
+      // SL: nearest OB low (bull) / high (bear) from detectors
+      const ob = r.detectors.find(d => d.fired && (d.type === 'ob_ltf' || d.type === 'ob_mtf') && d.dir === r.dir);
+      if (ob && r.price) {
+        // crude — use ATR-distance fallback if no OB level
+        const ltfTf = TF_SETS[_anchorTF].ltf;
+        // Just use 1× ATR as default SL distance
+        const slOffset = r.price * 0.01;   // 1% default
+        const sl = r.dir === 'bull' ? r.price - slOffset : r.price + slOffset;
+        set('fSl', sl.toFixed(r.price >= 1000 ? 1 : 4));
+        const tp = r.dir === 'bull' ? r.price + slOffset * 2 : r.price - slOffset * 2;
+        set('fTp', tp.toFixed(r.price >= 1000 ? 1 : 4));
+      }
+      // Notes — auto-populate with the firing detectors
+      const fires = r.fired.map(d => _prettyName(d)).join(', ');
+      const notes = document.getElementById('fNotes');
+      if (notes) notes.value = `Confluence ${r.score.toFixed(0)} ${r.dir} @ ${_anchorTF} | Fires: ${fires} | KZ: ${r.kzActive ? r.kzName : 'off'}`;
+      // Pre-grade fill
+      set('fPreGrade', r.score >= 75 || r.score <= 25 ? 'A' : 'B');
+    }, 150);
+  }
+
+  /* ── Alert settings panel ────────────────────────────── */
+  function _renderAlertSettings() {
+    const tgEnabled = (typeof Telegram !== 'undefined') && Telegram.isEnabled?.();
+    const browserState = typeof Notification === 'undefined' ? 'unsupported'
+      : Notification.permission;
+    return `
+      <div class="card conf-alert-card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>🔔 Alerts</span>
+          <label class="conf-toggle">
+            <input type="checkbox" id="confAlertsOn" ${_alertsOn ? 'checked' : ''}/>
+            <span>Enabled</span>
+          </label>
+        </div>
+        <div class="conf-alert-body">
+          <div class="conf-alert-row">
+            <label>Fire when score crosses</label>
+            <select id="confAlertThr">
+              ${[65, 70, 75, 80].map(t => `<option value="${t}" ${t===_alertThr?'selected':''}>≥${t} (or ≤${100-t})</option>`).join('')}
+            </select>
+          </div>
+          <div class="conf-alert-row">
+            <span class="muted">Browser notifications:</span>
+            <span class="conf-alert-status conf-alert-${browserState}">${browserState === 'granted' ? '✓ Granted' : browserState === 'denied' ? '✗ Denied (open browser settings)' : browserState === 'unsupported' ? 'Unsupported' : 'Default — click Test to request'}</span>
+            <button class="btn-soft btn-sm" id="confTestNotif" title="Request permission + send a test">Test</button>
+          </div>
+          <div class="conf-alert-row">
+            <span class="muted">Telegram:</span>
+            <span class="conf-alert-status ${tgEnabled?'conf-alert-granted':'conf-alert-default'}">${tgEnabled ? '✓ Configured' : '✗ Not configured (Pro Tools → Telegram)'}</span>
+            <button class="btn-soft btn-sm" id="confTestTg" title="Send a test message" ${tgEnabled?'':'disabled'}>Test</button>
+          </div>
+        </div>
+      </div>`;
   }
 
   function _startAutoRefresh() {
@@ -1030,13 +1426,16 @@ const ConfluenceTab = (() => {
             <span class="conf-tf-label">TF</span>${_tfPills()}
           </div>
           <button class="btn-primary" id="confRefreshBtn">⟳ Pull Data</button>
+          <button class="btn-soft" id="confPullAllBtn" title="Sequentially fetch all 4 anchor TFs (~30s) so the cross-TF chip is populated from the first scan">⟳⟳ Pull All TFs</button>
           <button class="btn-soft" id="confAutoBtn" title="Toggle 60s auto-refresh">${_autoOn ? 'Auto ✓' : 'Auto off'}</button>
         </div>
       </div>
       <div class="conf-tf-stack muted" style="font-size:.78rem;margin:-6px 0 10px">
         Scanning: <strong>${ltf}</strong> (entry) · <strong>${mtf}</strong> (mid) · <strong>${htf}</strong> (bias). Switch TF, then Pull Data.
       </div>
+      <div id="confPullProgress" class="conf-progress muted" style="display:none"></div>
       <div id="confluenceRoot"></div>
+      ${_renderAlertSettings()}
       ${GUIDE_HTML}`;
 
     document.getElementById('confRefreshBtn').addEventListener('click', _pullData);
@@ -1045,6 +1444,61 @@ const ConfluenceTab = (() => {
       localStorage.setItem('jb_conf_auto', _autoOn ? 'on' : 'off');
       document.getElementById('confAutoBtn').textContent = _autoOn ? 'Auto ✓' : 'Auto off';
       if (_autoOn) _startAutoRefresh(); else _stopAutoRefresh();
+    });
+
+    // Pull All TFs button
+    document.getElementById('confPullAllBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('confPullAllBtn');
+      const prog = document.getElementById('confPullProgress');
+      btn.disabled = true;
+      btn.textContent = '⟳⟳ Pulling…';
+      if (prog) prog.style.display = '';
+      try {
+        await _pullAllTFs((m) => { if (prog) prog.textContent = m; });
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⟳⟳ Pull All TFs';
+        if (prog) {
+          setTimeout(() => { prog.style.display = 'none'; prog.textContent = ''; }, 2500);
+        }
+      }
+    });
+
+    // Alert settings wiring
+    const alertChk = document.getElementById('confAlertsOn');
+    if (alertChk) alertChk.addEventListener('change', () => {
+      _alertsOn = alertChk.checked;
+      localStorage.setItem('jb_conf_alerts_on', _alertsOn ? 'on' : 'off');
+      if (_alertsOn) _maybeRequestNotifPermission();
+    });
+    const alertThr = document.getElementById('confAlertThr');
+    if (alertThr) alertThr.addEventListener('change', () => {
+      _alertThr = parseInt(alertThr.value, 10) || 70;
+      localStorage.setItem('jb_conf_alert_thr', String(_alertThr));
+    });
+    const testNotif = document.getElementById('confTestNotif');
+    if (testNotif) testNotif.addEventListener('click', async () => {
+      if (typeof Notification === 'undefined') { alert('Notifications unsupported in this browser'); return; }
+      if (Notification.permission === 'default') {
+        const r = await Notification.requestPermission();
+        if (r !== 'granted') { alert('Permission not granted'); return; }
+      }
+      if (Notification.permission === 'denied') {
+        alert('Permission denied — re-enable in your browser site settings.');
+        return;
+      }
+      const n = new Notification('Confluence test alert', { body: 'You will see this when an asset crosses your threshold.' });
+      setTimeout(() => n.close(), 8000);
+      render();
+    });
+    const testTg = document.getElementById('confTestTg');
+    if (testTg) testTg.addEventListener('click', async () => {
+      try {
+        await Telegram.send('🎯 *Confluence test alert* — your widget is wired up correctly.', { parse_mode: 'Markdown' });
+        alert('Sent — check Telegram.');
+      } catch (e) {
+        alert('Telegram send failed: ' + e.message);
+      }
     });
 
     // TF pill clicks — change anchor, persist, clear cache+data, re-render
@@ -1090,18 +1544,30 @@ const ConfluenceTab = (() => {
       head.addEventListener('click', () => {
         sec.classList.toggle('is-collapsed');
       });
+      // Apply default-collapsed state on first paint
+      if (_guideCollapsed) sec.classList.add('is-collapsed');
     });
     // Global collapse-all toggle
     const allBtn = document.getElementById('confGuideToggle');
     if (allBtn) {
+      allBtn.textContent = _guideCollapsed ? 'Expand all' : 'Collapse all';
       allBtn.addEventListener('click', () => {
         const secs = document.querySelectorAll('.conf-guide .conf-guide-section');
         const anyOpen = Array.from(secs).some(s => !s.classList.contains('is-collapsed'));
         secs.forEach(s => s.classList.toggle('is-collapsed', anyOpen));
-        allBtn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+        _guideCollapsed = anyOpen;
+        localStorage.setItem('jb_conf_guide_collapsed', _guideCollapsed ? 'on' : 'off');
+        allBtn.textContent = _guideCollapsed ? 'Expand all' : 'Collapse all';
       });
+    }
+    if (_alertsOn && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      // Best-effort prompt on render (browsers may ignore if not user-gesture)
     }
   }
 
-  return { render, _refresh, _scoreAsset };
+  return {
+    render, _refresh, _scoreAsset,
+    _takeTrade, _pullAllTFs,
+    _hitRateSummary, _crossTFAgreement,
+  };
 })();

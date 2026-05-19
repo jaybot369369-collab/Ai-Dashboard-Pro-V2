@@ -97,6 +97,20 @@ window.ICTDetect = (() => {
     return { adx: last, plusDI: lastP, minusDI: lastM, rising };
   }
 
+  /* ── volume z-score on a single bar (vs N-bar avg) ────── */
+  function volMult(klines, barIdx, n = 20) {
+    if (!klines || klines.length < n + 1) return 1;
+    const idx = barIdx == null ? klines.length - 1 : barIdx;
+    let s = 0;
+    const start = Math.max(0, idx - n);
+    for (let i = start; i < idx; i++) s += (klines[i].v || 0);
+    const avg = s / Math.max(1, idx - start);
+    if (!avg) return 1;
+    const rel = (klines[idx].v || 0) / avg;
+    // Clamp to [0.5, 1.5] so a low-volume sweep doesn't get zeroed
+    return Math.max(0.5, Math.min(1.5, rel));
+  }
+
   /* ── 4h bias via EMA50/EMA200 + slope ─────────────────── */
   function detectBias(klines) {
     const closes = klines.map(k => k.c);
@@ -155,10 +169,11 @@ window.ICTDetect = (() => {
         if (!filled) {
           const size = (gapTop - gapBot) / klines[i].c;
           const age = last - i;
-          const strength = Math.min(1, size * 200) * (1 - age / lookback);
+          const vm = volMult(klines, i);
+          const strength = Math.min(1, size * 200) * (1 - age / lookback) * vm;
           return {
             fired: true, dir: 'bull', strength,
-            evidence: `Bull FVG ${age}b ago, gap ${(size*100).toFixed(2)}%`
+            evidence: `Bull FVG ${age}b ago, gap ${(size*100).toFixed(2)}% · vol ${vm.toFixed(2)}×`
           };
         }
       }
@@ -172,10 +187,11 @@ window.ICTDetect = (() => {
         if (!filled) {
           const size = (gapTop - gapBot) / klines[i].c;
           const age = last - i;
-          const strength = Math.min(1, size * 200) * (1 - age / lookback);
+          const vm = volMult(klines, i);
+          const strength = Math.min(1, size * 200) * (1 - age / lookback) * vm;
           return {
             fired: true, dir: 'bear', strength,
-            evidence: `Bear FVG ${age}b ago, gap ${(size*100).toFixed(2)}%`
+            evidence: `Bear FVG ${age}b ago, gap ${(size*100).toFixed(2)}% · vol ${vm.toFixed(2)}×`
           };
         }
       }
@@ -208,10 +224,11 @@ window.ICTDetect = (() => {
         if (!mitigated) {
           const age = last - i;
           const proximity = 1 - Math.min(1, Math.abs(klines[last].c - k.h) / (a * 5));
-          const strength = Math.max(0.2, proximity * (1 - age / lookback));
+          const vm = volMult(klines, i);
+          const strength = Math.max(0.2, proximity * (1 - age / lookback)) * vm;
           return {
             fired: true, dir: 'bull', strength,
-            evidence: `Bull OB ${age}b ago @ ${k.l.toFixed(4)}–${k.h.toFixed(4)}, displacement ${(dispAbs/a).toFixed(1)}×ATR`
+            evidence: `Bull OB ${age}b ago @ ${k.l.toFixed(4)}–${k.h.toFixed(4)}, ${(dispAbs/a).toFixed(1)}×ATR · vol ${vm.toFixed(2)}×`
           };
         }
       }
@@ -223,10 +240,11 @@ window.ICTDetect = (() => {
         if (!mitigated) {
           const age = last - i;
           const proximity = 1 - Math.min(1, Math.abs(klines[last].c - k.l) / (a * 5));
-          const strength = Math.max(0.2, proximity * (1 - age / lookback));
+          const vm = volMult(klines, i);
+          const strength = Math.max(0.2, proximity * (1 - age / lookback)) * vm;
           return {
             fired: true, dir: 'bear', strength,
-            evidence: `Bear OB ${age}b ago @ ${k.l.toFixed(4)}–${k.h.toFixed(4)}, displacement ${(dispAbs/a).toFixed(1)}×ATR`
+            evidence: `Bear OB ${age}b ago @ ${k.l.toFixed(4)}–${k.h.toFixed(4)}, ${(dispAbs/a).toFixed(1)}×ATR · vol ${vm.toFixed(2)}×`
           };
         }
       }
@@ -247,18 +265,20 @@ window.ICTDetect = (() => {
       const k = klines[i];
       if (k.h > swingHigh && k.c < swingHigh) {
         const wick = (k.h - Math.max(k.o, k.c)) / k.c;
-        const strength = Math.min(1, wick * 200);
+        const vm = volMult(klines, i);
+        const strength = Math.min(1, wick * 200) * vm;
         return {
           fired: true, dir: 'bear', strength,
-          evidence: `Swept ${swingLen}b high @ ${swingHigh.toFixed(4)} ${off}b ago, closed back below`
+          evidence: `Swept ${swingLen}b high @ ${swingHigh.toFixed(4)} ${off}b ago, closed back below · vol ${vm.toFixed(2)}×`
         };
       }
       if (k.l < swingLow && k.c > swingLow) {
         const wick = (Math.min(k.o, k.c) - k.l) / k.c;
-        const strength = Math.min(1, wick * 200);
+        const vm = volMult(klines, i);
+        const strength = Math.min(1, wick * 200) * vm;
         return {
           fired: true, dir: 'bull', strength,
-          evidence: `Swept ${swingLen}b low @ ${swingLow.toFixed(4)} ${off}b ago, closed back above`
+          evidence: `Swept ${swingLen}b low @ ${swingLow.toFixed(4)} ${off}b ago, closed back above · vol ${vm.toFixed(2)}×`
         };
       }
     }
@@ -371,7 +391,7 @@ window.ICTDetect = (() => {
   function _miss(reason) { return { fired: false, dir: null, strength: 0, evidence: reason }; }
 
   return {
-    sma, ema, emaSeries, atr, adx,
+    sma, ema, emaSeries, atr, adx, volMult,
     detectBias, detectADXGate,
     detectFVG, detectOB, detectSweep, detectCISD, detectBOS,
     activeKillzone, isKillzoneActive, nearLevel,

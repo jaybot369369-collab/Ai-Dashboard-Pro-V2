@@ -5586,3 +5586,171 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 @media (max-width: 700px) {
   .conf-rank-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ───── Confluence v3 add-ons (alerts/filter/TV/take/banner) ───── */
+
+/* Banner: macro guard + BTC shock */
+.conf-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: .85rem;
+  border-left: 3px solid var(--border);
+}
+.conf-banner-warn  { background: rgba(251,191,36,.10); border-left-color: var(--warn, #fbbf24); }
+.conf-banner-shock { background: rgba(96,165,250,.10); border-left-color: #60a5fa; }
+
+/* Filter bar above the table */
+.conf-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 4px 14px;
+  border-bottom: 1px dashed var(--border);
+  margin-bottom: 4px;
+}
+.conf-filter-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-right: 2px;
+}
+.conf-filter-sep {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 8px;
+}
+.conf-filter-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.conf-filter-pill:hover { color: var(--text); background: var(--surface3, var(--surface)); }
+.conf-filter-pill.active {
+  background: var(--text, #111);
+  color: var(--bg-card, #fff);
+  border-color: var(--text, #111);
+}
+.conf-filter-bull.active { background: var(--good, #34d399); border-color: var(--good, #34d399); color: var(--bg, #0b0b0b); }
+.conf-filter-bear.active { background: var(--bad, #f87171); border-color: var(--bad, #f87171); color: var(--bg, #0b0b0b); }
+
+.conf-hitrate, .conf-hitrate-dim {
+  margin-left: auto;
+  font-size: .78rem;
+  padding: 4px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* TradingView link icon next to asset */
+.conf-tv-link {
+  display: inline-block;
+  margin-left: 6px;
+  text-decoration: none;
+  opacity: .55;
+  transition: opacity .12s;
+  font-size: 1rem;
+}
+.conf-tv-link:hover { opacity: 1; }
+
+/* Take trade button in price cell */
+.conf-px-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.conf-take {
+  background: var(--accent, #34d399);
+  color: var(--bg, #0b0b0b);
+  border: 0;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.conf-take:hover { opacity: .9; }
+
+/* Sticky table header inside scroll wrapper */
+.conf-table-wrap {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.conf-table-wrap thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface, var(--bg-card));
+  z-index: 1;
+}
+
+/* Pull-all progress text */
+.conf-progress {
+  font-size: .82rem;
+  padding: 6px 10px;
+  background: var(--surface2);
+  border-left: 3px solid var(--accent, #34d399);
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+/* Alerts card */
+.conf-alert-card { margin-top: 16px; padding: 16px 20px; }
+.conf-alert-body { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.conf-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .84rem;
+  flex-wrap: wrap;
+}
+.conf-alert-row label { font-weight: 600; }
+.conf-alert-row select {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: .82rem;
+}
+.conf-alert-status {
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.conf-alert-granted    { background: rgba(52,211,153,.18); color: var(--good, #34d399); }
+.conf-alert-denied     { background: rgba(248,113,113,.18); color: var(--bad, #f87171); }
+.conf-alert-default    { background: var(--surface3, var(--surface2)); color: var(--muted); }
+.conf-alert-unsupported{ background: var(--surface3, var(--surface2)); color: var(--muted); }
+.conf-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-sm { font-size: .76rem; padding: 4px 10px; }
+
+@media (max-width: 700px) {
+  .conf-filterbar { padding-bottom: 10px; }
+  .conf-hitrate, .conf-hitrate-dim { margin-left: 0; width: 100%; text-align: center; }
+}

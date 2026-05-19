@@ -6,9 +6,9 @@
 New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. **Manual pull only** (button: "⟳ Pull Data"). See `~/Documents/Claude/Q2_2026/CLAUDE.md` § "Confluence tab" for full details.
 
 **Files & current versions:**
-- `js/lib/ict_detectors.js` (`?v=ictd1`) — pure detectors (FVG / OB / Sweep / CISD / BOS / Bias / ADX / nearLevel / killzone)
-- `js/tabs/confluence.js` (`?v=conf8`) — engine + UI + colour-coded collapsible guide + history + cross-TF
-- `css/styles.css` (`?v=dash17`) — `.conf-*` and `.conf-guide-*` blocks at end
+- `js/lib/ict_detectors.js` (`?v=ictd2`) — pure detectors + `volMult` helper; volume mixed into FVG/OB/Sweep strength
+- `js/tabs/confluence.js` (`?v=conf9`) — engine + UI + Tier-1/2/3 feature pack
+- `css/styles.css` (`?v=dash18`) — `.conf-*` + alerts/banner/filter/sticky-header blocks
 - `index.html` — registers all three with cache-busters
 - `js/data.js` (`?v=lw4`) — DEFAULT_TABS entry
 - `js/app.js` (`?v=app10`) — RENDERERS map entry
@@ -26,18 +26,28 @@ New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. 
 8. **Anchor TF selector** — pills 15m / 1h / 4h / D in page-head. HTF auto-shifts 2 steps above. Bybit/OKX/Binance TF maps extended with D/W/M.
 9. **Score history sparkline + cross-TF agreement chip** — two new table columns. History persists last 40 pulls in `jb_conf_history`; cross-TF stores latest snapshot per anchor in `jb_conf_per_tf`. Perfect-alignment chip pulses gold.
 10. **Analyst's "Which TF should I use?" section** — embedded in user guide with medal rankings, per-TF reasoning cards, top-down 3-pull workflow, new-features explainer.
+11. **Tier-1/2/3 feature pack** (huge): alerts (browser + Telegram), Pull All TFs button, TradingView icon per row, hit-rate tracking with 4h follow-up check, volume in detectors, BTC correlation veto, macro news guard banner, Take Trade button (prefills modal), direction + setups filters, sticky table header, guide collapsed by default, LW deep detectors (funding/OI/liq).
 
 **Recommended TF (analyst opinion):** 1h is the sweet spot. 15m for active intraday inside killzones. 4h for swing morning-and-evening pulls. D for macro check-in only.
 
 **Verified:** all commits pushed to github.io main. Syntax-check passes. OBxADX bot selftest still passes (no Python code touched). User confirmed tab renders + Pull Data works after Bybit fallback shipped.
 
 **Known gaps / next-pass candidates:**
-- No alerts / Telegram pings (on-screen only)
-- ~~No persistence across page reloads~~ ✅ shipped (`jb_conf_history` + `jb_conf_per_tf`)
-- ~~No cross-TF agreement chip~~ ✅ shipped (▲ 3/3 / ▼ 2/4 / gold-pulse perfect)
-- ~~No history strip showing how a score evolved between pulls~~ ✅ shipped (inline SVG sparkline)
-- No "clear history" button yet — user has to wipe localStorage manually
-- Sparkline only shows current-anchor history; could add a "see all TFs" modal
+- ~~No alerts / Telegram pings~~ ✅ shipped (browser + Telegram via integrations/telegram.js)
+- ~~No persistence across page reloads~~ ✅ shipped
+- ~~No cross-TF agreement chip~~ ✅ shipped
+- ~~No history strip~~ ✅ shipped (SVG sparkline)
+- ~~No hit-rate tracking~~ ✅ shipped (4h follow-up check, 1× ATR threshold)
+- ~~No volume confirmation~~ ✅ shipped (relVol multiplier in FVG/OB/Sweep)
+- ~~No BTC correlation veto~~ ✅ shipped (>2×ATR 1h shock → ×0.5 opposite alts)
+- ~~No macro news guard~~ ✅ shipped (yellow banner on FOMC/CPI/NFP days)
+- ~~No Take Trade button~~ ✅ shipped (prefills modal with SL=1% placeholder)
+- ~~No direction filter~~ ✅ shipped (All/Bulls/Bears + Setups ≥ N pills)
+- ~~No sticky table header~~ ✅ shipped (`.conf-table-wrap` overflow + sticky th)
+- Universe still 5 assets — skipped per user direction (item #11)
+- Take Trade SL placeholder is 1%, not the detected OB low/high yet
+- Hit-rate threshold is generic 1×ATR / 4h — not your actual SL/TP per-trade
+- No "Clear history" / "Reset calls" button — user wipes localStorage manually
 
 ---
 
