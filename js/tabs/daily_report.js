@@ -129,10 +129,10 @@ const DailyReportTab = (() => {
     if (!signals || !signals.length) return '';
     const items = signals.map((s, i) => {
       const letter = s.letter || String.fromCharCode(97 + i);
-      const age = s.as_of ? ` <span style="color:var(--muted,#8b90a8);font-size:.72rem">· verified ${fmtAge(s.as_of)}</span>` : '';
-      return `<div style="display:flex;gap:10px;padding:9px 12px;border-radius:6px;background:var(--surface-2,#f5f6fa);margin-bottom:8px;border-left:3px solid var(--accent,#7c5cff)">
+      const age = s.as_of ? ` <span style="color:var(--text-sub,var(--muted,#a0a4c2));font-size:.72rem;opacity:.8">· verified ${fmtAge(s.as_of)}</span>` : '';
+      return `<div style="display:flex;gap:10px;padding:10px 14px;border-radius:6px;background:var(--surface2,var(--surface-2,#f5f6fa));margin-bottom:8px;border-left:3px solid var(--accent,#7c5cff)">
         <span style="font-weight:700;color:var(--accent,#7c5cff);flex-shrink:0;font-size:.82rem;min-width:16px">${esc(letter)}</span>
-        <span style="font-size:.81rem;line-height:1.6;color:var(--text,#111)">${esc(s.body)}${age}</span>
+        <span style="font-size:.82rem;line-height:1.65;color:var(--heading,var(--text,#f4f6ff))">${esc(s.body)}${age}</span>
       </div>`;
     }).join('');
     return `<div class="card" style="margin-bottom:var(--gap,16px)">
