@@ -974,7 +974,7 @@ const ConfluenceTab = (() => {
       <div class="card conf-scanner-card" style="margin-top:20px">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
           <span>📸 Chart Scanner</span>
-          <span class="muted" style="font-size:.78rem;text-transform:none;letter-spacing:0;font-weight:400">Paste or upload a chart · get ICT setup analysis vs your playbook</span>
+          <span class="muted" style="font-size:.78rem;text-transform:none;letter-spacing:0;font-weight:400">Paste or upload a chart · get setup analysis vs your playbook</span>
         </div>
         <div class="conf-scanner-body">
           <div class="conf-scan-row">
@@ -1113,11 +1113,11 @@ const ConfluenceTab = (() => {
       const entryNote = entryPrice ? `The trader is considering an entry at price ${entryPrice}.` : '';
       const symNote   = sym ? `The chart appears to be ${sym}/USDT.` : '';
 
-      const system = `You are an expert ICT (Inner Circle Trader) chart analyst with deep knowledge of order blocks, fair value gaps, liquidity sweeps, CISD, BOS, power of 3/AMD, silver bullet, OTE, and killzone timing.
+      const system = `You are an expert multi-methodology chart analyst. You recognise setups from ICT (order blocks, FVGs, liquidity sweeps, CISD, BOS, silver bullet, OTE, power of 3/AMD, killzones), classic technical analysis (support/resistance, trendlines, channels, triangles, flags, wedges, double tops/bottoms, head & shoulders), price action (pin bars, engulfing, inside bars, hammer/shooting star), Wyckoff (accumulation/distribution phases, springs, upthrusts), volume analysis (volume climax, dry-up, divergence), and any other recognisable pattern visible in the chart.
 
-Analyze the chart screenshot and identify every visible ICT setup. Be specific about price levels if labels are visible on the chart.
+Analyze the chart screenshot and identify EVERY visible setup regardless of methodology. Be specific about price levels if labels are visible on the chart.
 
-The trader's saved playbook setups:
+The trader's saved playbook setups (compare against these and flag matches):
 ${setupList}
 
 ${entryNote} ${symNote}
@@ -1250,7 +1250,7 @@ Return ONLY valid JSON, no markdown, no explanation outside the JSON:
         <div class="conf-scan-read">${esc(d.chart_read)}</div>
         ${d.detected?.length ? `
           <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted,#888);margin:16px 0 10px">Setups detected (${d.detected.length})</div>
-          <div class="conf-scan-setups">${detected}</div>` : '<div class="muted" style="margin-top:12px">No ICT setups detected in this chart.</div>'}
+          <div class="conf-scan-setups">${detected}</div>` : '<div class="muted" style="margin-top:12px">No setups detected in this chart.</div>'}
         ${compTable}
         ${d.risk_note ? `<div class="conf-scan-risk-note">⚠ ${esc(d.risk_note)}</div>` : ''}
       </div>`;
