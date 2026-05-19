@@ -5438,3 +5438,75 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 @media (max-width: 900px) {
   .conf-tier-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Anchor TF selector (page-head pills) ──────────────── */
+.conf-tf-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-right: 6px;
+}
+.conf-tf-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-right: 4px;
+  text-transform: uppercase;
+}
+.conf-tf-pill {
+  background: transparent;
+  border: 0;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.conf-tf-pill:hover { color: var(--text); background: var(--surface3, var(--surface)); }
+.conf-tf-pill.active {
+  background: var(--accent, #34d399);
+  color: var(--bg, #0b0b0b);
+}
+.conf-tf-stack { padding-left: 2px; }
+
+@media (max-width: 700px) {
+  .conf-tf-row { width: 100%; justify-content: space-between; margin-bottom: 8px; margin-right: 0; }
+}
+
+/* TF anchor explainer in the guide */
+.conf-tf-table {
+  display: grid;
+  grid-template-columns: 80px 1fr 1fr 1fr 2fr;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.conf-tf-tcell {
+  background: var(--surface2);
+  padding: 8px 12px;
+  font-size: .82rem;
+}
+.conf-tf-thead {
+  background: var(--surface3, var(--surface));
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@media (max-width: 700px) {
+  .conf-tf-table { grid-template-columns: 1fr 1fr; font-size: .76rem; }
+  .conf-tf-thead:nth-child(3),
+  .conf-tf-thead:nth-child(4),
+  .conf-tf-thead:nth-child(5) { display: none; }
+}
