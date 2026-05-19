@@ -5337,3 +5337,104 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
   .conf-det-grid { grid-template-columns: 1fr; }
   .conf-band { grid-template-columns: 70px 40px 1fr; gap: 8px; padding: 8px 10px; }
 }
+
+/* ── Tier grid (A/B/C bull/bear) ───────────────────────── */
+.conf-guide-tiers { grid-column: 1 / -1; }
+.conf-tier-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 8px;
+}
+.conf-tier-col-h {
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.conf-tier-col-h-bull {
+  background: rgba(52,211,153,.14);
+  color: var(--good, #34d399);
+  border: 1px solid rgba(52,211,153,.3);
+}
+.conf-tier-col-h-bear {
+  background: rgba(248,113,113,.14);
+  color: var(--bad, #f87171);
+  border: 1px solid rgba(248,113,113,.3);
+}
+.conf-tier {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.conf-tier-a { border-left: 3px solid var(--good, #34d399); }
+.conf-tier-b { border-left: 3px solid var(--warn, #fbbf24); }
+.conf-tier-c { border-left: 3px solid var(--muted, #888); }
+
+.conf-tier-badge {
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+.conf-tier-badge-a { background: var(--good, #34d399); color: var(--bg, #0b0b0b); }
+.conf-tier-badge-b { background: var(--warn, #fbbf24); color: var(--bg, #0b0b0b); }
+.conf-tier-badge-c { background: var(--surface3, var(--surface)); color: var(--muted); }
+
+.conf-tier-body { flex: 1; min-width: 0; }
+.conf-tier-title { font-weight: 600; font-size: .88rem; margin-bottom: 2px; }
+.conf-tier-meta {
+  font-size: .74rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: .02em;
+}
+.conf-tier .conf-example {
+  padding: 8px;
+  margin: 4px 0 6px;
+}
+.conf-tier-note {
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.4;
+  font-style: italic;
+}
+
+/* Bear-coloured chip variant for the BEAR examples */
+.conf-chip-ex.conf-chip-bear {
+  background: rgba(248,113,113,.14);
+  color: var(--bad, #f87171);
+}
+
+/* ── Collapsible guide sections ────────────────────────── */
+.conf-chev {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: .75rem;
+  color: var(--muted);
+  transition: transform .15s ease;
+}
+.conf-guide-section.is-collapsed .conf-chev { transform: rotate(-90deg); }
+.conf-guide-section.is-collapsed > *:not(.conf-guide-h) {
+  display: none !important;
+}
+.conf-guide-section .conf-guide-h:hover { color: var(--text); }
+
+.conf-guide-toggle { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  .conf-tier-grid { grid-template-columns: 1fr; }
+}

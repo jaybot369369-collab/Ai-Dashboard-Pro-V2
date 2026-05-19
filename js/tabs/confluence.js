@@ -496,7 +496,10 @@ const ConfluenceTab = (() => {
 
   const GUIDE_HTML = `
     <div class="card conf-guide" style="margin-top:20px">
-      <div class="card-title">📖 How to use this tab</div>
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📖 How to use this tab</span>
+        <button class="btn-soft conf-guide-toggle" id="confGuideToggle" style="font-size:.74rem;padding:4px 10px">Collapse all</button>
+      </div>
 
       <!-- ─── STEP-BY-STEP at the top ─── -->
       <div class="conf-guide-steps">
@@ -606,19 +609,120 @@ const ConfluenceTab = (() => {
           </div>
         </div>
 
-        <!-- ─── A-TIER EXAMPLE ─── -->
-        <div class="conf-guide-section conf-guide-tldr">
-          <div class="conf-guide-h">✨ What an A-tier setup looks like</div>
-          <div class="conf-example">
-            <span class="conf-tag conf-bull">▲ Bull 78</span>
-            <span class="conf-example-arrow">→</span>
-            <span class="conf-chip-ex">✅ Bias 4h bull</span>
-            <span class="conf-chip-ex">✅ OB 1h bull</span>
-            <span class="conf-chip-ex">✅ FVG 15m bull</span>
-            <span class="conf-chip-ex">✅ Sweep 15m bull</span>
-            <span class="conf-chip-ex conf-chip-kz">⏰ NY AM active</span>
+        <!-- ─── TIERED EXAMPLES (A/B/C × Bull/Bear) ─── -->
+        <div class="conf-guide-section conf-guide-tiers">
+          <div class="conf-guide-h">✨ Setup tiers — what to look for</div>
+          <p style="font-size:.82rem;margin:4px 0 12px">Three quality grades for each direction. Aim for A. Skip C unless everything else lines up.</p>
+
+          <div class="conf-tier-grid">
+            <!-- ───── BULL COLUMN ───── -->
+            <div class="conf-tier-col">
+              <div class="conf-tier-col-h conf-tier-col-h-bull">▲ BULL setups</div>
+
+              <div class="conf-tier conf-tier-a">
+                <div class="conf-tier-badge conf-tier-badge-a">A</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Premium — take it</div>
+                  <div class="conf-tier-meta">Score <strong>≥75</strong> · 4+ detectors · killzone active</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bull">▲ 78</span>
+                    <span class="conf-chip-ex">✅ Bias 4h</span>
+                    <span class="conf-chip-ex">✅ OB 1h</span>
+                    <span class="conf-chip-ex">✅ FVG 15m</span>
+                    <span class="conf-chip-ex">✅ Sweep 15m</span>
+                    <span class="conf-chip-ex conf-chip-kz">⏰ NY AM</span>
+                  </div>
+                  <div class="conf-tier-note">HTF trend + LTF entry + active session — full size.</div>
+                </div>
+              </div>
+
+              <div class="conf-tier conf-tier-b">
+                <div class="conf-tier-badge conf-tier-badge-b">B</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Solid — trade with care</div>
+                  <div class="conf-tier-meta">Score <strong>68–75</strong> · 3 detectors · KZ optional</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bull">▲ 71</span>
+                    <span class="conf-chip-ex">✅ Bias 4h</span>
+                    <span class="conf-chip-ex">✅ FVG 15m</span>
+                    <span class="conf-chip-ex">✅ Sweep 15m</span>
+                  </div>
+                  <div class="conf-tier-note">Half-size. Tighten stop. Wants a clean LTF trigger.</div>
+                </div>
+              </div>
+
+              <div class="conf-tier conf-tier-c">
+                <div class="conf-tier-badge conf-tier-badge-c">C</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Marginal — skip unless</div>
+                  <div class="conf-tier-meta">Score <strong>65–68</strong> · barely 3 detectors</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bull">▲ 66</span>
+                    <span class="conf-chip-ex">✅ Bias 4h</span>
+                    <span class="conf-chip-ex">✅ OB 1h</span>
+                    <span class="conf-chip-ex">✅ CISD 15m</span>
+                  </div>
+                  <div class="conf-tier-note">Only take if Near Level + KZ active. Otherwise stand down.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ───── BEAR COLUMN ───── -->
+            <div class="conf-tier-col">
+              <div class="conf-tier-col-h conf-tier-col-h-bear">▼ BEAR setups</div>
+
+              <div class="conf-tier conf-tier-a">
+                <div class="conf-tier-badge conf-tier-badge-a">A</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Premium — take it</div>
+                  <div class="conf-tier-meta">Score <strong>≤25</strong> · 4+ detectors · killzone active</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bear">▼ 22</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ Bias 4h</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ OB 1h</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ FVG 15m</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ Sweep 15m</span>
+                    <span class="conf-chip-ex conf-chip-kz">⏰ London</span>
+                  </div>
+                  <div class="conf-tier-note">HTF down + LTF reject + active session — full size short.</div>
+                </div>
+              </div>
+
+              <div class="conf-tier conf-tier-b">
+                <div class="conf-tier-badge conf-tier-badge-b">B</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Solid — trade with care</div>
+                  <div class="conf-tier-meta">Score <strong>25–32</strong> · 3 detectors · KZ optional</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bear">▼ 29</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ Bias 4h</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ FVG 15m</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ BOS 1h</span>
+                  </div>
+                  <div class="conf-tier-note">Half-size short. Wait for retest of OB or FVG fill.</div>
+                </div>
+              </div>
+
+              <div class="conf-tier conf-tier-c">
+                <div class="conf-tier-badge conf-tier-badge-c">C</div>
+                <div class="conf-tier-body">
+                  <div class="conf-tier-title">Marginal — skip unless</div>
+                  <div class="conf-tier-meta">Score <strong>32–35</strong> · barely 3 detectors</div>
+                  <div class="conf-example">
+                    <span class="conf-tag conf-bear">▼ 34</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ Bias 4h</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ Sweep 1h</span>
+                    <span class="conf-chip-ex conf-chip-bear">✅ CISD 15m</span>
+                  </div>
+                  <div class="conf-tier-note">Only take if Near Level + KZ active. Otherwise stand down.</div>
+                </div>
+              </div>
+            </div>
           </div>
-          <p style="margin-top:10px;margin-bottom:0">Four detectors agreeing across multiple TFs + killzone multiplier = the kind of moment you've been waiting for. Verify on TradingView and take the trade.</p>
+
+          <div class="conf-callout" style="background:rgba(52,211,153,.10);border-left-color:var(--good,#34d399);margin-top:14px">
+            🎓 <strong>Rule of thumb:</strong> If you wouldn't be proud to journal the setup, don't take it. A is full size, B is half size, C is paper-trade or skip.
+          </div>
         </div>
 
         <!-- ─── THINGS TO KNOW ─── -->
@@ -668,6 +772,40 @@ const ConfluenceTab = (() => {
 
     // Only spin up the auto-refresh interval if the user opted in
     if (_autoOn) _startAutoRefresh();
+
+    // Collapse / expand wiring on the user-guide panels
+    _wireGuideCollapse();
+  }
+
+  /* ── Guide collapse logic ─────────────────────────────── */
+  function _wireGuideCollapse() {
+    // Per-section: click on .conf-guide-h to toggle .is-collapsed on parent
+    document.querySelectorAll('.conf-guide .conf-guide-section').forEach(sec => {
+      const head = sec.querySelector('.conf-guide-h');
+      if (!head) return;
+      head.style.cursor = 'pointer';
+      head.style.userSelect = 'none';
+      // chevron marker
+      if (!head.querySelector('.conf-chev')) {
+        const chev = document.createElement('span');
+        chev.className = 'conf-chev';
+        chev.textContent = '▾';
+        head.appendChild(chev);
+      }
+      head.addEventListener('click', () => {
+        sec.classList.toggle('is-collapsed');
+      });
+    });
+    // Global collapse-all toggle
+    const allBtn = document.getElementById('confGuideToggle');
+    if (allBtn) {
+      allBtn.addEventListener('click', () => {
+        const secs = document.querySelectorAll('.conf-guide .conf-guide-section');
+        const anyOpen = Array.from(secs).some(s => !s.classList.contains('is-collapsed'));
+        secs.forEach(s => s.classList.toggle('is-collapsed', anyOpen));
+        allBtn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+      });
+    }
   }
 
   return { render, _refresh, _scoreAsset };
