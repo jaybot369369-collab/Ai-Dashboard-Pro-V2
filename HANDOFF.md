@@ -7,8 +7,8 @@ New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. 
 
 **Files & current versions:**
 - `js/lib/ict_detectors.js` (`?v=ictd1`) — pure detectors (FVG / OB / Sweep / CISD / BOS / Bias / ADX / nearLevel / killzone)
-- `js/tabs/confluence.js` (`?v=conf7`) — engine + UI + colour-coded collapsible guide
-- `css/styles.css` (`?v=dash16`) — `.conf-*` and `.conf-guide-*` blocks at end
+- `js/tabs/confluence.js` (`?v=conf8`) — engine + UI + colour-coded collapsible guide + history + cross-TF
+- `css/styles.css` (`?v=dash17`) — `.conf-*` and `.conf-guide-*` blocks at end
 - `index.html` — registers all three with cache-busters
 - `js/data.js` (`?v=lw4`) — DEFAULT_TABS entry
 - `js/app.js` (`?v=app10`) — RENDERERS map entry
@@ -24,6 +24,8 @@ New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. 
 6. A/B/C tier examples × bull/bear (full size / half size / paper)
 7. Per-section collapse + "Collapse all" toggle
 8. **Anchor TF selector** — pills 15m / 1h / 4h / D in page-head. HTF auto-shifts 2 steps above. Bybit/OKX/Binance TF maps extended with D/W/M.
+9. **Score history sparkline + cross-TF agreement chip** — two new table columns. History persists last 40 pulls in `jb_conf_history`; cross-TF stores latest snapshot per anchor in `jb_conf_per_tf`. Perfect-alignment chip pulses gold.
+10. **Analyst's "Which TF should I use?" section** — embedded in user guide with medal rankings, per-TF reasoning cards, top-down 3-pull workflow, new-features explainer.
 
 **Recommended TF (analyst opinion):** 1h is the sweet spot. 15m for active intraday inside killzones. 4h for swing morning-and-evening pulls. D for macro check-in only.
 
@@ -31,9 +33,11 @@ New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. 
 
 **Known gaps / next-pass candidates:**
 - No alerts / Telegram pings (on-screen only)
-- No persistence across page reloads (`_lastRun` is in-memory only)
-- No "asset aligned across 3/3 TFs" cross-TF chip (analyst flagged this as high-value upgrade)
-- No history strip showing how a score evolved between pulls
+- ~~No persistence across page reloads~~ ✅ shipped (`jb_conf_history` + `jb_conf_per_tf`)
+- ~~No cross-TF agreement chip~~ ✅ shipped (▲ 3/3 / ▼ 2/4 / gold-pulse perfect)
+- ~~No history strip showing how a score evolved between pulls~~ ✅ shipped (inline SVG sparkline)
+- No "clear history" button yet — user has to wipe localStorage manually
+- Sparkline only shows current-anchor history; could add a "see all TFs" modal
 
 ---
 
