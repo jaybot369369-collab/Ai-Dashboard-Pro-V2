@@ -73,6 +73,7 @@ class Handler(BaseHTTPRequestHandler):
                                           {"role": "user", "content": user_content}}))
                 stdin_data = "\n".join(lines)
                 cmd = [CLAUDE_CLI, "--print", "--verbose",
+                       "--allowedTools", "",   # pure Q&A — no file/bash tools
                        "--input-format=stream-json", "--output-format=stream-json"]
                 result = subprocess.run(cmd, input=stdin_data,
                                         capture_output=True, text=True, timeout=180)

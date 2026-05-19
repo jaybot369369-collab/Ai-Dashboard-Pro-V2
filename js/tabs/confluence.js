@@ -1156,9 +1156,11 @@ Return ONLY valid JSON, no markdown, no explanation outside the JSON:
         maxTokens: 2000,
       });
 
-      // Parse JSON — strip any accidental markdown fences
-      const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-      const data = JSON.parse(cleaned);
+      // Extract the outermost {...} block — handles markdown fences, preamble text, etc.
+      const start = text.indexOf('{');
+      const end   = text.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error('No JSON found in response. Raw: ' + text.slice(0, 120));
+      const data = JSON.parse(text.slice(start, end + 1));
 
       if (result) {
         result.style.display = '';
