@@ -502,15 +502,8 @@ ${JSON.stringify(trades.map(t => ({
         ${insights.length ? insights.map(insightCard).join('') : emptyCard}
       </div>
 
-      <!-- ── Patterns (Tendencies merged) ─────────────────── -->
-      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:24px">
-        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px">Patterns</div>
-        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Where you make money and where you don't</div>
-        <div id="tendencies-embed"></div>
-      </div>
-
       <!-- ── Merged sections (2026-05-19 audit: Rules / Playbook / My Reports) ─ -->
-      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:32px">
+      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:24px">
         <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px">Discipline &amp; Reference</div>
         <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Rules, setups, and post-hoc reports</div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
@@ -518,6 +511,13 @@ ${JSON.stringify(trades.map(t => ({
           ${_mergedCard('📖', 'Playbook', _playbookSummary(), 'playbook')}
           ${_mergedCard('📑', 'My Reports', 'Weekly / monthly performance, imports, and setup breakdowns. Generated post-hoc from your trade log.', 'reports')}
         </div>
+      </div>
+
+      <!-- ── Patterns (Tendencies merged) ─────────────────── -->
+      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:32px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px">Patterns</div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Where you make money and where you don't</div>
+        <div id="tendencies-embed"></div>
       </div>
     `;
 
