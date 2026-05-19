@@ -1,20 +1,39 @@
 # AI Dashboard Pro V2 — Design Handoff
-*Last updated: 2026-05-19 | Confluence tab added by Opus 4.7 session*
+*Last updated: 2026-05-19 | Confluence tab v2 by Opus 4.7 session*
 
-## 🎯 Confluence tab (added 2026-05-19)
+## 🎯 Confluence tab (latest: 2026-05-19)
 
-New TRADING-group tab that runs live ICT pattern detection across BTC/ETH/XRP/SOL/SUI and ranks alignment. **Manual pull only** (button: "⟳ Pull Data"). See `CLAUDE.md` § "Confluence tab" for full details.
+New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. **Manual pull only** (button: "⟳ Pull Data"). See `~/Documents/Claude/Q2_2026/CLAUDE.md` § "Confluence tab" for full details.
 
-**Files:**
+**Files & current versions:**
 - `js/lib/ict_detectors.js` (`?v=ictd1`) — pure detectors (FVG / OB / Sweep / CISD / BOS / Bias / ADX / nearLevel / killzone)
-- `js/tabs/confluence.js` (`?v=conf4`) — engine + UI + embedded user guide at bottom
-- CSS in `styles.css` (`?v=dash13`) — `.conf-*` block at end
+- `js/tabs/confluence.js` (`?v=conf7`) — engine + UI + colour-coded collapsible guide
+- `css/styles.css` (`?v=dash16`) — `.conf-*` and `.conf-guide-*` blocks at end
+- `index.html` — registers all three with cache-busters
+- `js/data.js` (`?v=lw4`) — DEFAULT_TABS entry
+- `js/app.js` (`?v=app10`) — RENDERERS map entry
 
-**Klines:** Bybit (primary) → Binance → OKX fallback. 8s timeout per attempt. Binance is geo-blocked in US so Bybit is the real source.
+**Klines:** Bybit (primary, works in US) → Binance (geo-blocked in US) → OKX. 8s timeout per attempt.
 
-**Registered:** `data.js` DEFAULT_TABS (`?v=lw4`), `app.js` RENDERERS (`?v=app10`).
+**Features (in order they were added):**
+1. Initial engine with 10 detectors, ranked table, expand panel
+2. Multi-source kline fallback (after Binance hung silently)
+3. Manual-pull-only mode (data persists in memory across tab switches; cleared on reload)
+4. Embedded user guide at bottom of tab
+5. Colour-coded visual guide with emojis + score bands + KPI grid + detector dictionary
+6. A/B/C tier examples × bull/bear (full size / half size / paper)
+7. Per-section collapse + "Collapse all" toggle
+8. **Anchor TF selector** — pills 15m / 1h / 4h / D in page-head. HTF auto-shifts 2 steps above. Bybit/OKX/Binance TF maps extended with D/W/M.
 
-**Verification last done:** pushed to github.io main, syntax-check passes, OBxADX bot selftest still passes. User confirmed tab renders. Multi-source fix shipped after user reported Binance hanging on first pull.
+**Recommended TF (analyst opinion):** 1h is the sweet spot. 15m for active intraday inside killzones. 4h for swing morning-and-evening pulls. D for macro check-in only.
+
+**Verified:** all commits pushed to github.io main. Syntax-check passes. OBxADX bot selftest still passes (no Python code touched). User confirmed tab renders + Pull Data works after Bybit fallback shipped.
+
+**Known gaps / next-pass candidates:**
+- No alerts / Telegram pings (on-screen only)
+- No persistence across page reloads (`_lastRun` is in-memory only)
+- No "asset aligned across 3/3 TFs" cross-TF chip (analyst flagged this as high-value upgrade)
+- No history strip showing how a score evolved between pulls
 
 ---
 
