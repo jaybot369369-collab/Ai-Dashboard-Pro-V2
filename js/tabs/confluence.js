@@ -1169,9 +1169,16 @@ Return ONLY valid JSON, no markdown, no explanation outside the JSON:
     } catch (err) {
       if (status) {
         status.style.display = '';
-        status.textContent = err.message.includes('API key') || err.message.includes('No API')
-          ? '⚠ No API key — set one in AI Coach → Settings, or enable Local mode.'
-          : `Error: ${err.message}`;
+        const msg = err.message || '';
+        if (msg.includes('API key') || msg.includes('No API')) {
+          status.textContent = '⚠ No API key — set one in AI Coach → Settings, or enable Local mode.';
+        } else if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')) {
+          status.textContent = '⚠ Local AI server not reachable. Run: python3 scripts/local_ai_server.py — then scan again. (Also requires dashboard on localhost:8768, not github.io.)';
+        } else if (msg.toLowerCase().includes('credit') || msg.includes('402') || msg.includes('insufficient')) {
+          status.textContent = '⚠ API credits exhausted. Enable Local mode in AI Coach → Settings (requires local_ai_server.py running).';
+        } else {
+          status.textContent = `Error: ${msg}`;
+        }
       }
     } finally {
       _scanBusy = false;
