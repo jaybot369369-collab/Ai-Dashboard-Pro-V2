@@ -284,6 +284,61 @@ const ConfluenceTab = (() => {
     };
   }
 
+  /* ── persistence: score history + latest per-TF snapshot ───────
+     localStorage keys:
+       jb_conf_history    — array of last N pulls (any anchor), per-asset score points
+       jb_conf_per_tf     — latest per-anchor snapshot for cross-TF agreement
+  */
+  const HISTORY_CAP = 40;        // total entries across all anchors
+
+  function _loadHistory() {
+    try { return JSON.parse(localStorage.getItem('jb_conf_history') || '[]'); }
+    catch { return []; }
+  }
+  function _saveHistory(arr) {
+    try { localStorage.setItem('jb_conf_history', JSON.stringify(arr.slice(-HISTORY_CAP))); }
+    catch (e) { console.warn('[confluence] history save failed', e); }
+  }
+  function _loadPerTF() {
+    try { return JSON.parse(localStorage.getItem('jb_conf_per_tf') || '{}'); }
+    catch { return {}; }
+  }
+  function _savePerTF(map) {
+    try { localStorage.setItem('jb_conf_per_tf', JSON.stringify(map)); }
+    catch (e) { console.warn('[confluence] per-tf save failed', e); }
+  }
+
+  // Return ordered list of {ts, score, dir} for a symbol at the current anchor
+  function _historyForSym(sym, anchor = _anchorTF, limit = 8) {
+    return _loadHistory()
+      .filter(h => h.anchor === anchor && h.scores && h.scores[sym])
+      .slice(-limit)
+      .map(h => ({ ts: h.ts, score: h.scores[sym].score, dir: h.scores[sym].dir }));
+  }
+
+  // For each symbol, count actionable anchors (score ≥65 or ≤35 in stored snapshot).
+  // Returns { sym: {bull:N, bear:N, neutral:N, totalSeen:N, anchors:{tf:{score,dir,age}}} }
+  function _crossTFAgreement() {
+    const perTF = _loadPerTF();
+    const summary = {};
+    for (const sym of SYMBOLS) summary[sym] = { bull: 0, bear: 0, neutral: 0, totalSeen: 0, anchors: {} };
+    for (const tf of TF_OPTIONS) {
+      const snap = perTF[tf];
+      if (!snap || !snap.scores) continue;
+      for (const sym of SYMBOLS) {
+        const s = snap.scores[sym];
+        if (!s || s.score == null) continue;
+        summary[sym].totalSeen += 1;
+        const ageMs = Date.now() - (snap.ts || 0);
+        summary[sym].anchors[tf] = { score: s.score, dir: s.dir, age: ageMs };
+        if (s.score >= 65) summary[sym].bull += 1;
+        else if (s.score <= 35) summary[sym].bear += 1;
+        else summary[sym].neutral += 1;
+      }
+    }
+    return summary;
+  }
+
   /* ── refresh cycle ───────────────────────────────────── */
   async function _refresh() {
     const root = document.getElementById('confluenceRoot');
@@ -303,6 +358,19 @@ const ConfluenceTab = (() => {
     });
 
     _lastRun = { ts: Date.now(), results, lwOk: !!lw, dailyOk: !!daily };
+
+    // Persist history entry + per-TF snapshot
+    const scoreMap = {};
+    results.forEach(r => {
+      scoreMap[r.sym] = { score: r.score, dir: r.dir, fired: r.fired?.length || 0 };
+    });
+    const history = _loadHistory();
+    history.push({ ts: _lastRun.ts, anchor: _anchorTF, scores: scoreMap });
+    _saveHistory(history);
+    const perTF = _loadPerTF();
+    perTF[_anchorTF] = { ts: _lastRun.ts, scores: scoreMap };
+    _savePerTF(perTF);
+
     _renderTable();
   }
 
@@ -322,6 +390,56 @@ const ConfluenceTab = (() => {
         <div class="conf-score-num ${cls}">${score.toFixed(0)}</div>
         <div class="conf-score-bar"><span class="${cls}" style="width:${pct}%"></span></div>
       </div>`;
+  }
+
+  /* ── inline SVG sparkline of recent scores at this anchor ───── */
+  function _sparkline(points) {
+    if (!points || points.length < 2) {
+      return `<span class="muted" style="font-size:.72rem">—</span>`;
+    }
+    const w = 78, h = 22, pad = 2;
+    const xs = (i) => pad + (i * (w - pad * 2)) / (points.length - 1);
+    const ys = (s) => pad + (1 - s / 100) * (h - pad * 2);
+    const path = points.map((p, i) =>
+      `${i === 0 ? 'M' : 'L'} ${xs(i).toFixed(1)} ${ys(p.score).toFixed(1)}`).join(' ');
+    const lastScore = points[points.length - 1].score;
+    const stroke = lastScore >= 65 ? 'var(--good,#34d399)'
+                 : lastScore <= 35 ? 'var(--bad,#f87171)'
+                 : 'var(--muted,#888)';
+    const dots = points.map((p, i) => {
+      const fill = p.score >= 65 ? 'var(--good,#34d399)'
+                 : p.score <= 35 ? 'var(--bad,#f87171)'
+                 : 'var(--muted,#888)';
+      return `<circle cx="${xs(i).toFixed(1)}" cy="${ys(p.score).toFixed(1)}" r="1.4" fill="${fill}"/>`;
+    }).join('');
+    const title = points.map(p =>
+      `${new Date(p.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}: ${Math.round(p.score)}`
+    ).join('\n');
+    return `<svg class="conf-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-label="score history">
+      <title>${esc(title)}</title>
+      <line x1="0" y1="${h/2}" x2="${w}" y2="${h/2}" stroke="var(--border)" stroke-width=".5" stroke-dasharray="2,2"/>
+      <path d="${path}" fill="none" stroke="${stroke}" stroke-width="1.4" stroke-linecap="round"/>
+      ${dots}
+    </svg>`;
+  }
+
+  /* ── cross-TF agreement chip ───────────────────────────────── */
+  function _xtfChip(agr) {
+    if (!agr || !agr.totalSeen) {
+      return `<span class="muted" style="font-size:.72rem" title="No saved snapshots across TFs yet — pull on multiple anchors">—</span>`;
+    }
+    const { bull, bear, neutral, totalSeen, anchors } = agr;
+    const dom = bull > bear ? 'bull' : bear > bull ? 'bear' : 'neutral';
+    const domCount = Math.max(bull, bear);
+    const cls = dom === 'bull' ? 'conf-xtf-bull' : dom === 'bear' ? 'conf-xtf-bear' : 'conf-xtf-neutral';
+    const arrow = dom === 'bull' ? '▲' : dom === 'bear' ? '▼' : '─';
+    const tip = TF_OPTIONS
+      .map(tf => anchors[tf] ? `${tf}: ${Math.round(anchors[tf].score)} ${anchors[tf].dir}` : `${tf}: —`)
+      .join('\n');
+    const isPerfect = (domCount === totalSeen) && totalSeen >= 3;
+    return `<span class="conf-xtf-chip ${cls} ${isPerfect ? 'is-perfect' : ''}" title="${esc(tip)}">
+      ${arrow} ${domCount}/${totalSeen}
+    </span>`;
   }
 
   // Pretty-print a detector by its (id, type) pair. The id encodes the TF
@@ -375,7 +493,7 @@ const ConfluenceTab = (() => {
     }).join('');
     return `
       <tr class="conf-expand-row">
-        <td colspan="7">
+        <td colspan="9">
           <div class="conf-expand-wrap">
             <div class="conf-expand-head">
               <span>${esc(r.sym)} detector breakdown</span>
@@ -417,17 +535,22 @@ const ConfluenceTab = (() => {
         </div>
       </div>`;
 
+    const agreement = _crossTFAgreement();
+
     const rows = results.map((r, i) => {
       if (r.score == null) {
-        return `<tr class="conf-row"><td>${i+1}</td><td>${esc(r.sym)}</td><td colspan="5" class="muted">${esc(r.error || 'no data')}</td></tr>`;
+        return `<tr class="conf-row"><td>${i+1}</td><td>${esc(r.sym)}</td><td colspan="8" class="muted">${esc(r.error || 'no data')}</td></tr>`;
       }
       const isExpanded = _expandedSym === r.sym;
+      const hist = _historyForSym(r.sym, _anchorTF, 8);
       const mainRow = `
         <tr class="conf-row ${isExpanded ? 'is-open' : ''}" data-sym="${esc(r.sym)}">
           <td class="conf-rank">${i+1}</td>
           <td class="conf-sym">${esc(r.sym)}</td>
           <td>${_dirBadge(r.dir, r.score)}</td>
           <td>${_scoreBar(r.score)}</td>
+          <td class="conf-spark-cell">${_sparkline(hist)}</td>
+          <td class="conf-xtf">${_xtfChip(agreement[r.sym])}</td>
           <td><span class="conf-count">${r.fired.length}<span class="muted">/${r.totalDetectors}</span></span></td>
           <td class="conf-fired">${_topFired(r.fired)}</td>
           <td class="conf-px">$${fmtPrice(r.price)}</td>
@@ -453,10 +576,12 @@ const ConfluenceTab = (() => {
               <th style="width:36px">#</th>
               <th style="width:64px">Asset</th>
               <th style="width:96px">Dir</th>
-              <th style="width:140px">Score</th>
-              <th style="width:80px">Setups</th>
+              <th style="width:130px">Score</th>
+              <th style="width:90px" title="Last 8 pulls at this anchor">History</th>
+              <th style="width:90px" title="Agreement across saved anchor TFs">Cross-TF</th>
+              <th style="width:74px">Setups</th>
               <th>Top fired</th>
-              <th style="width:110px;text-align:right">Price</th>
+              <th style="width:100px;text-align:right">Price</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -560,6 +685,86 @@ const ConfluenceTab = (() => {
       </div>
 
       <div class="conf-guide-body">
+
+        <!-- ─── ANALYST: WHICH TF SHOULD I USE? ─── -->
+        <div class="conf-guide-section conf-guide-analyst" style="grid-column:1 / -1">
+          <div class="conf-guide-h">🎓 Which TF should I actually use?</div>
+          <p style="font-size:.86rem;margin:6px 0 14px">Honest take from a qualitative review of how this widget's pieces interact — pattern detectors, killzone multiplier, daily levels, and bias filter.</p>
+
+          <!-- short answer matrix -->
+          <div class="conf-rank-grid">
+            <div class="conf-rank conf-rank-silver"><div class="conf-rank-medal">🥈</div><div><strong>15m</strong> Silver<div class="muted">Intraday scalping inside killzones</div></div></div>
+            <div class="conf-rank conf-rank-gold"><div class="conf-rank-medal">🥇</div><div><strong>1h</strong> Gold — daily driver<div class="muted">Day trading. Best signal/noise for this widget.</div></div></div>
+            <div class="conf-rank conf-rank-silver"><div class="conf-rank-medal">🥈</div><div><strong>4h</strong> Silver<div class="muted">Swing positioning. Pull once or twice a day.</div></div></div>
+            <div class="conf-rank conf-rank-bronze"><div class="conf-rank-medal">🥉</div><div><strong>D</strong> Bronze<div class="muted">Macro context only — not for entries.</div></div></div>
+          </div>
+
+          <!-- why 1h sweet spot -->
+          <div class="conf-analyst-card" style="margin-top:14px">
+            <div class="conf-analyst-h">🥇 Why 1h is the sweet spot</div>
+            <p>The engine has <strong>two opposing forces</strong>:</p>
+            <ul>
+              <li>📐 Pattern detectors (FVG/OB/sweep) get more reliable as TF goes up — a 4h OB is meaningful; a 15m OB is noise half the time.</li>
+              <li>⏰ Killzone multiplier and Near-Level detector are tuned for intraday — Daily Report levels are <em>daily</em>, killzones are 2-hour windows.</li>
+            </ul>
+            <p>1h sits exactly in the middle: patterns clean enough to trust, daily levels still matter (one full D bar = 24 of your candles), and your bias (D) is the most-respected institutional TF. One new candle every hour — fast enough to feel live, slow enough that you're not babysitting.</p>
+          </div>
+
+          <!-- why 15m second -->
+          <div class="conf-analyst-card">
+            <div class="conf-analyst-h">🥈 Why 15m is second, not first</div>
+            <p>Technically the more "ICT-canonical" anchor — Silver Bullet, Turtle Soup, killzone-anchored entries all live here. But:</p>
+            <ul>
+              <li>❌ More noise — more borderline B/C-tier scores that lead nowhere</li>
+              <li>❌ Daily Report levels feel "far away" most of the time → Near Level rarely fires</li>
+              <li>✅ Killzone multiplier is most accurate here</li>
+            </ul>
+            <p><strong>Use when:</strong> actively at the desk inside London Open or NY AM. Outside those windows, drop back to 1h.</p>
+          </div>
+
+          <!-- why 4h solid but slow -->
+          <div class="conf-analyst-card">
+            <div class="conf-analyst-h">🥈 Why 4h is solid but slow</div>
+            <p>A 4h alignment is high-conviction by definition — fewer false positives, weekly bias is reliable. But only <strong>6 new candles per day</strong>, so the table rarely changes between pulls.</p>
+            <p><strong>Treat 4h as a "scan morning + evening" tool, not a live monitor.</strong></p>
+          </div>
+
+          <!-- why D questionable -->
+          <div class="conf-analyst-card">
+            <div class="conf-analyst-h">🥉 Why D is questionable as an entry anchor</div>
+            <ul>
+              <li>Monthly bias rarely flips → HTF detector often the same as last week</li>
+              <li>Daily sweeps are rare events → most pulls show "no recent sweep"</li>
+              <li>Killzone multiplier becomes meaningless (your bar is 24h long)</li>
+              <li>Near Level breaks — Daily Report levels are intra-daily relative to a D bar</li>
+            </ul>
+            <p><strong>D is useful as a check-the-big-picture view</strong> — open once a week to make sure the macro tide isn't fighting your 1h/15m trades. Don't trade off it directly.</p>
+          </div>
+
+          <!-- workflow -->
+          <div class="conf-analyst-card conf-analyst-workflow">
+            <div class="conf-analyst-h">🔄 The workflow I'd actually use</div>
+            <p>Top-down, ICT-style, <strong>three pulls</strong>:</p>
+            <ol>
+              <li><strong>Morning (4h anchor)</strong> → Pull Data → "Is the swing bias bull, bear, or chop right now?" Note the leaders.</li>
+              <li><strong>Day (1h anchor)</strong> → Pull Data → "Which of those leaders has a 1h structure aligning with the 4h bias?" Build a trade thesis.</li>
+              <li><strong>Entry (15m anchor)</strong> → Pull Data when a killzone opens → "Has my chosen asset hit ≥65 with KZ active?" That's your trigger.</li>
+            </ol>
+            <div class="conf-callout" style="margin-top:10px;background:rgba(52,211,153,.10);border-left-color:var(--good,#34d399)">
+              ✨ <strong>The widget rewards you most when the same asset stays at the top across all three TFs.</strong> Watch the <span class="conf-xtf-chip conf-xtf-bull" style="display:inline-block">▲ 3/3</span> chip in the table — when it goes "perfect" you're seeing real multi-timeframe alignment, not noise.
+            </div>
+          </div>
+
+          <!-- new features explainer -->
+          <div class="conf-analyst-card conf-analyst-newfeats">
+            <div class="conf-analyst-h">🆕 Two table columns that make this workflow actually work</div>
+            <ul>
+              <li><strong>📈 History sparkline</strong> — shows the last 8 score points for each asset <em>at the current anchor</em>. Score climbing toward 65? That's a building bull thesis. Falling toward 35? Building bear. Stays flat in the middle? Chop.</li>
+              <li><strong>🎯 Cross-TF chip</strong> — small badge showing how many of your saved anchor pulls have this asset in actionable territory. e.g. <span class="conf-xtf-chip conf-xtf-bull" style="display:inline-block">▲ 3/3</span> means BTC scored ≥65 bull on every TF you've pulled. <span class="conf-xtf-chip conf-xtf-bull is-perfect" style="display:inline-block">▲ 4/4</span> with the gold ring = perfect alignment, hunt entries.</li>
+            </ul>
+            <p style="font-size:.78rem;margin-top:6px">Both columns require multiple pulls to populate. Persist in <code>localStorage</code> (<code>jb_conf_history</code>, <code>jb_conf_per_tf</code>) across reloads. Last 40 pulls kept.</p>
+          </div>
+        </div>
 
         <!-- ─── TIMEFRAME ANCHOR ─── -->
         <div class="conf-guide-section conf-guide-tfs" style="grid-column:1 / -1">
