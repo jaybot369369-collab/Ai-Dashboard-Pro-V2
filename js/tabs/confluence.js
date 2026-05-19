@@ -496,102 +496,145 @@ const ConfluenceTab = (() => {
 
   const GUIDE_HTML = `
     <div class="card conf-guide" style="margin-top:20px">
-      <div class="card-title">How to read this tab</div>
+      <div class="card-title">📖 How to use this tab</div>
+
+      <!-- ─── STEP-BY-STEP at the top ─── -->
+      <div class="conf-guide-steps">
+        <div class="conf-step">
+          <div class="conf-step-num">1</div>
+          <div class="conf-step-body">
+            <div class="conf-step-h">Click <span class="conf-pill conf-pill-primary">⟳ Pull Data</span></div>
+            <div class="conf-step-sub">Fetches fresh klines for all 5 assets. Takes ~5 seconds.</div>
+          </div>
+        </div>
+        <div class="conf-step">
+          <div class="conf-step-num">2</div>
+          <div class="conf-step-body">
+            <div class="conf-step-h">Look at <strong>Row 1</strong> of the table</div>
+            <div class="conf-step-sub">It's the most aligned asset right now — bull <span class="conf-tag conf-bull">▲</span> or bear <span class="conf-tag conf-bear">▼</span>.</div>
+          </div>
+        </div>
+        <div class="conf-step">
+          <div class="conf-step-num">3</div>
+          <div class="conf-step-body">
+            <div class="conf-step-h">Check the <strong>Score</strong></div>
+            <div class="conf-step-sub">≥65 = trade-worthy bull · ≤35 = trade-worthy bear · 35–65 = wait.</div>
+          </div>
+        </div>
+        <div class="conf-step">
+          <div class="conf-step-num">4</div>
+          <div class="conf-step-body">
+            <div class="conf-step-h">Click the row to expand</div>
+            <div class="conf-step-sub">See every detector ✅/❌ + evidence. Verify on TradingView before entering.</div>
+          </div>
+        </div>
+      </div>
+
       <div class="conf-guide-body">
 
-        <div class="conf-guide-section">
-          <div class="conf-guide-h">What it does</div>
-          <p>Watches BTC · ETH · XRP · SOL · SUI in real time. Tells you when multiple ICT setups line up in the same direction. Higher confluence = stronger trade signal. Click <strong>Pull Data</strong> any time to refresh — data stays put until you pull again.</p>
+        <!-- ─── SCORE BANDS ─── -->
+        <div class="conf-guide-section conf-guide-bands">
+          <div class="conf-guide-h">🎯 Score → Action</div>
+          <div class="conf-band conf-band-vbull">
+            <div class="conf-band-score">80–100</div>
+            <div class="conf-band-emoji">🟢🟢</div>
+            <div class="conf-band-body"><strong>Very strong bull</strong> · Hunt for long entries, wait for LTF trigger</div>
+          </div>
+          <div class="conf-band conf-band-bull">
+            <div class="conf-band-score">65–80</div>
+            <div class="conf-band-emoji">🟢</div>
+            <div class="conf-band-body"><strong>Strong bull</strong> · Bias long — only take longs in this asset</div>
+          </div>
+          <div class="conf-band conf-band-neutral">
+            <div class="conf-band-score">35–65</div>
+            <div class="conf-band-emoji">⚪</div>
+            <div class="conf-band-body"><strong>Neutral / mild lean</strong> · No trade — wait for clearer alignment</div>
+          </div>
+          <div class="conf-band conf-band-bear">
+            <div class="conf-band-score">20–35</div>
+            <div class="conf-band-emoji">🔴</div>
+            <div class="conf-band-body"><strong>Strong bear</strong> · Bias short</div>
+          </div>
+          <div class="conf-band conf-band-vbear">
+            <div class="conf-band-score">0–20</div>
+            <div class="conf-band-emoji">🔴🔴</div>
+            <div class="conf-band-body"><strong>Very strong bear</strong> · Hunt for short entries</div>
+          </div>
+          <div class="conf-callout">
+            ⚠️ <strong>Critical rule:</strong> Score can't go above 65 (or below 35) unless <strong>≥3 detectors fire in the same direction</strong>. One signal alone never gets you there.
+          </div>
         </div>
 
+        <!-- ─── KPI STRIP EXPLAINED ─── -->
         <div class="conf-guide-section">
-          <div class="conf-guide-h">The 4 KPI cards (top strip)</div>
-          <ul>
-            <li><strong>Tracked</strong> — how many assets being scored (always 5).</li>
-            <li><strong>Aligned ≥65 / ≤35</strong> — how many assets crossed the actionable threshold right now. 0 is normal most of the time.</li>
-            <li><strong>Killzone</strong> — which session is currently active (Asia / London / NY AM / NY PM / Off). When active, scores get a 1.15× multiplier.</li>
-            <li><strong>Last update</strong> — confirms data freshness.</li>
-          </ul>
+          <div class="conf-guide-h">📊 The 4 KPI cards (top strip)</div>
+          <div class="conf-kpi-grid">
+            <div class="conf-kpi-item"><div class="conf-kpi-icon">🎯</div><div><strong>Tracked</strong><div class="muted">5 assets being scored</div></div></div>
+            <div class="conf-kpi-item"><div class="conf-kpi-icon">🚨</div><div><strong>Aligned ≥65 / ≤35</strong><div class="muted">How many crossed the actionable line. Often 0 — normal.</div></div></div>
+            <div class="conf-kpi-item"><div class="conf-kpi-icon">⏰</div><div><strong>Killzone</strong><div class="muted">Active session. Adds 1.15× score multiplier.</div></div></div>
+            <div class="conf-kpi-item"><div class="conf-kpi-icon">🕐</div><div><strong>Last update</strong><div class="muted">Time since last pull.</div></div></div>
+          </div>
         </div>
 
-        <div class="conf-guide-section">
-          <div class="conf-guide-h">The ranked table</div>
-          <p>Sorted by most extreme score first (distance from 50). The asset at the top has the strongest directional signal — bull or bear.</p>
-          <ul>
-            <li><strong>#</strong> — rank (1 = most aligned right now)</li>
-            <li><strong>Asset</strong> — BTC / ETH / XRP / SOL / SUI</li>
-            <li><strong>Dir</strong> — ▲ Bull / ▼ Bear / ─ Neutral, direction of the net signal</li>
-            <li><strong>Score</strong> — 0–100 confluence score + coloured bar. 50 = neutral. ≥65 = strong bull. ≤35 = strong bear.</li>
-            <li><strong>Setups</strong> — "5/11" = 5 of 11 detectors fired</li>
-            <li><strong>Top fired</strong> — the highest-strength detectors, colour-coded green=bull, red=bear</li>
-            <li><strong>Price</strong> — live spot price from Binance</li>
-          </ul>
-          <p><strong>Click any row</strong> to expand and see every detector with ✓/✗, strength bar, weight, and a plain-English evidence string.</p>
+        <!-- ─── DETECTOR DICTIONARY ─── -->
+        <div class="conf-guide-section conf-guide-detectors">
+          <div class="conf-guide-h">🔍 Detector dictionary</div>
+          <div class="conf-det-grid">
+            <div class="conf-det"><span class="conf-det-icon">📈</span><div><strong>Bias 4h</strong> <span class="conf-tf">4h</span><div class="muted">EMA50 vs EMA200 + slope. The dominant trend.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">⚡</span><div><strong>ADX 4h</strong> <span class="conf-tf">4h</span><div class="muted">ADX &gt; 15 rising 3 bars (same as OBxADX bot).</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">📐</span><div><strong>FVG</strong> <span class="conf-tf">15m · 1h</span><div class="muted">Unfilled Fair Value Gap.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">📦</span><div><strong>Order Block</strong> <span class="conf-tf">15m · 1h</span><div class="muted">Unmitigated OB before &gt;1×ATR move.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">🌊</span><div><strong>Sweep</strong> <span class="conf-tf">15m · 1h</span><div class="muted">Wick past swing + close back inside. Turtle Soup.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">🔄</span><div><strong>CISD</strong> <span class="conf-tf">15m</span><div class="muted">Change in State of Delivery — reversal candle.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">💥</span><div><strong>BOS</strong> <span class="conf-tf">1h</span><div class="muted">Break of Structure — close beyond 15-bar swing.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">📍</span><div><strong>Near Level</strong> <span class="conf-tf">spot</span><div class="muted">Price within 0.5% of Daily Report R/S level.</div></div></div>
+            <div class="conf-det"><span class="conf-det-icon">🌊</span><div><strong>LW Align</strong> <span class="conf-tf">spot</span><div class="muted">Liquidity Watcher's 4h bias (local only).</div></div></div>
+          </div>
         </div>
 
+        <!-- ─── ROW ANATOMY ─── -->
         <div class="conf-guide-section">
-          <div class="conf-guide-h">Score → action</div>
-          <table class="conf-guide-table">
-            <thead><tr><th>Score</th><th>Meaning</th><th>What to do</th></tr></thead>
-            <tbody>
-              <tr><td><strong>80–100</strong></td><td>Very strong bull alignment</td><td>Hunt for long entries — wait for LTF trigger</td></tr>
-              <tr><td><strong>65–80</strong></td><td>Strong bull alignment</td><td>Bias long — only take longs in this asset</td></tr>
-              <tr><td><strong>50–65</strong></td><td>Mild bull lean</td><td>No trade — wait</td></tr>
-              <tr><td><strong>35–50</strong></td><td>Mild bear lean</td><td>No trade — wait</td></tr>
-              <tr><td><strong>20–35</strong></td><td>Strong bear alignment</td><td>Bias short</td></tr>
-              <tr><td><strong>0–20</strong></td><td>Very strong bear alignment</td><td>Hunt for short entries</td></tr>
-            </tbody>
-          </table>
-          <p style="margin-top:8px"><strong>Critical rule:</strong> to score above 65 (or below 35), an asset needs at least <strong>3 detectors firing in the dominant direction</strong>. This prevents a single noisy signal from spiking the number.</p>
+          <div class="conf-guide-h">🧬 Anatomy of a row</div>
+          <div class="conf-anatomy">
+            <div><span class="conf-anatomy-key">#</span> rank (1 = most aligned)</div>
+            <div><span class="conf-anatomy-key">Asset</span> BTC / ETH / XRP / SOL / SUI</div>
+            <div><span class="conf-anatomy-key">Dir</span> <span class="conf-tag conf-bull">▲</span> bull · <span class="conf-tag conf-bear">▼</span> bear · <span class="conf-tag conf-neutral">─</span> neutral</div>
+            <div><span class="conf-anatomy-key">Score</span> 0–100 + coloured bar (50 = neutral)</div>
+            <div><span class="conf-anatomy-key">Setups</span> "5/11" → 5 of 11 detectors fired</div>
+            <div><span class="conf-anatomy-key">Top fired</span> highest-strength signals, <span class="conf-tag conf-bull">green</span>=bull, <span class="conf-tag conf-bear">red</span>=bear</div>
+            <div><span class="conf-anatomy-key">Price</span> live spot from Bybit</div>
+          </div>
         </div>
 
-        <div class="conf-guide-section">
-          <div class="conf-guide-h">What each detector means</div>
-          <table class="conf-guide-table">
-            <thead><tr><th>Detector</th><th>TF</th><th>Fires when…</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Bias 4h</strong></td><td>4h</td><td>EMA50 above/below EMA200 with slope confirming — the dominant trend.</td></tr>
-              <tr><td><strong>ADX 4h</strong></td><td>4h</td><td>ADX &gt; 15 and rising 3 bars (same gate the OBxADX live bot uses).</td></tr>
-              <tr><td><strong>FVG 15m / 1h</strong></td><td>15m, 1h</td><td>An unfilled Fair Value Gap exists.</td></tr>
-              <tr><td><strong>OB 15m / 1h</strong></td><td>15m, 1h</td><td>An unmitigated Order Block exists (last opposite candle before &gt;1×ATR displacement).</td></tr>
-              <tr><td><strong>Sweep 15m / 1h</strong></td><td>15m, 1h</td><td>Wick past the 20-bar swing high/low + closed back inside. Turtle Soup.</td></tr>
-              <tr><td><strong>CISD 15m</strong></td><td>15m</td><td>Change in State of Delivery — strong opposite candle after a 3-bar run.</td></tr>
-              <tr><td><strong>BOS 1h</strong></td><td>1h</td><td>Break of Structure — close beyond the prior 15-bar swing extreme.</td></tr>
-              <tr><td><strong>Near Level</strong></td><td>n/a</td><td>Spot price within 0.5% of a level from your Daily Report (R1-R3 / S1-S4).</td></tr>
-              <tr><td><strong>LW Align</strong></td><td>n/a</td><td>Liquidity Watcher's 4h bias for the asset. Only fires when LW runs on localhost:8766.</td></tr>
-            </tbody>
-          </table>
-          <p style="margin-top:8px">Detector <strong>weights</strong> are biased by your Playbook tab's backtested winRate when a setup has ≥5 logged trades. As your trading record grows, the engine quietly tilts toward setups your data shows actually work.</p>
-        </div>
-
-        <div class="conf-guide-section">
-          <div class="conf-guide-h">How to actually use it</div>
-          <ol>
-            <li><strong>Morning scan:</strong> Pull Data → look at top of table. Any asset ≥65 or ≤35? If yes, click its row.</li>
-            <li><strong>Verify on TradingView:</strong> Open the chart at the cited TF and confirm the FVG / OB / sweep actually exists where the evidence says it does. <em>Mirage-number rule.</em></li>
-            <li><strong>Killzone alerts:</strong> When the Killzone card flips to London / NY AM / NY PM, pull data. Setups firing inside a KZ are weighted higher.</li>
-            <li><strong>Multi-TF stack check:</strong> Look for these stacking — ✓ Bias 4h + ✓ OB 1h + ✓ FVG 15m + ✓ Sweep 15m all in the same direction = textbook A-tier.</li>
-            <li><strong>Avoid chop:</strong> If most assets are in the 40–60 neutral band → don't trade. The widget is telling you nothing is set up well.</li>
-          </ol>
-        </div>
-
-        <div class="conf-guide-section">
-          <div class="conf-guide-h">Things to know</div>
-          <ul>
-            <li><strong>Mirage-number rule:</strong> always verify against TradingView before entering.</li>
-            <li><strong>GitHub Pages:</strong> when viewing from <code>github.io</code>, LW Align won't fire (Chrome blocks HTTPS→localhost). Run the dashboard locally at <code>localhost:8768</code> with LW up for that signal.</li>
-            <li><strong>Daily Report dependency:</strong> the Near Level detector needs <code>js/data/daily_report.json</code>. If today's report hasn't been generated, this detector shows "no levels".</li>
-            <li><strong>No alerts yet:</strong> v1 is on-screen only — no Telegram pings.</li>
-            <li><strong>Symmetric:</strong> score 78 bull is exactly as strong as 22 bear.</li>
-          </ul>
-        </div>
-
+        <!-- ─── A-TIER EXAMPLE ─── -->
         <div class="conf-guide-section conf-guide-tldr">
-          <div class="conf-guide-h">TL;DR</div>
-          <p>Open the tab → Pull Data → look at row 1. If score ≥65 or ≤35, expand it. Verify the cited setup on TradingView. Trade in the direction the table says — if the killzone is active and ≥3 detectors agree.</p>
+          <div class="conf-guide-h">✨ What an A-tier setup looks like</div>
+          <div class="conf-example">
+            <span class="conf-tag conf-bull">▲ Bull 78</span>
+            <span class="conf-example-arrow">→</span>
+            <span class="conf-chip-ex">✅ Bias 4h bull</span>
+            <span class="conf-chip-ex">✅ OB 1h bull</span>
+            <span class="conf-chip-ex">✅ FVG 15m bull</span>
+            <span class="conf-chip-ex">✅ Sweep 15m bull</span>
+            <span class="conf-chip-ex conf-chip-kz">⏰ NY AM active</span>
+          </div>
+          <p style="margin-top:10px;margin-bottom:0">Four detectors agreeing across multiple TFs + killzone multiplier = the kind of moment you've been waiting for. Verify on TradingView and take the trade.</p>
+        </div>
+
+        <!-- ─── THINGS TO KNOW ─── -->
+        <div class="conf-guide-section">
+          <div class="conf-guide-h">💡 Things to know</div>
+          <ul class="conf-tips">
+            <li>🔍 <strong>Always verify on TradingView</strong> before entering — mirage-number rule.</li>
+            <li>🌐 <strong>On github.io:</strong> LW Align won't fire (Chrome blocks HTTPS→localhost). Run locally for that signal.</li>
+            <li>📰 <strong>Near Level needs today's Daily Report</strong> — if not generated, this detector sits idle.</li>
+            <li>🔔 <strong>No alerts yet</strong> — v1 is on-screen only.</li>
+            <li>⚖️ <strong>Symmetric:</strong> score 78 bull = exactly as strong as 22 bear.</li>
+          </ul>
         </div>
 
       </div>
+
     </div>`;
 
   function render() {

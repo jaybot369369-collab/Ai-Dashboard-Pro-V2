@@ -5115,3 +5115,225 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 @media (max-width: 900px) {
   .conf-guide-body { grid-template-columns: 1fr; }
 }
+
+/* ── Confluence guide v2 — visual / coded ──────────────── */
+
+/* 1-2-3-4 step strip */
+.conf-guide-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 14px 0 22px;
+}
+.conf-step {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.conf-step-num {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent, #34d399);
+  color: var(--bg, #0b0b0b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .82rem;
+}
+.conf-step-h { font-weight: 600; font-size: .86rem; margin-bottom: 2px; }
+.conf-step-sub { font-size: .76rem; color: var(--muted); line-height: 1.4; }
+
+.conf-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.conf-pill-primary {
+  background: var(--accent, #34d399);
+  color: var(--bg, #0b0b0b);
+}
+
+/* directional tags + chip ex */
+.conf-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: .76rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.conf-bull    { background: rgba(52,211,153,.18); color: var(--good, #34d399); }
+.conf-bear    { background: rgba(248,113,113,.18); color: var(--bad,  #f87171); }
+.conf-neutral { background: var(--surface3, var(--surface2)); color: var(--muted); }
+
+.conf-chip-ex {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(52,211,153,.14);
+  color: var(--good, #34d399);
+  font-size: .8rem;
+  font-weight: 600;
+  margin: 2px 4px 2px 0;
+}
+.conf-chip-kz {
+  background: rgba(251,191,36,.18);
+  color: var(--warn, #fbbf24);
+}
+
+/* score bands */
+.conf-guide-bands { grid-column: 1 / -1; }
+.conf-band {
+  display: grid;
+  grid-template-columns: 92px 56px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+}
+.conf-band-score { font-weight: 700; font-size: .92rem; letter-spacing: .02em; }
+.conf-band-emoji { text-align: center; font-size: 1rem; }
+.conf-band-body  { font-size: .84rem; line-height: 1.4; }
+.conf-band-vbull { background: rgba(52,211,153,.18); }
+.conf-band-bull  { background: rgba(52,211,153,.08); }
+.conf-band-neutral { background: var(--surface2); }
+.conf-band-bear  { background: rgba(248,113,113,.08); }
+.conf-band-vbear { background: rgba(248,113,113,.18); }
+
+.conf-callout {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(251,191,36,.12);
+  border-left: 3px solid var(--warn, #fbbf24);
+  border-radius: 6px;
+  font-size: .84rem;
+  line-height: 1.5;
+}
+
+/* KPI grid in guide */
+.conf-kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+.conf-kpi-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  background: var(--surface2);
+  border-radius: 8px;
+  font-size: .82rem;
+}
+.conf-kpi-icon {
+  font-size: 1.2rem;
+  flex: 0 0 28px;
+  text-align: center;
+}
+.conf-kpi-item .muted { font-size: .76rem; margin-top: 2px; }
+
+/* detector dictionary */
+.conf-guide-detectors { grid-column: 1 / -1; }
+.conf-det-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 6px;
+}
+.conf-det {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: .82rem;
+}
+.conf-det-icon { font-size: 1.2rem; flex: 0 0 24px; text-align: center; }
+.conf-det .muted { font-size: .74rem; margin-top: 3px; line-height: 1.4; }
+.conf-tf {
+  display: inline-block;
+  font-size: .68rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--surface3, var(--surface));
+  color: var(--muted);
+  margin-left: 4px;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+/* row anatomy */
+.conf-anatomy {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  font-size: .82rem;
+  margin-top: 4px;
+}
+.conf-anatomy > div { padding: 4px 0; }
+.conf-anatomy-key {
+  display: inline-block;
+  min-width: 80px;
+  padding: 2px 8px;
+  margin-right: 8px;
+  background: var(--surface3, var(--surface2));
+  border-radius: 4px;
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-align: center;
+}
+
+/* A-tier example */
+.conf-example {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface2);
+  border-radius: 8px;
+  margin-top: 6px;
+}
+.conf-example-arrow {
+  color: var(--muted);
+  font-size: 1.1rem;
+  margin: 0 4px;
+}
+
+/* tips list */
+.conf-tips { list-style: none; padding-left: 0 !important; }
+.conf-tips li {
+  padding: 6px 10px;
+  background: var(--surface2);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+  .conf-guide-steps { grid-template-columns: 1fr 1fr; }
+  .conf-det-grid { grid-template-columns: 1fr 1fr; }
+  .conf-kpi-grid { grid-template-columns: 1fr; }
+  .conf-anatomy { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .conf-guide-steps { grid-template-columns: 1fr; }
+  .conf-det-grid { grid-template-columns: 1fr; }
+  .conf-band { grid-template-columns: 70px 40px 1fr; gap: 8px; padding: 8px 10px; }
+}
