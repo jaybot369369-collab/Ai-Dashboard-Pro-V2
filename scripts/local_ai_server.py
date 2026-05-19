@@ -11,7 +11,7 @@ Usage:
 Keep this running in a terminal while using the dashboard.
 In the Dojo tab, click the 🖥️ Local button to enable local mode.
 """
-import subprocess, json, sys, textwrap
+import subprocess, json, sys, textwrap, base64, tempfile, os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 CLAUDE_CLI = "/Users/claudebot-1/.local/bin/claude"
@@ -49,21 +49,29 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"}); return
         length = int(self.headers.get("Content-Length", 0))
         body   = json.loads(self.rfile.read(length))
-        system = body.get("system", "")
-        prompt = body.get("prompt", "")
+        system    = body.get("system", "")
+        prompt    = body.get("prompt", "")
+        img_b64   = body.get("image_b64", "")
+        img_mime  = body.get("image_media_type", "image/png")
 
         # Build the full message for claude --print
-        full_prompt = ""
-        if system:
-            full_prompt = f"[SYSTEM]\n{system}\n\n[USER]\n{prompt}"
-        else:
-            full_prompt = prompt
+        full_prompt = f"[SYSTEM]\n{system}\n\n[USER]\n{prompt}" if system else prompt
 
+        tmp_path = None
         try:
-            result = subprocess.run(
-                [CLAUDE_CLI, "--print", full_prompt],
-                capture_output=True, text=True, timeout=120
-            )
+            cmd = [CLAUDE_CLI, "--print"]
+
+            # If image provided: decode to temp file and pass --image flag
+            if img_b64:
+                ext = img_mime.split("/")[-1].replace("jpeg", "jpg")
+                fd, tmp_path = tempfile.mkstemp(suffix=f".{ext}", prefix="chart_scan_")
+                with os.fdopen(fd, "wb") as f:
+                    f.write(base64.b64decode(img_b64))
+                cmd += ["--image", tmp_path]
+
+            cmd.append(full_prompt)
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
             if result.returncode != 0:
                 err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
                 self._send(500, {"error": err}); return
@@ -74,6 +82,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"error": "Claude CLI timed out after 120s"})
         except Exception as e:
             self._send(500, {"error": str(e)})
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
 if __name__ == "__main__":
     print(f"[local-ai] Starting on http://127.0.0.1:{PORT}")

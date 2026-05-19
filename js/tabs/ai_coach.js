@@ -77,11 +77,16 @@ const AICoachTab = (() => {
     } catch { return false; }
   }
 
-  async function _callLocal({ system, user }) {
+  async function _callLocal({ system, user, imageData = null }) {
+    const payload = { prompt: user, system };
+    if (imageData) {
+      payload.image_b64          = imageData.b64;
+      payload.image_media_type   = imageData.mediaType;
+    }
     const r = await fetch(LOCAL_AI_URL + '/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prompt: user, system }),
+      body: JSON.stringify(payload),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
@@ -94,8 +99,8 @@ const AICoachTab = (() => {
     const apiKey = getKey();
     const useLocal = isLocalMode() || !apiKey;
 
-    if (useLocal && !imageData) {
-      return await _callLocal({ system, user });
+    if (useLocal) {
+      return await _callLocal({ system, user, imageData });
     }
 
     if (!apiKey) throw new Error('No API key — set one in Settings, or run ai_local_server.py and enable Local mode');
