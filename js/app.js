@@ -21,6 +21,9 @@ const App = (() => {
   const $ = id => document.getElementById(id);
 
   /* ── Tab renderers map ───────────────────────────────── */
+  // 2026-05-19 audit: dojo / goals / rules / playbook / reports tabs are
+  // off the sidebar but full pages remain addressable so AI Coach &
+  // Dashboard can deep-link into them ("Open full ▸" buttons).
   const RENDERERS = {
     dashboard:  () => DashboardTab.render(),
     dailyreport:() => DailyReportTab.render(),
@@ -86,6 +89,11 @@ const App = (() => {
     });
   }
 
+  // Deep-linked tabs not in sidebar (retired but still addressable)
+  const DEEP_LINK_LABELS = {
+    rules: '📜 Rules', playbook: '📖 Playbook', reports: '📑 My Reports',
+    goals: '🎯 Goals', dojo: '🥋 ICT Dojo',
+  };
   function navigate(tabId) {
     currentTab = tabId;
     buildNav();
@@ -94,6 +102,7 @@ const App = (() => {
     // Update page title
     const tab = DB.getTabs().find(t => t.id === tabId);
     if (tab) $('pageTitle').textContent = tab.label;
+    else if (DEEP_LINK_LABELS[tabId]) $('pageTitle').textContent = DEEP_LINK_LABELS[tabId];
 
     // Close mobile sidebar
     document.getElementById('sidebar').classList.remove('mobile-open');
@@ -783,6 +792,49 @@ const App = (() => {
     $('tradeFormCancel').addEventListener('click', closeTradeModal);
     $('tradeFormSave').addEventListener('click', saveTradeForm);
     $('tradeModal').addEventListener('click', e => { if (e.target === $('tradeModal')) closeTradeModal(); });
+
+    // Inline position sizer (2026-05-19 audit) — live calc on input change
+    const acctKey = 'jb_sizer_acct', riskKey = 'jb_sizer_risk';
+    const acctIn = $('fAcct'), riskIn = $('fRiskPct'), out = $('fSizerOut');
+    if (acctIn && riskIn && out) {
+      acctIn.value = localStorage.getItem(acctKey) || '';
+      riskIn.value = localStorage.getItem(riskKey) || '1';
+      const recalc = () => {
+        const acct  = parseFloat(acctIn.value) || 0;
+        const risk  = parseFloat(riskIn.value) || 0;
+        const entry = parseFloat($('fEntry').value);
+        const sl    = parseFloat($('fSl').value);
+        if (acct > 0) localStorage.setItem(acctKey, acctIn.value);
+        if (risk > 0) localStorage.setItem(riskKey, riskIn.value);
+        if (!(acct > 0 && risk > 0 && entry > 0 && sl > 0)) {
+          out.textContent = '— fill entry + SL';
+          out.dataset.size = '';
+          return;
+        }
+        const riskUsd  = acct * (risk / 100);
+        const stopDist = Math.abs(entry - sl);
+        if (stopDist === 0) { out.textContent = 'SL = entry'; out.dataset.size = ''; return; }
+        const units    = riskUsd / stopDist;
+        const notional = units * entry;
+        out.innerHTML = `<span style="color:var(--accent,#7c5cff)">$${notional.toFixed(0)}</span> notional · <span style="color:var(--muted)">${units.toPrecision(4)} units · $${riskUsd.toFixed(0)} risk</span>`;
+        out.dataset.size = notional.toFixed(2);
+      };
+      ['input','change'].forEach(ev => {
+        acctIn.addEventListener(ev, recalc);
+        riskIn.addEventListener(ev, recalc);
+        $('fEntry').addEventListener(ev, recalc);
+        $('fSl').addEventListener(ev, recalc);
+      });
+      $('fSizerApply').addEventListener('click', () => {
+        const s = out.dataset.size;
+        if (s) $('fSize').value = s;
+      });
+      // Recalc when modal opens
+      const obs = new MutationObserver(() => {
+        if (!$('tradeModal').classList.contains('hidden')) recalc();
+      });
+      obs.observe($('tradeModal'), { attributes: true, attributeFilter: ['class'] });
+    }
 
     // Symbol custom field toggle
     $('fSymbol').addEventListener('change', e => {

@@ -118,6 +118,22 @@ const DashboardTab = (() => {
     return DB.equityCurve(allTrades);
   }
 
+  /* Goals progress bar — single horizontal item in the strip */
+  function goalsBar(label, valueStr, pct) {
+    const clamped = Math.max(0, Math.min(100, pct || 0));
+    const col = clamped >= 100 ? '#22c55e' : clamped >= 60 ? '#fbbf24' : '#ef4444';
+    return `
+      <div style="flex:1;min-width:180px">
+        <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-bottom:4px">
+          <span style="font-weight:600">${label}</span>
+          <span style="color:var(--text-dim)">${valueStr}</span>
+        </div>
+        <div style="height:4px;background:var(--border-sub,rgba(127,127,127,.18));border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:${clamped}%;background:${col};border-radius:2px;transition:width .4s"></div>
+        </div>
+      </div>`;
+  }
+
   /* ─────────────────────────────────────────────────────
      RENDER
   ───────────────────────────────────────────────────── */
@@ -148,6 +164,20 @@ const DashboardTab = (() => {
     const monthTrades = DB.filterByRange(allTrades, '30');
     const monthPL     = DB.calcStats(monthTrades).totalPL;
 
+    /* ── Goals progress strip (absorbed from retired Goals tab, 2026-05-19) ── */
+    const goals       = DB.getGoals();
+    const monthTarget = parseFloat(goals.monthlyTarget) || 0;
+    const monthPct    = monthTarget > 0 ? Math.min(100, (monthPL / monthTarget) * 100) : 0;
+    const wrTargetPct = Math.min(100, (winRate / 65) * 100);
+    const avgRPct     = Math.min(100, (avgR / 1.5) * 100);
+    const goalsStripHTML = `
+      <div class="card" style="padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+        <div style="font-size:.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:.06em;text-transform:uppercase;flex-shrink:0">🎯 Targets</div>
+        ${goalsBar('Monthly P&L', monthTarget > 0 ? '$' + monthPL.toFixed(0) + ' / $' + monthTarget.toFixed(0) : 'No target', monthPct)}
+        ${goalsBar('Win rate', winRate.toFixed(1) + '% / 65%', wrTargetPct)}
+        ${goalsBar('Avg R', (avgR>=0?'+':'') + avgR.toFixed(2) + 'R / 1.5R', avgRPct)}
+      </div>`;
+
     /* ── HTML ── */
     content.innerHTML = `
       <div class="page-head">
@@ -177,6 +207,8 @@ const DashboardTab = (() => {
           (stats.closed ? (avgR>=0?'+':'') + avgR.toFixed(2) : '—') + 'R', 'Avg R-multiple',
           `<div class="kpi-delta ${pf>=1?'up':'down'}">${pf>=1?ICO.arrowUp:ICO.arrowDn}<span>PF ${pf.toFixed(2)}</span></div>`)}
       </div>
+
+      ${goalsStripHTML}
 
       <div class="row row-12-8">
         <div class="card">

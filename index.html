@@ -168,6 +168,23 @@
               <input type="number" id="fSize" step="any" placeholder="0.00" />
             </div>
           </div>
+
+          <!-- Inline position sizer (2026-05-19 audit) — fills fSize -->
+          <div class="form-row" style="background:var(--surface-2,rgba(127,127,127,.06));border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-top:8px;align-items:flex-end">
+            <div class="form-group" style="flex:0 0 140px">
+              <label style="font-size:.72rem">Account ($)</label>
+              <input type="number" id="fAcct" step="any" placeholder="10000" />
+            </div>
+            <div class="form-group" style="flex:0 0 100px">
+              <label style="font-size:.72rem">Risk %</label>
+              <input type="number" id="fRiskPct" step="0.1" placeholder="1.0" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:160px">
+              <label style="font-size:.72rem">Suggested</label>
+              <div id="fSizerOut" style="font-size:.85rem;font-weight:600;color:var(--text);padding:8px 0">—</div>
+            </div>
+            <button type="button" id="fSizerApply" class="btn-soft btn-sm" style="margin-bottom:8px">Apply to Size</button>
+          </div>
         </fieldset>
 
         <!-- Trade Setup Name -->
@@ -379,7 +396,7 @@
 <!-- ═══════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════ -->
-<script src="js/data.js?v=lw4"></script>
+<script src="js/data.js?v=aud1"></script>
 <script src="js/data/macro_events.js"></script>
 <script src="js/integrations/telegram.js"></script>
 <script src="js/integrations/r2.js"></script>
@@ -388,8 +405,8 @@
 <script src="js/integrations/cloud_sync.js?v=cs3"></script>
 <script src="js/integrations/repo_writer.js?v=rw1"></script>
 <script src="js/charts.js"></script>
-<script src="js/tabs/dashboard.js?v=dash5"></script>
-<script src="js/tabs/daily_report.js?v=dash4"></script>
+<script src="js/tabs/dashboard.js?v=aud1"></script>
+<script src="js/tabs/daily_report.js?v=aud1"></script>
 <script src="js/tabs/tradelog.js?v=tl2"></script>
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
@@ -401,7 +418,7 @@
 <script src="js/tabs/goals.js?v=goals2"></script>
 <script src="js/tabs/reports.js?v=rep4"></script>
 <script src="js/tabs/coach.js?v=co3"></script>
-<script src="js/tabs/ai_coach.js?v=ac9"></script>
+<script src="js/tabs/ai_coach.js?v=aud1"></script>
 <script src="js/tabs/dojo.js?v=dojo7"></script>
 <script src="js/tabs/quickstats.js"></script>
 <script src="js/tabs/pro_tools.js?v=pt2"></script>
@@ -412,7 +429,7 @@
 <script src="js/tabs/market_intel.js?v=mi2"></script>
 <script src="js/tabs/fund.js?v=fund3"></script>
 <script src="js/tabs/sensei.js?v=sn2"></script>
-<script src="js/app.js?v=app10"></script>
+<script src="js/app.js?v=aud1"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

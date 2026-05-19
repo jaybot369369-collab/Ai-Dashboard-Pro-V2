@@ -48,27 +48,22 @@ const DB = (() => {
   const DEFAULT_TABS = [
     { id: 'dashboard',  label: 'Dashboard',        icon: '📊', builtin: true, group: 'TRADING'  },
     { id: 'dailyreport',label: 'Daily Report',     icon: '📰', builtin: true, group: 'TRADING'  },
-    { id: 'dojo',       label: 'ICT Dojo',         icon: '🥋', builtin: true, group: 'TRADING'  },
-    { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
-    { id: 'playbook',   label: 'Playbook',         icon: '📖', builtin: true, group: 'TRADING'  },
-    { id: 'rules',      label: 'Rules',            icon: '📜', builtin: true, group: 'TRADING'  },
     { id: 'confluence', label: 'Confluence',       icon: '🎯', builtin: true, group: 'TRADING'  },
-    // 'coach' (Dr. Coach) merged into 'aicoach' on 2026-05-10. Module
-    // kept (CoachTab._renderAlerts/Grading/Catalogue exposed) so AI
-    // Coach can compose those sections.
+    { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
     { id: 'aicoach',    label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
-    { id: 'goals',      label: 'Goals',            icon: '🎯', builtin: true, group: 'INSIGHTS' },
-    { id: 'reports',    label: 'My Reports',       icon: '📑', builtin: true, group: 'INSIGHTS' },
     { id: 'liquidity',  label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
     { id: 'fund',       label: 'Bot Farm',         icon: '🏦', builtin: true, group: 'MARKETS'  },
-    // 🧙 Sensei was its own tab in v1.0; merged into the Bot Farm tab in
-    // v1.1 (2026-05-10) so the operator sees coach + bot status together.
-    // Tab module + endpoints kept around for fallback / future split.
     { id: 'protools',   label: 'Pro Tools',        icon: '🛠', builtin: true, group: 'TOOLS'    },
   ];
-  // Tabs from old versions that should be silently dropped from the sidebar
-  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies']);
+  // Tabs from old versions that should be silently dropped from the sidebar.
+  // 2026-05-19 audit retired: dojo, goals, reports, playbook, rules
+  //   - dojo     → Confluence supersedes
+  //   - goals    → strip on Dashboard
+  //   - reports  → AI Coach Weekly Review
+  //   - playbook → AI Coach > Catalogue
+  //   - rules    → AI Coach > Rules section
+  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies','dojo','goals','reports','playbook','rules']);
   function getTabs() {
     const stored = load(KEYS.tabs);
     // Always honor the canonical builtin order from DEFAULT_TABS;

@@ -10,6 +10,8 @@ const DailyReportTab = (() => {
   let _loading   = false;
   let _autoTimer = null;
   let _viewDate  = '';
+  let _intel     = null;
+  let _intelErr  = null;
 
   const REFRESH_MS = 2 * 24 * 60 * 60 * 1000;
   const CHECK_MS   = 60 * 60 * 1000;
@@ -72,6 +74,56 @@ const DailyReportTab = (() => {
     if (!_report) return true;
     const t = new Date(_report.generated).getTime();
     return isNaN(t) || (Date.now() - t) > REFRESH_MS;
+  }
+
+  /* ── Market Intel highlights (absorbed from retired tab, 2026-05-19) ── */
+  async function loadIntel() {
+    if (_intel) return;
+    try {
+      const r = await fetch('js/data/market_intel.json?t=' + Date.now());
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      _intel = await r.json();
+    } catch(e) { _intelErr = e.message; }
+  }
+  function renderIntelStrip(intel) {
+    if (!intel || !intel.sections) return '';
+    const regime = intel.regime || {};
+    const regimeLabel = regime.label || '—';
+    const regimeConf  = regime.confidence ? ' · ' + regime.confidence + ' conf' : '';
+    const regimeCol = /risk-?on/i.test(regimeLabel) ? '#22c55e'
+                    : /risk-?off/i.test(regimeLabel) ? '#ef4444'
+                    : '#fbbf24';
+
+    // Pull top claim from macro, crypto, sentiment sections
+    const pick = key => {
+      const c = (intel.sections[key] && intel.sections[key].claims) || [];
+      return c.length ? c[0].text : null;
+    };
+    const bullets = [
+      ['Macro',     pick('macro')],
+      ['Crypto',    pick('crypto')],
+      ['Sentiment', pick('sentiment')],
+    ].filter(([,t]) => t);
+
+    const age = fmtAge(intel.generated);
+    return `
+      <div class="card" style="margin-bottom:var(--gap,16px);padding:14px 18px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+          <span style="font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#6b7280)">🛰 Market Intel</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600">
+            <span style="width:8px;height:8px;border-radius:50%;background:${regimeCol}"></span>
+            ${esc(regimeLabel)}${esc(regimeConf)}
+          </span>
+          <span style="font-size:.7rem;color:var(--muted,#8b90a8);margin-left:auto">updated ${esc(age)} · <a href="#" onclick="App.navigate('marketintel');return false" style="color:var(--accent,#7c5cff);text-decoration:none">full brief ▸</a></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 18px">
+          ${bullets.map(([lbl,t]) => `
+            <div style="font-size:.82rem;line-height:1.5;color:var(--text,#111)">
+              <span style="display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;color:var(--muted,#6b7280);text-transform:uppercase;margin-right:6px">${lbl}</span>
+              ${esc(t)}
+            </div>`).join('')}
+        </div>
+      </div>`;
   }
 
   /* ── Macro badge count ─────────────────────────────────── */
@@ -321,6 +373,7 @@ const DailyReportTab = (() => {
       content.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted,#8b90a8)">Loading market brief…</div>`;
       await loadReport();
     }
+    if (!_intel) await loadIntel();
 
     startAutoRefresh();
 
@@ -346,6 +399,8 @@ const DailyReportTab = (() => {
           <button onclick="DailyReportTab._refresh()" class="pill-select" title="Refresh market brief">↻ Refresh</button>
         </div>
       </div>
+
+      ${renderIntelStrip(_intel)}
 
       ${d ? `
         ${renderFreshnessBanner(d)}

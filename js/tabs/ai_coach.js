@@ -508,9 +508,58 @@ ${JSON.stringify(trades.map(t => ({
         <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Where you make money and where you don't</div>
         <div id="tendencies-embed"></div>
       </div>
+
+      <!-- ── Merged sections (2026-05-19 audit: Rules / Playbook / My Reports) ─ -->
+      <div style="border-top:1px solid var(--border);padding-top:28px;margin-top:32px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:4px">Discipline &amp; Reference</div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:18px">Rules, setups, and post-hoc reports</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px">
+          ${_mergedCard('📜', 'Rules', _rulesSummary(), 'rules')}
+          ${_mergedCard('📖', 'Playbook', _playbookSummary(), 'playbook')}
+          ${_mergedCard('📑', 'My Reports', 'Weekly / monthly performance, imports, and setup breakdowns. Generated post-hoc from your trade log.', 'reports')}
+        </div>
+      </div>
     `;
 
     if (typeof TendenciesTab !== 'undefined') TendenciesTab.renderInto('tendencies-embed');
+  }
+
+  /* ── Merged-section helpers (2026-05-19 audit) ──────── */
+  function _mergedCard(icon, title, body, tabId) {
+    return `
+      <div class="card" style="padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:1.4rem">${icon}</div>
+          <div style="font-weight:700;color:var(--text)">${title}</div>
+        </div>
+        <div style="font-size:.82rem;color:var(--muted);line-height:1.55;flex:1">${body}</div>
+        <button class="btn-ghost btn-sm" style="align-self:flex-start"
+                onclick="App.navigate('${tabId}')">Open full ▸</button>
+      </div>`;
+  }
+  function _rulesSummary() {
+    try {
+      if (typeof DB !== 'undefined' && DB.getRules) {
+        const r = DB.getRules ? DB.getRules() : null;
+        if (r && r.bySet) {
+          const total = Object.values(r.bySet).reduce((s,arr)=>s+arr.length,0);
+          const on = Object.values(r.bySet).reduce((s,arr)=>s+arr.filter(x=>x.enabled).length,0);
+          return `<b>${on}/${total}</b> rules enabled across pre-trade · risk · psychology sets.`;
+        }
+      }
+    } catch(_) {}
+    return 'Tiered rule sets across pre-trade, risk, and psychology. Track compliance against the discipline you committed to.';
+  }
+  function _playbookSummary() {
+    try {
+      if (typeof DB !== 'undefined' && DB.get && DB.KEYS && DB.KEYS.play) {
+        const list = DB.get(DB.KEYS.play) || [];
+        if (Array.isArray(list) && list.length) {
+          return `<b>${list.length}</b> setups catalogued. Win-rate badges, trade counts, and SVG chart examples.`;
+        }
+      }
+    } catch(_) {}
+    return 'Setup catalogue with FVG, OB, sweep, CISD, OTE, and more. Each setup includes win-rate, trade count, and chart examples.';
   }
 
   function _renderSubTab(apiKey) {
