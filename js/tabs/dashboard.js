@@ -156,7 +156,8 @@ const DashboardTab = (() => {
     const prev = DB.calcStats(prevTrades);
 
     const balance     = accountBalance(allTrades);
-    const balanceChg  = pctDelta(stats.totalPL, prev.totalPL);
+    const prevBalance = balance - stats.totalPL;
+    const balanceChg  = prevBalance ? (stats.totalPL / Math.abs(prevBalance)) * 100 : 0;
     const netPL       = stats.totalPL;
     const winRate     = stats.closed ? stats.winRate : 0;
     const avgR        = stats.closed ? stats.avgR : 0;

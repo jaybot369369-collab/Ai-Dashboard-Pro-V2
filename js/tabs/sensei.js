@@ -27,7 +27,8 @@ const SenseiTab = (() => {
   function _resolveBase() {
     if (_isLocal()) return LOCAL_URL;
     const override = (localStorage.getItem(LS_KEY) || '').trim();
-    return (override || LOCAL_URL).replace(/\/?$/, '/');
+    // On Railway / remote: same-origin (nginx proxies /api/ to fund.api)
+    return (override || (window.location.origin + '/')).replace(/\/?$/, '/');
   }
 
   async function _fetchJSON(base, path) {

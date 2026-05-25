@@ -16,7 +16,7 @@ const R2 = (() => {
   function isEnabled() { return get(KEYS.enabled) === '1' && get(KEYS.workerUrl); }
   function getWorkerUrl() { return get(KEYS.workerUrl).replace(/\/$/, ''); }
 
-  /* ── Image compression (1200px max, WebP @ 80%) ─────── */
+  /* ── Image compression (1200px max, WebP @ 80%, JPEG fallback) ─ */
   async function compressImage(file, maxWidth = 1200, quality = 0.8) {
     const img = await loadImage(file);
     const ratio = Math.min(1, maxWidth / img.width);
@@ -25,12 +25,11 @@ const R2 = (() => {
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    return new Promise((res, rej) => {
-      canvas.toBlob(blob => {
-        if (!blob) return rej(new Error('toBlob failed'));
-        res(blob);
-      }, 'image/webp', quality);
-    });
+    const tryEncode = (mime) => new Promise(res => canvas.toBlob(b => res(b), mime, quality));
+    let blob = await tryEncode('image/webp');
+    if (!blob) blob = await tryEncode('image/jpeg');
+    if (!blob) throw new Error('canvas.toBlob returned null (browser cannot encode webp or jpeg)');
+    return blob;
   }
 
   function loadImage(file) {
@@ -51,7 +50,7 @@ const R2 = (() => {
     const url = `${getWorkerUrl()}/upload`;
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'image/webp' },
+      headers: { 'content-type': blob.type || 'image/webp' },
       body: blob,
     });
     if (!res.ok) {

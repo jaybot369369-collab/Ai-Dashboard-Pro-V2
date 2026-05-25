@@ -25,7 +25,11 @@
 ═══════════════════════════════════════════════════════════ */
 const LocalPersist = (() => {
 
-  const FUND_LOCAL_URL = 'http://127.0.0.1:8767/api/dashboard/state';
+  // Auto-detect Railway: localhost → direct port, remote → same-origin /api
+  const _lpIsLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const FUND_LOCAL_URL = _lpIsLocal
+    ? 'http://127.0.0.1:8767/api/dashboard/state'
+    : (window.location.origin + '/api/dashboard/state');
   const DEBOUNCE_MS    = 2000;
   let _timer = null;
   let _available = null;   // null=unknown, true/false after first probe

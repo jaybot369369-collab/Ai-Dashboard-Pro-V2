@@ -170,6 +170,65 @@ Return JSON only: {
     catch { return { notes: text, setup_type: '?', direction: '?', session: '?', key_features: [] }; }
   }
 
+  /* ══════════════════════════════════════════════════════
+     FEATURE 1b — FULL TRADE SCANNER (chart with E/SL/TP drawn)
+     Reads a marked-up TradingView screenshot end-to-end:
+     symbol, timeframe, entry/SL/TP prices, direction, session,
+     HTF bias, setup types, plus an ICT-coach critique.
+  ══════════════════════════════════════════════════════ */
+  async function scanTradeImage(b64DataUrl) {
+    const m = b64DataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (!m) throw new Error('Bad image data');
+    const mediaType = m[1];
+    const b64       = m[2];
+
+    const system = `You are an ICT/SMC trade-journal scanner. The image is a TradingView chart with the trader's planned trade ALREADY DRAWN — typically horizontal lines for ENTRY, STOP LOSS, and TAKE PROFIT. Read the chart literally.
+
+EXTRACT:
+- symbol from the top-left header (return as "BTC/USDT" style with slash).
+- timeframe (1m / 5m / 15m / 1h / 4h / D / W).
+- chart_timestamp — last visible candle, UTC if shown (string, else null).
+- entry / sl / tp — numeric prices by reading the levels of the drawn horizontal lines against the right-side price scale. If a line is labelled, prefer the label.
+- direction: "Long" if entry > sl, "Short" if entry < sl.
+- rr_planned = |tp - entry| / |entry - sl|, 2 decimal places.
+- session from the chart timestamp: Asian (21:00-07:00 UTC), London (07:00-13:00 UTC), NY (13:00-21:00 UTC). If unknown → "Other".
+- htf_bias from visible structure: "Bullish" / "Bearish" / "Neutral".
+- setup_types: array, any of [OB, FVG, IFVG, OTE, Sweep, BB, SilverBullet, TurtleSoup, CISD, Continuation]. Pick 1–3.
+- key_features: array of up to 4 short phrases.
+- confidence: object with numeric 0–1 values for keys symbol, entry, sl, tp, setup.
+- exit_price: number if a trade has clearly already closed, else null.
+
+THEN CRITIQUE the trade as an ICT coach:
+- grade: "A" / "B" / "C" / "D".
+- strengths: array of 2–3 short phrases.
+- weaknesses: array of 2–3 short phrases.
+- rr_assessment: 1 sentence.
+- suggested_pre_grade: "A" / "B" / "C" / "D".
+
+Return JSON only, no prose, no markdown fences. Use null for any field you genuinely cannot read.`;
+
+    const user = `Scan this chart. Return one JSON object with keys: symbol, timeframe, chart_timestamp, entry, sl, tp, direction, rr_planned, session, htf_bias, setup_types, key_features, confidence, exit_price, critique. critique is an object with keys: grade, strengths, weaknesses, rr_assessment, suggested_pre_grade.`;
+
+    const { text } = await callClaude({
+      system, user, maxTokens: 1500,
+      imageData: { mediaType, b64 },
+    });
+    try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text); }
+    catch { return { _raw: text, _parseError: true }; }
+  }
+
+  async function scanTradeFromText(description) {
+    const system = `You are an ICT/SMC trade-journal scanner. Vision is not available — the trader has described their setup in text. Infer trade fields and critique.
+
+Return JSON only with the same schema as the vision scanner: symbol, timeframe, chart_timestamp (null if not stated), entry, sl, tp (numbers if stated, else null), direction, rr_planned, session, htf_bias, setup_types (array), key_features (array), confidence (object, lower values since no vision), exit_price (null if not stated), critique: { grade, strengths, weaknesses, rr_assessment, suggested_pre_grade }.
+
+Do not invent numbers — use null if the trader did not give a value.`;
+    const user = `Trade description: "${description}"`;
+    const { text } = await _callLocal({ system, user });
+    try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text); }
+    catch { return { _raw: text, _parseError: true }; }
+  }
+
   /* ── Local-mode text-based auto-tag (no vision) ────────── */
   async function autoTagFromText(description) {
     const system = `You are an ICT/SMC chart analyst. The trader has described their chart setup in text (vision not available). Identify the ICT/SMC setup from the description.
@@ -503,6 +562,8 @@ ${JSON.stringify(trades.map(t => ({
       </div>
       <div id="askCoachResponse" style="display:none;margin-bottom:20px"></div>
 
+      <div id="aiWeeklySection" style="margin-bottom:20px"></div>
+
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
         ${insights.length ? insights.map(insightCard).join('') : emptyCard}
       </div>
@@ -527,6 +588,35 @@ ${JSON.stringify(trades.map(t => ({
     `;
 
     if (typeof TendenciesTab !== 'undefined') TendenciesTab.renderInto('tendencies-embed');
+    _mountWeeklyReview();
+  }
+
+  function _mountWeeklyReview() {
+    const wrap = document.getElementById('aiWeeklySection');
+    if (!wrap) return;
+    const apiKey = getKey();
+    const localOn = localStorage.getItem(LOCAL_KEY) === 'on';
+    if (!apiKey && !localOn) {
+      wrap.innerHTML = `
+        <div class="card" style="padding:14px 18px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-size:1.2rem">📅</div>
+            <div style="font-weight:700;color:var(--text)">Weekly Review</div>
+          </div>
+          <div style="font-size:.8rem;color:var(--muted);margin-top:6px">
+            🔑 Add your Anthropic API key in ⚙️ Settings (or enable Local mode) to generate a review of last week's trades.
+          </div>
+        </div>`;
+      return;
+    }
+    wrap.innerHTML = `<div class="card" style="padding:16px 20px">${renderWeeklyReview()}</div>`;
+    document.getElementById('aiWeeklyBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('aiWeeklyBtn');
+      const status = document.getElementById('aiWeeklyStatus');
+      btn.disabled = true; status.textContent = 'Generating (15-30s)…'; status.style.color = 'var(--gold)';
+      try { await generateWeeklyReview(); _mountWeeklyReview(); }
+      catch (e) { status.textContent = '⚠ ' + e.message; status.style.color = 'var(--red)'; btn.disabled = false; }
+    });
   }
 
   /* ── Merged-section helpers (2026-05-19 audit) ──────── */
@@ -707,7 +797,10 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
     // Public API for use from other tabs (e.g. trade form auto-tag button)
     autoTagImage,
     autoTagFromText,
+    scanTradeImage,
+    scanTradeFromText,
     callClaude,
+    isLocalMode,
     hasKey: () => !!getKey(),
     saveKey: (key) => { setS(KEYS.apiKey, (key || '').trim()); },
     _clearKey: () => {
