@@ -63,10 +63,13 @@ const FundTab = (() => {
     return LOCAL_URL;
   }
   async function _fetchJson(baseUrl, path) {
+    // 12s timeout (was 5s). Railway containers can take 6-10s to respond
+    // on cold start, especially when supervisord is still spinning up
+    // child processes after a fresh deploy.
     try {
       const r = await fetch(baseUrl + path, {
-        mode: 'cors', cache: 'no-store',
-        signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined,
+        cache: 'no-store',
+        signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined,
       });
       return r.ok ? r.json() : null;
     } catch { return null; }
