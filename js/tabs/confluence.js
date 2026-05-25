@@ -10,7 +10,11 @@ const ConfluenceTab = (() => {
   const SYMBOLS = ['BTC', 'ETH', 'XRP', 'SOL', 'SUI'];
   const TFS = ['15m', '1h', '4h'];
   const BINANCE = 'https://api.binance.com/api/v3/klines';
-  const LW_API = 'http://127.0.0.1:8766';
+  // LW deep detectors: localhost direct, Railway via nginx /lw/ proxy
+  const _confIsLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const LW_API = _confIsLocal
+    ? 'http://127.0.0.1:8766'
+    : (window.location.origin + '/lw');
   const REFRESH_MS = 60_000;
   const KLINE_TTL = 45_000;
 
@@ -150,18 +154,25 @@ const ConfluenceTab = (() => {
       { name: 'binance', fn: _fetchBinance },
       { name: 'okx',     fn: _fetchOKX },
     ];
-    for (const src of sources) {
-      try {
-        const data = await src.fn(sym, tf, limit);
-        if (data && data.length >= 50) {
-          _klineCache.set(key, { t: Date.now(), data, source: src.name });
-          return data;
+    // Two attempts — first pass tries all 3 sources; if all fail (likely
+    // rate-limit during the heavy first iteration of Pull All TFs), wait
+    // 600ms and retry once. Fixes "first pull doesn't save" caused by
+    // 15 parallel cold-cache fetches saturating Bybit.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      for (const src of sources) {
+        try {
+          const data = await src.fn(sym, tf, limit);
+          if (data && data.length >= 50) {
+            _klineCache.set(key, { t: Date.now(), data, source: src.name });
+            return data;
+          }
+        } catch (e) {
+          console.warn(`[confluence] ${src.name} ${sym} ${tf} attempt ${attempt+1} failed:`, e.message);
         }
-      } catch (e) {
-        console.warn(`[confluence] ${src.name} ${sym} ${tf} failed:`, e.message);
       }
+      if (attempt === 0) await new Promise(r => setTimeout(r, 600));
     }
-    console.error(`[confluence] ALL sources failed for ${sym} ${tf}`);
+    console.error(`[confluence] ALL sources failed for ${sym} ${tf} after retry`);
     return null;
   }
 
@@ -623,8 +634,30 @@ const ConfluenceTab = (() => {
       _setPillActive(tf);
       progressCb?.(`Pulling ${tf} (${i+1}/${TF_OPTIONS.length})…`);
       // quiet=true: score + save per-TF data without touching the table DOM
-      try { await _refresh({ quiet: true }); }
-      catch (e) { console.warn('[confluence] pull-all', tf, e?.message); }
+      try {
+        await _refresh({ quiet: true });
+        // Verify the snapshot landed with usable scores. If the heavy
+        // first iteration was rate-limited and saved nulls, retry once.
+        const snap = _loadPerTF()[tf];
+        const usable = snap && snap.scores
+          && Object.values(snap.scores).some(s => s && s.score != null);
+        if (!usable) {
+          console.warn(`[confluence] pull-all ${tf} saved empty — retrying`);
+          await new Promise(r => setTimeout(r, 800));
+          await _refresh({ quiet: true });
+        }
+        const snap2 = _loadPerTF()[tf];
+        const nGood = snap2 && snap2.scores
+          ? Object.values(snap2.scores).filter(s => s && s.score != null).length
+          : 0;
+        console.log(`[confluence] pull-all ${tf} saved · ${nGood}/${SYMBOLS.length} symbols scored`);
+      } catch (e) {
+        console.warn('[confluence] pull-all', tf, e?.message);
+      }
+      // Brief gap between iterations to avoid burst rate-limits on Bybit
+      if (i < TF_OPTIONS.length - 1) {
+        await new Promise(r => setTimeout(r, 350));
+      }
     }
 
     _anchorTF = original;

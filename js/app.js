@@ -16,9 +16,22 @@ const App = (() => {
   // Pending trade-form state (reset each time modal opens)
   let _pendingScreenshots = [];  // array of data-URL / http URL strings
   let _pendingSetups      = [];  // array of setup name strings
+  let _pendingConfluence  = [];  // array of confluence-factor chip strings
+  let _pendingScan        = null; // last scan result (so Edit & Save can attach aiCritique)
+  let _scanImage          = null; // { dataUrl, b64, mediaType } for current scan
+
+  // Confluence factor presets (toggle chips)
+  const CONFLUENCE_FACTORS = [
+    'HTF bias', 'Killzone', 'Sweep', 'Displacement',
+    'OB+FVG stack', 'Daily level', 'Confluence tab ≥70', 'News clear',
+  ];
 
   /* ── Cached DOM refs ─────────────────────────────────── */
   const $ = id => document.getElementById(id);
+  function esc(s) {
+    if (s === undefined || s === null) return '';
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
 
   /* ── Tab renderers map ───────────────────────────────── */
   // 2026-05-19 audit: dojo / goals / rules / playbook / reports tabs are
@@ -32,6 +45,7 @@ const App = (() => {
     playbook:   () => PlaybookTab.render(),
     rules:      () => RulesTab.render(),
     confluence: () => ConfluenceTab.render(),
+    catalysts:  () => CatalystTab.render(),
     coach:      () => CoachTab.render(),
     aicoach:    () => AICoachTab.render(),
     goals:      () => GoalsTab.render(),
@@ -334,6 +348,278 @@ const App = (() => {
     return out;
   }
 
+  /* ── Confluence chip helpers ─────────────────────────── */
+  function renderConfluenceChips() {
+    const el = $('fConfluenceChips');
+    if (!el) return;
+    el.innerHTML = CONFLUENCE_FACTORS.map(f => {
+      const on = _pendingConfluence.includes(f);
+      return `<button type="button" class="conf-factor-chip${on ? ' on' : ''}"
+                onclick="App._toggleConfluenceFactor('${f.replace(/'/g, "\\'")}')">${f}</button>`;
+    }).join('');
+  }
+
+  function toggleConfluenceFactor(name) {
+    const i = _pendingConfluence.indexOf(name);
+    if (i >= 0) _pendingConfluence.splice(i, 1);
+    else _pendingConfluence.push(name);
+    renderConfluenceChips();
+    // Sync score with chip count if user hasn't manually set one yet
+    const slider = $('fConfluenceScore');
+    if (slider && (slider.dataset.userSet !== '1')) {
+      slider.value = Math.min(10, _pendingConfluence.length * 1.5).toFixed(0);
+      $('fConfluenceVal').textContent = slider.value > 0 ? slider.value : '—';
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     SCAN TRADE MODAL — vision read of a marked-up chart
+  ══════════════════════════════════════════════════════ */
+  function openScanModal() {
+    _pendingScan = null;
+    _scanImage   = null;
+    $('scanModal').classList.remove('hidden');
+    $('scanStage1').classList.remove('hidden');
+    $('scanStage2').classList.add('hidden');
+    $('scanStage2').innerHTML = '';
+    $('scanPreviewWrap').classList.add('hidden');
+    $('scanLocalDesc').classList.add('hidden');
+    $('scanStatus').textContent = '';
+    $('scanFileInput').value = '';
+
+    // Local mode? Surface the text-description fallback instead of the dropzone
+    if (typeof AICoachTab !== 'undefined' && AICoachTab.isLocalMode && AICoachTab.isLocalMode()) {
+      $('scanLocalDesc').classList.remove('hidden');
+    }
+  }
+
+  function closeScanModal() {
+    $('scanModal').classList.add('hidden');
+  }
+
+  function _scanReset() {
+    _scanImage = null;
+    _pendingScan = null;
+    $('scanFileInput').value = '';
+    $('scanPreviewWrap').classList.add('hidden');
+    $('scanStage2').classList.add('hidden');
+    $('scanStage1').classList.remove('hidden');
+    $('scanStatus').textContent = '';
+  }
+
+  async function _scanHandleFile(e) {
+    const file = (e.target.files || [])[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast('Image over 8MB — skipping', 'error'); return; }
+    const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file); });
+    _setScanImage(dataUrl);
+  }
+
+  function _setScanImage(dataUrl) {
+    const m = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+    if (!m) { toast('Could not read image', 'error'); return; }
+    _scanImage = { dataUrl, mediaType: m[1], b64: m[2] };
+    $('scanPreviewImg').src = dataUrl;
+    $('scanPreviewWrap').classList.remove('hidden');
+    $('scanStatus').textContent = '';
+  }
+
+  // Paste handler — pasting an image into the modal sets it as the source
+  document.addEventListener('paste', e => {
+    if ($('scanModal')?.classList.contains('hidden')) return;
+    const items = (e.clipboardData || {}).items || [];
+    for (const it of items) {
+      if (it.type && it.type.startsWith('image/')) {
+        const f = it.getAsFile();
+        if (!f) continue;
+        const r = new FileReader();
+        r.onload = ev => _setScanImage(ev.target.result);
+        r.readAsDataURL(f);
+        e.preventDefault();
+        return;
+      }
+    }
+  });
+
+  async function _scanAnalyze() {
+    if (!_scanImage) { toast('Drop a screenshot first', 'error'); return; }
+    const btn = $('scanAnalyzeBtn');
+    btn.disabled = true;
+    $('scanStatus').innerHTML = '<span style="color:var(--accent)">✨ Reading chart…</span>';
+    try {
+      const r = await AICoachTab.scanTradeImage(_scanImage.dataUrl);
+      _pendingScan = r;
+      _renderScanResult(r);
+    } catch (err) {
+      $('scanStatus').innerHTML = `<span style="color:var(--red)">⚠ ${err.message}</span>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function _scanAnalyzeLocal() {
+    const desc = $('scanLocalText')?.value?.trim();
+    if (!desc) { $('scanLocalText')?.focus(); return; }
+    $('scanStatus').innerHTML = '<span style="color:var(--accent)">✨ Reading…</span>';
+    try {
+      const r = await AICoachTab.scanTradeFromText(desc);
+      _pendingScan = r;
+      _renderScanResult(r);
+    } catch (err) {
+      $('scanStatus').innerHTML = `<span style="color:var(--red)">⚠ ${err.message}</span>`;
+    }
+  }
+
+  function _renderScanResult(r) {
+    if (r._parseError) {
+      $('scanStage2').innerHTML = `<div style="color:var(--red);padding:12px">⚠ Could not parse Claude's response. Raw output:<pre style="white-space:pre-wrap;font-size:.78rem;margin-top:8px;background:var(--surface);padding:10px;border-radius:6px">${esc(r._raw||'')}</pre></div>`;
+      $('scanStage1').classList.add('hidden');
+      $('scanStage2').classList.remove('hidden');
+      return;
+    }
+    const c = r.confidence || {};
+    const conf = (k) => {
+      const v = c[k];
+      if (v === undefined || v === null) return '';
+      if (v >= 0.8) return '<span class="scan-conf scan-conf-hi">✓</span>';
+      if (v >= 0.6) return '<span class="scan-conf scan-conf-md">~</span>';
+      return '<span class="scan-conf scan-conf-lo">⚠</span>';
+    };
+    const fmt = v => (v === null || v === undefined || v === '') ? '<span class="text-dim">—</span>' : esc(String(v));
+    const crit = r.critique || {};
+    const gradeColor = { A:'#22c55e', B:'#86efac', C:'#f59e0b', D:'#ef4444' }[crit.grade] || '#888';
+
+    $('scanStage2').innerHTML = `
+      <div class="scan-result">
+        <div class="scan-result-header">
+          <img src="${_scanImage ? _scanImage.dataUrl : ''}" class="scan-thumb" ${_scanImage ? '' : 'style="display:none"'} />
+          <div class="scan-result-meta">
+            <div class="scan-result-title">
+              <strong>${fmt(r.symbol)}</strong>
+              <span class="text-dim">·</span> ${fmt(r.timeframe)}
+              <span class="text-dim">·</span> ${fmt(r.session)}
+              <span class="text-dim">·</span>
+              <span class="badge ${r.direction === 'Long' ? 'badge-green' : r.direction === 'Short' ? 'badge-red' : 'badge-dim'}">${fmt(r.direction)}</span>
+            </div>
+            <div class="text-xs text-sub" style="margin-top:4px">${fmt(r.chart_timestamp)} · HTF: ${fmt(r.htf_bias)}</div>
+          </div>
+        </div>
+
+        <div class="scan-fields">
+          <div class="scan-field"><span class="sf-lbl">Entry</span><span class="sf-val">${fmt(r.entry)} ${conf('entry')}</span></div>
+          <div class="scan-field"><span class="sf-lbl">SL</span><span class="sf-val">${fmt(r.sl)} ${conf('sl')}</span></div>
+          <div class="scan-field"><span class="sf-lbl">TP</span><span class="sf-val">${fmt(r.tp)} ${conf('tp')}</span></div>
+          <div class="scan-field"><span class="sf-lbl">R:R</span><span class="sf-val">${fmt(r.rr_planned)}</span></div>
+        </div>
+
+        <div class="scan-setup-row">
+          <span class="sf-lbl">Setup</span>
+          ${(r.setup_types || []).map(s => `<span class="badge badge-accent">${esc(s)}</span>`).join(' ') || '<span class="text-dim">—</span>'}
+          ${conf('setup')}
+        </div>
+
+        ${r.key_features?.length ? `<ul class="scan-features">${r.key_features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+
+        <div class="scan-critique">
+          <div class="scan-critique-header">
+            <span class="scan-grade-pill" style="background:${gradeColor}22;color:${gradeColor};border-color:${gradeColor}55">Grade ${esc(crit.grade || '?')}</span>
+            <span class="text-xs text-sub">AI critique</span>
+          </div>
+          ${(crit.strengths || []).length ? `<div class="scan-bullet-group"><div class="sbg-label" style="color:#22c55e">✓ Strengths</div><ul>${crit.strengths.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+          ${(crit.weaknesses || []).length ? `<div class="scan-bullet-group"><div class="sbg-label" style="color:#ef4444">✗ Weaknesses</div><ul>${crit.weaknesses.map(s=>`<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+          ${crit.rr_assessment ? `<div class="scan-rr-note">${esc(crit.rr_assessment)}</div>` : ''}
+        </div>
+
+        <div class="scan-actions">
+          <button class="btn-primary" onclick="App._scanCommit()">⬇ Edit &amp; Save Trade</button>
+          <button class="btn-ghost btn-sm" onclick="App._scanReset()">↺ Try another</button>
+        </div>
+      </div>`;
+    $('scanStage1').classList.add('hidden');
+    $('scanStage2').classList.remove('hidden');
+  }
+
+  function _scanCommit() {
+    if (!_pendingScan) return;
+    const r = _pendingScan;
+    // Build a prefill object aligned to the trade form
+    const sessionMap = { London:'London', NY:'NY', Asian:'Asian' };
+    const session = sessionMap[r.session] || 'Other';
+    const dir = r.direction === 'Long' || r.direction === 'Short' ? r.direction : '';
+    const data = {
+      symbol: r.symbol || '',
+      direction: dir,
+      entry: r.entry ?? '',
+      sl:    r.sl    ?? '',
+      tp:    r.tp    ?? '',
+      session,
+      htfBias: r.htf_bias && /^(Bull|Bear|Neut)/i.test(r.htf_bias)
+        ? (/^Bull/i.test(r.htf_bias) ? 'Bullish' : /^Bear/i.test(r.htf_bias) ? 'Bearish' : 'Neutral')
+        : '',
+      setupTypes: Array.isArray(r.setup_types) ? r.setup_types : [],
+      exitPrice: r.exit_price ?? '',
+      preGrade:  r.critique?.suggested_pre_grade || '',
+      notes: (r.key_features || []).join(' · '),
+      aiCritique: r.critique ? { ...r.critique, generated_at: new Date().toISOString() } : null,
+      scanConfidence: r.confidence || null,
+      screenshotUrl: _scanImage ? _scanImage.dataUrl : '',
+    };
+    closeScanModal();
+    openTradeModalPrefilled(data);
+  }
+
+  function openTradeModalPrefilled(d) {
+    openTradeModal(); // resets state, opens normal modal
+    if (d.screenshotUrl) {
+      _pendingScreenshots.push(d.screenshotUrl);
+      renderScreenshotPrev();
+    }
+    if (d.setupTypes && d.setupTypes.length) {
+      _pendingSetups = [...d.setupTypes];
+      renderSetupChips();
+    }
+    // Apply fields
+    const setVal = (id, v) => {
+      if (v === undefined || v === null || v === '') return;
+      const el = $(id);
+      if (!el) return;
+      if (el.tagName === 'SELECT') {
+        const opts = Array.from(el.options).map(o => o.value);
+        if (opts.includes(String(v))) el.value = v;
+        else if (id === 'fSymbol' && opts.includes('custom')) {
+          el.value = 'custom';
+          $('fSymbolCustomGroup').classList.remove('hidden');
+          $('fSymbolCustom').value = v;
+        }
+      } else {
+        el.value = v;
+      }
+    };
+    setVal('fSymbol', d.symbol);
+    setVal('fDirection', d.direction);
+    setVal('fEntry', d.entry);
+    setVal('fSl', d.sl);
+    setVal('fTp', d.tp);
+    setVal('fSession', d.session);
+    setVal('fHtfBias', d.htfBias);
+    setVal('fExitPrice', d.exitPrice);
+    setVal('fPreGrade', d.preGrade);
+    if (d.notes) $('fNotes').value = d.notes;
+    // Attach AI critique into the post-grade notes too (so it persists in the trade)
+    if (d.aiCritique) {
+      const c = d.aiCritique;
+      const summary = `AI: Grade ${c.grade || '?'}${c.strengths?.length ? ' · ✓ ' + c.strengths.join('; ') : ''}${c.weaknesses?.length ? ' · ✗ ' + c.weaknesses.join('; ') : ''}${c.rr_assessment ? ' — ' + c.rr_assessment : ''}`;
+      $('fPostGradeNotes').value = summary;
+    }
+    // Stash the critique + confidence on a hidden field on the form root so saveTradeForm can pick them up
+    const form = $('tradeForm');
+    if (form) {
+      form.dataset.aiCritique = d.aiCritique ? JSON.stringify(d.aiCritique) : '';
+      form.dataset.scanConfidence = d.scanConfidence ? JSON.stringify(d.scanConfidence) : '';
+    }
+    toast('Scan applied — review and save', 'success');
+  }
+
   function openTradeModal(editId) {
     const modal = $('tradeModal');
     const form  = $('tradeForm');
@@ -342,6 +628,24 @@ const App = (() => {
     // Reset pending state
     _pendingScreenshots = [];
     _pendingSetups      = [];
+    _pendingConfluence  = [];
+    // Reset confluence slider
+    const cSlider = $('fConfluenceScore');
+    if (cSlider) {
+      cSlider.value = 0;
+      cSlider.dataset.userSet = '';
+      cSlider.oninput = () => {
+        cSlider.dataset.userSet = '1';
+        $('fConfluenceVal').textContent = cSlider.value > 0 ? cSlider.value : '—';
+      };
+    }
+    if ($('fConfluenceVal')) $('fConfluenceVal').textContent = '—';
+    renderConfluenceChips();
+    // Reset MFE/MAE
+    if ($('fMfe')) $('fMfe').value = '';
+    if ($('fMae')) $('fMae').value = '';
+    // Clear any stashed AI critique on form
+    if (form) { form.dataset.aiCritique = ''; form.dataset.scanConfidence = ''; }
 
     // Build rules checklist panel
     renderRulesChecklist();
@@ -457,6 +761,24 @@ const App = (() => {
     // Load setup chips
     _pendingSetups = t.setupTypes || (t.setupType ? [t.setupType] : []);
     renderSetupChips();
+    // Load confluence
+    _pendingConfluence = Array.isArray(t.confluenceFactors) ? [...t.confluenceFactors] : [];
+    renderConfluenceChips();
+    const cSlider = $('fConfluenceScore');
+    if (cSlider) {
+      cSlider.value = t.confluenceScore || 0;
+      cSlider.dataset.userSet = t.confluenceScore ? '1' : '';
+      if ($('fConfluenceVal')) $('fConfluenceVal').textContent = cSlider.value > 0 ? cSlider.value : '—';
+    }
+    // Load MFE/MAE
+    if ($('fMfe') && t.mfe !== undefined) $('fMfe').value = t.mfe ?? '';
+    if ($('fMae') && t.mae !== undefined) $('fMae').value = t.mae ?? '';
+    // Stash AI critique if present so a re-save preserves it
+    const form = $('tradeForm');
+    if (form) {
+      form.dataset.aiCritique = t.aiCritique ? JSON.stringify(t.aiCritique) : '';
+      form.dataset.scanConfidence = t.scanConfidence ? JSON.stringify(t.scanConfidence) : '';
+    }
     // Load screenshots
     _pendingScreenshots = DB.getScreenshots(t);
     renderScreenshotPrev();
@@ -500,6 +822,15 @@ const App = (() => {
       if (risk > 0) rMultiple = (((exit - entry) / risk) * (f('fDirection') === 'Long' ? 1 : -1)).toFixed(2);
     }
 
+    // Pull AI scan extras from the stashed form datasets (set by openTradeModalPrefilled)
+    const form = $('tradeForm');
+    let aiCritique = null, scanConfidence = null;
+    try { aiCritique     = form?.dataset.aiCritique     ? JSON.parse(form.dataset.aiCritique)     : null; } catch {}
+    try { scanConfidence = form?.dataset.scanConfidence ? JSON.parse(form.dataset.scanConfidence) : null; } catch {}
+
+    const confluenceScore = parseInt(f('fConfluenceScore'), 10) || 0;
+    const mfe = f('fMfe'), mae = f('fMae');
+
     const data = {
       symbol: sym, direction: f('fDirection'),
       entry: f('fEntry'), sl: f('fSl'), tp: f('fTp'), size: f('fSize'),
@@ -508,12 +839,16 @@ const App = (() => {
       dateEnd: f('fDateEnd') || window._jb_pendingEndDate || '',
       preGrade: f('fPreGrade'), preGradeNotes: f('fPreGradeNotes'),
       exitPrice: f('fExitPrice'), result: f('fResult'), rMultiple,
+      mfe, mae,
+      confluenceScore,
+      confluenceFactors: [..._pendingConfluence],
       postGrade: f('fPostGrade'), postGradeNotes: f('fPostGradeNotes'),
       notes: f('fNotes'),
       screenshotUrls: [..._pendingScreenshots],
       screenshotUrl: '',   // clear legacy field on save
       date: f('fDate'),
       ruleChecks: collectRuleChecks(),
+      aiCritique, scanConfidence,
     };
 
     const editId = f('tradeId');
@@ -1060,21 +1395,22 @@ Please analyse:
       if (!valid.length) { e.target.value = ''; return; }
 
       const newUrls = [];
+      let r2Ok = 0, r2Fail = 0, lastErr = '';
       if (useR2) {
         toast(`Uploading ${valid.length} image${valid.length===1?'':'s'} to R2…`, 'info');
         for (const f of valid) {
           try {
             const r = await R2.upload(f);
             newUrls.push(r.url);
+            r2Ok++;
           } catch (err) {
-            console.warn('R2 upload failed, falling back to base64:', err.message);
-            // Fallback: base64 for this file
+            r2Fail++; lastErr = err.message || String(err);
+            console.warn('R2 upload failed, falling back to base64:', f.name, lastErr);
             const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(f); });
             newUrls.push(dataUrl);
           }
         }
       } else {
-        // Original base64 path
         for (const f of valid) {
           const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(f); });
           newUrls.push(dataUrl);
@@ -1083,7 +1419,13 @@ Please analyse:
 
       newUrls.forEach(u => { if (!_pendingScreenshots.includes(u)) _pendingScreenshots.push(u); });
       renderScreenshotPrev();
-      toast(`${newUrls.length} image${newUrls.length === 1 ? '' : 's'} attached${useR2 ? ' (R2 cloud)' : ''}`);
+      if (useR2 && r2Fail > 0) {
+        toast(`R2 failed for ${r2Fail}/${valid.length} — using base64 fallback. ${lastErr.slice(0,120)}`, 'error');
+      } else if (useR2) {
+        toast(`${r2Ok} image${r2Ok===1?'':'s'} uploaded to R2`);
+      } else {
+        toast(`${newUrls.length} image${newUrls.length===1?'':'s'} attached (local base64)`);
+      }
       e.target.value = '';
     },
     _removeScreenshot: (idx) => {
@@ -1095,11 +1437,22 @@ Please analyse:
       renderSetupChips();
     },
     openTradeModal,
+    openTradeModalPrefilled,
     closeTradeModal,
     confirmDelete,
     toast,
     buildNav,
     renderTab,
+    // Scan trade modal
+    openScanModal,
+    closeScanModal,
+    _scanHandleFile,
+    _scanAnalyze,
+    _scanAnalyzeLocal,
+    _scanReset,
+    _scanCommit,
+    // Confluence chips
+    _toggleConfluenceFactor: toggleConfluenceFactor,
   };
 
 })();
