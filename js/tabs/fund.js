@@ -9,6 +9,9 @@ const FundTab = (() => {
 
   const LOCAL_URL = 'http://127.0.0.1:8767/';
   const LS_KEY    = 'fund_remote_url';
+  // Auto-detect Railway: if not on localhost, use same origin (nginx proxies /api/)
+  const _isLocal  = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const REMOTE_URL = window.location.origin + '/';
 
   let _retryTimer   = null;
   let _refreshTimer = null;
@@ -51,7 +54,9 @@ const FundTab = (() => {
   }
   function _resolveUrl() {
     const override = (localStorage.getItem(LS_KEY) || '').trim();
-    return safeUrl(override || LOCAL_URL).replace(/\/?$/, '/');
+    if (override) return safeUrl(override).replace(/\/?$/, '/');
+    // On Railway (not localhost): API is proxied at same origin via nginx
+    return _isLocal ? LOCAL_URL : REMOTE_URL;
   }
   async function _fetchJson(baseUrl, path) {
     try {
@@ -214,7 +219,7 @@ const FundTab = (() => {
       <div class="lw-offline" style="text-align:center; padding:60px 20px; max-width:560px; margin:0 auto;">
         <div class="lw-offline-icon">🏦</div>
         <h2 class="lw-offline-title" style="margin-bottom:12px;">Bot Farm API offline</h2>
-        <p class="lw-offline-sub" style="opacity:.6;">Tried <code>localhost:8767</code>${saved ? ` and <code>${esc(saved)}</code>` : ''} — not reachable.</p>
+        <p class="lw-offline-sub" style="opacity:.6;">Tried <code>${_isLocal ? 'localhost:8767' : window.location.origin + '/api'}</code>${saved ? ` and <code>${esc(saved)}</code>` : ''} — not reachable.</p>
         <p class="lw-offline-sub" style="opacity:.45; font-size:11px; margin-top:6px;">
           Start locally: <code>cd "Mini Hedge Fund" &amp;&amp; python3 -m fund.api</code>
         </p>

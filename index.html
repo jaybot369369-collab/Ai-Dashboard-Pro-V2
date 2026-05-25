@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/styles.css?v=dash19" />
+  <link rel="stylesheet" href="css/styles.css?v=dash27" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -225,6 +225,22 @@
           </div>
         </fieldset>
 
+        <!-- Confluence Score -->
+        <fieldset>
+          <legend>Confluence at Entry <span class="text-xs text-sub">— how many things lined up?</span></legend>
+          <div class="form-row" style="align-items:center">
+            <div class="form-group" style="flex:0 0 220px">
+              <label>Score <span id="fConfluenceVal" style="font-weight:700;color:var(--accent)">—</span> / 10</label>
+              <input type="range" id="fConfluenceScore" min="0" max="10" step="1" value="0"
+                     oninput="document.getElementById('fConfluenceVal').textContent = this.value > 0 ? this.value : '—'" />
+            </div>
+            <div class="form-group" style="flex:1">
+              <label>Factors that aligned</label>
+              <div id="fConfluenceChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+          </div>
+        </fieldset>
+
         <!-- Pre-Trade Grade -->
         <fieldset>
           <legend>Pre-Trade Grade (Plan Quality)</legend>
@@ -261,6 +277,22 @@
             <div class="form-group">
               <label>R Multiple</label>
               <input type="number" id="fRMultiple" step="any" placeholder="e.g. 1.5" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>MFE — Best price reached <span class="text-xs text-sub">(in R)</span></label>
+              <input type="number" id="fMfe" step="any" placeholder="e.g. 2.8" />
+            </div>
+            <div class="form-group">
+              <label>MAE — Worst price reached <span class="text-xs text-sub">(in R, positive number)</span></label>
+              <input type="number" id="fMae" step="any" placeholder="e.g. 0.6" />
+            </div>
+            <div class="form-group" style="flex:2;display:flex;align-items:flex-end">
+              <div class="text-xs text-sub" style="line-height:1.4">
+                MFE = furthest price went in your favour. MAE = furthest it went against you.
+                Track capture rate (realized R ÷ MFE) — &lt;50% means you're exiting early.
+              </div>
             </div>
           </div>
         </fieldset>
@@ -349,6 +381,50 @@
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     SCAN TRADE FROM CHART MODAL
+════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="scanModal">
+  <div class="modal" id="scanModalBox" style="max-width:780px">
+    <div class="modal-header">
+      <h2>📸 Scan Trade from Chart</h2>
+      <button class="modal-close" onclick="App.closeScanModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="scanStage1">
+        <div class="scan-help">
+          Drop a TradingView screenshot that already has your <strong>entry</strong>, <strong>stop</strong>, and <strong>take-profit</strong> drawn as horizontal lines.
+          Claude will read the prices, the symbol, the session, the structure — then critique the trade.
+        </div>
+        <label class="scan-dropzone" id="scanDropzone">
+          <input type="file" id="scanFileInput" accept="image/*" style="display:none" onchange="App._scanHandleFile(event)" />
+          <div class="scan-dropzone-icon">📸</div>
+          <div class="scan-dropzone-title">Click to upload or paste image (⌘V)</div>
+          <div class="scan-dropzone-sub">PNG / JPG · up to 8MB</div>
+        </label>
+        <div id="scanPreviewWrap" class="hidden" style="margin-top:14px">
+          <img id="scanPreviewImg" style="max-width:100%;max-height:280px;border-radius:8px;border:1px solid var(--border)" />
+          <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+            <button type="button" class="btn-primary" id="scanAnalyzeBtn" onclick="App._scanAnalyze()">✨ Analyze Trade</button>
+            <button type="button" class="btn-ghost btn-sm" onclick="App._scanReset()">Clear</button>
+            <span id="scanStatus" class="text-xs text-sub"></span>
+          </div>
+        </div>
+        <div id="scanLocalDesc" class="hidden" style="margin-top:14px">
+          <div class="text-xs text-sub" style="margin-bottom:6px">Local mode — vision not available. Describe the chart and Claude will infer the trade:</div>
+          <textarea id="scanLocalText" rows="3" placeholder="e.g. 15m BTC NY AM, swept Asia low, FVG at 67400, long entry 67450, SL 66900, TP 68600"
+            style="width:100%;box-sizing:border-box;font-size:.85rem;padding:8px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);resize:none;font-family:inherit"></textarea>
+          <button type="button" class="btn-primary" style="margin-top:8px" onclick="App._scanAnalyzeLocal()">✨ Analyze</button>
+        </div>
+      </div>
+      <div id="scanStage2" class="hidden"></div>
+    </div>
+    <div class="modal-footer" id="scanFooter">
+      <button class="btn-ghost" onclick="App.closeScanModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Tab Modal -->
 <div class="modal-overlay hidden" id="addTabModal">
   <div class="modal modal-sm" id="addTabModalBox">
@@ -396,18 +472,18 @@
 <!-- ═══════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════ -->
-<script src="js/data.js?v=aud1"></script>
+<script src="js/data.js?v=aud2"></script>
 <script src="js/data/macro_events.js"></script>
 <script src="js/integrations/telegram.js"></script>
-<script src="js/integrations/r2.js"></script>
+<script src="js/integrations/r2.js?v=r2_2"></script>
 <script src="js/integrations/lock.js?v=kb1"></script>
 <script src="js/integrations/local_persist.js?v=lp1"></script>
 <script src="js/integrations/cloud_sync.js?v=cs3"></script>
 <script src="js/integrations/repo_writer.js?v=rw1"></script>
 <script src="js/charts.js"></script>
-<script src="js/tabs/dashboard.js?v=aud1"></script>
+<script src="js/tabs/dashboard.js?v=aud2"></script>
 <script src="js/tabs/daily_report.js?v=aud1"></script>
-<script src="js/tabs/tradelog.js?v=tl2"></script>
+<script src="js/tabs/tradelog.js?v=tl4"></script>
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
 <script src="js/tabs/watchlist.js"></script>
@@ -418,18 +494,19 @@
 <script src="js/tabs/goals.js?v=goals2"></script>
 <script src="js/tabs/reports.js?v=rep4"></script>
 <script src="js/tabs/coach.js?v=co3"></script>
-<script src="js/tabs/ai_coach.js?v=aud3"></script>
+<script src="js/tabs/ai_coach.js?v=aud5"></script>
 <script src="js/tabs/dojo.js?v=dojo7"></script>
 <script src="js/tabs/quickstats.js"></script>
 <script src="js/tabs/pro_tools.js?v=pt2"></script>
 <script src="js/tabs/rules.js?v=rules3"></script>
 <script src="js/lib/ict_detectors.js?v=ictd2"></script>
-<script src="js/tabs/confluence.js?v=conf13"></script>
-<script src="js/tabs/liquidity_watcher.js?v=lw5"></script>
+<script src="js/tabs/confluence.js?v=conf14"></script>
+<script src="js/tabs/catalyst.js?v=cat5"></script>
+<script src="js/tabs/liquidity_watcher.js?v=lw6"></script>
 <script src="js/tabs/market_intel.js?v=mi2"></script>
-<script src="js/tabs/fund.js?v=fund3"></script>
+<script src="js/tabs/fund.js?v=fund4"></script>
 <script src="js/tabs/sensei.js?v=sn2"></script>
-<script src="js/app.js?v=aud1"></script>
+<script src="js/app.js?v=aud5"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

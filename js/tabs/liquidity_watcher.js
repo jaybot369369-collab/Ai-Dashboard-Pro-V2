@@ -6,7 +6,10 @@
 ════════════════════════════════════════════════════════════ */
 const LiquidityWatcherTab = (() => {
 
-  const API = 'http://127.0.0.1:8766';
+  const _lwIsLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const API = _lwIsLocal
+    ? 'http://127.0.0.1:8766'
+    : (localStorage.getItem('lw_remote_url') || (window.location.origin + '/lw'));
   const TFS = ['15m', '4h', 'D', 'W'];
   let _activeTf = 'D';
   let _refreshTimer = null;
@@ -678,7 +681,7 @@ Traders on different exchanges are positioned completely differently. This means
       <div class="lw-offline">
         <div class="lw-offline-icon">🌊</div>
         <h2 class="lw-offline-title">Liquidity Watcher offline</h2>
-        <p class="lw-offline-sub">Trying <code>localhost:8766</code> — retrying automatically…</p>
+        <p class="lw-offline-sub">Trying <code>${API.replace('http://','').replace('https://','')}</code> — retrying automatically…</p>
         <p class="lw-offline-sub" style="font-size:11px;margin-top:6px;">
           Start: <code>cd "_CLAUDE PROJECTS/Crypto Liquidity Watcher" &amp;&amp; python3 server.py</code>
         </p>
