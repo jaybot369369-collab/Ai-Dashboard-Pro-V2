@@ -288,10 +288,12 @@ const FundTab = (() => {
 
     content.innerHTML = `<div style="padding:40px;color:var(--muted);font-size:13px">Checking Bot Farm API…</div>`;
 
-    /* Try localhost first, then user override */
-    let url = LOCAL_URL;
-    let overview = await _fetchJson(LOCAL_URL, 'api/overview');
-    if (!overview) {
+    /* Use _resolveUrl() so Railway hits same-origin /api/ and localhost
+       hits the local fund.api (with optional override). Previously this
+       hardcoded LOCAL_URL which broke Bot Farm on Railway. */
+    let url = _resolveUrl();
+    let overview = await _fetchJson(url, 'api/overview');
+    if (!overview && _isLocal) {
       const override = (localStorage.getItem(LS_KEY) || '').trim();
       if (override && override !== LOCAL_URL) {
         url = safeUrl(override).replace(/\/?$/, '/');
