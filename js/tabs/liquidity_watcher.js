@@ -7,9 +7,11 @@
 const LiquidityWatcherTab = (() => {
 
   const _lwIsLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  // On Railway / any non-localhost host: ALWAYS use same-origin /lw and
+  // ignore any stale lw_remote_url override that would break this.
   const API = _lwIsLocal
-    ? 'http://127.0.0.1:8766'
-    : (localStorage.getItem('lw_remote_url') || (window.location.origin + '/lw'));
+    ? (localStorage.getItem('lw_remote_url') || 'http://127.0.0.1:8766')
+    : (window.location.origin + '/lw');
   const TFS = ['15m', '4h', 'D', 'W'];
   let _activeTf = 'D';
   let _refreshTimer = null;

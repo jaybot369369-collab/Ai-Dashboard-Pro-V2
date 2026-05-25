@@ -53,10 +53,14 @@ const FundTab = (() => {
     return document.querySelector('.nav-item.active')?.dataset.tab === 'fund';
   }
   function _resolveUrl() {
+    // On Railway / any non-localhost host: ALWAYS use same-origin /api/.
+    // Ignore any stale fund_remote_url override that pointed at a tunnel
+    // or localhost from a previous session — those break Bot Farm here.
+    if (!_isLocal) return REMOTE_URL;
+    // Localhost: allow override (tunnel testing pattern), else default LOCAL.
     const override = (localStorage.getItem(LS_KEY) || '').trim();
     if (override) return safeUrl(override).replace(/\/?$/, '/');
-    // On Railway (not localhost): API is proxied at same origin via nginx
-    return _isLocal ? LOCAL_URL : REMOTE_URL;
+    return LOCAL_URL;
   }
   async function _fetchJson(baseUrl, path) {
     try {
