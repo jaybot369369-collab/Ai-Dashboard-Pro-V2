@@ -87,12 +87,23 @@ const MarketIntelTab = (() => {
 
   async function load() {
     _err = null;
-    try {
-      const r = await fetch('js/data/market_intel.json?t=' + Date.now());
-      if (!r.ok) throw new Error('fetch ' + r.status);
-      _data = await r.json();
-    } catch (e) {
-      _err = e.message;
+    /* Prefer the live /api/market_intel endpoint (reads /data on Railway
+       → updates instantly after a server-side refresh). Fall back to the
+       V2-bundled static JSON if the API isn't reachable (offline dev). */
+    const sources = [
+      `${window.location.origin}/api/market_intel?t=${Date.now()}`,
+      `js/data/market_intel.json?t=${Date.now()}`,
+    ];
+    for (const url of sources) {
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('fetch ' + r.status);
+        _data = await r.json();
+        return;
+      } catch (e) {
+        _err = e.message;
+        continue;
+      }
     }
   }
 
@@ -376,13 +387,11 @@ const MarketIntelTab = (() => {
     const pdfBtn = d.pdf_url
       ? `<a href="${esc(safeHref(d.pdf_url))}" target="_blank" rel="noopener" class="btn-ghost btn-sm" title="Download companion PDF">📥 PDF</a>`
       : '';
-    const fetchBtn = `<button class="btn-primary btn-sm" id="miFreshFetch" title="Trigger a fresh server-side fetch via Cloudflare Worker (uses Anthropic API tokens, ~3 minutes)">☁️ Run Cloud</button>`;
-    // Local-shim button only makes sense when V2 itself is on localhost —
-    // on Railway / github.io there's no operator-Mac shim to call.
-    const _miIsLocalHost = ['localhost','127.0.0.1'].includes(window.location.hostname);
-    const localBtn = _miIsLocalHost
-      ? `<button class="btn-ghost btn-sm" id="miLocalRun" title="Run the same pipeline locally via your Claude Code CLI (no API tokens; requires market_intel_local_server.py on :8769)">🖥️ Run Locally</button>`
-      : '';
+    const fetchBtn = `<button class="btn-primary btn-sm" id="miFreshFetch" title="Trigger a fresh server-side fetch via Cloudflare Worker (uses Anthropic API tokens, ~3 minutes). Pushes to the V2 repo + Railway redeploys.">☁️ Run Cloud</button>`;
+    // "Run Now" — Railway-side runner. Same pipeline as Cloud, but writes
+    // JSON straight to the Volume so every viewer sees it on next reload
+    // (no V2 redeploy needed). Requires ADMIN_API_SECRET prompt on first use.
+    const runNowBtn = `<button class="btn-ghost btn-sm" id="miRunNow" title="Run server-side on Railway and broadcast to all dashboards (~3 minutes). Asks for your admin secret on first use.">🚀 Run Now</button>`;
 
     content.innerHTML = _pageHead() + `<div class="mi-wrap">
       ${isStale ? `<div class="mi-stale-banner">⚠ Data may be stale — last refresh ${fmtAge(d.generated)} (cron schedule: 2x/day weekdays).</div>` : ''}
@@ -395,7 +404,7 @@ const MarketIntelTab = (() => {
         <div class="mi-hdr-actions">
           ${pdfBtn}
           ${fetchBtn}
-          ${localBtn}
+          ${runNowBtn}
           <button class="btn-ghost btn-sm" onclick="MarketIntelTab._refresh()" title="Re-fetch JSON from server (does NOT call Claude)">↻ Reload</button>
         </div>
         <div class="mi-fetch-status" id="miFetchStatus" hidden></div>
@@ -440,11 +449,116 @@ const MarketIntelTab = (() => {
       fetchBtnEl.addEventListener('click', () => _runFreshFetch());
     }
 
-    // Wire "Run Locally" button (Claude Code CLI path)
-    const localBtnEl = document.getElementById('miLocalRun');
-    if (localBtnEl) {
-      localBtnEl.addEventListener('click', () => _runLocal());
+    // Wire "Run Now" button (Railway-side server runner)
+    const runNowEl = document.getElementById('miRunNow');
+    if (runNowEl) {
+      runNowEl.addEventListener('click', () => _runNow());
     }
+  }
+
+  /* ── Server-side run on Railway ──────────────────────────
+     POSTs to /api/_admin/run_market_intel with the operator's
+     ADMIN_API_SECRET (cached in localStorage). The server spawns the
+     vendored runner, writes JSON to /data, and every dashboard fetching
+     /api/market_intel picks up the new data on reload — no V2 redeploy.
+     Returns immediately; status polls every 5s.
+  ──────────────────────────────────────────────────────── */
+  const LS_ADMIN_SECRET = 'mi_admin_secret';
+
+  async function _runNow() {
+    const btn    = document.getElementById('miRunNow');
+    const status = document.getElementById('miLocalStatus');   // reuse the existing status pill
+    if (!btn || !status) return;
+
+    let secret = (localStorage.getItem(LS_ADMIN_SECRET) || '').trim();
+    if (!secret) {
+      secret = (prompt('Enter ADMIN_API_SECRET (set on Railway). Cached locally after first use.') || '').trim();
+      if (!secret) return;
+      localStorage.setItem(LS_ADMIN_SECRET, secret);
+    }
+
+    btn.disabled = true;
+    btn.textContent = '🚀 Dispatching…';
+    status.hidden = false;
+    status.className = 'mi-fetch-status mi-fetch-pending';
+    status.textContent = 'Sending request to Railway…';
+
+    try {
+      const r = await fetch(`${window.location.origin}/api/_admin/run_market_intel?backend=api`, {
+        method: 'POST',
+        headers: { 'X-Admin-Secret': secret, 'Content-Type': 'application/json' },
+      });
+      if (r.status === 403) {
+        localStorage.removeItem(LS_ADMIN_SECRET);
+        throw new Error('bad admin secret — cleared cache, click again');
+      }
+      if (r.status === 409) {
+        const j = await r.json();
+        status.className = 'mi-fetch-status mi-fetch-pending';
+        status.textContent = `⏳ another run already in progress (started ${j.started_at}, ${Math.round(j.age_seconds)}s ago)`;
+        btn.textContent = '🚀 Run Now';
+        btn.disabled = false;
+        _pollStatusUntilDone();
+        return;
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      const j = await r.json();
+      status.textContent = `🚀 Run started (pid ${j.pid}). Polling status… ~${Math.round(j.expected_duration_seconds / 60)} min.`;
+      btn.textContent = '🚀 Running…';
+      _pollStatusUntilDone();
+    } catch (e) {
+      status.className = 'mi-fetch-status mi-fetch-fail';
+      status.textContent = `✗ ${e.message}`;
+      btn.disabled = false;
+      btn.textContent = '🚀 Run Now';
+    }
+  }
+
+  async function _pollStatusUntilDone() {
+    const status = document.getElementById('miLocalStatus');
+    const btn    = document.getElementById('miRunNow');
+    if (!status || !btn) return;
+    const POLL_MS = 5000;
+    const start = Date.now();
+    const tick = async () => {
+      try {
+        const r = await fetch(`${window.location.origin}/api/_admin/market_intel_status?t=${Date.now()}`);
+        const j = await r.json();
+        if (j.state === 'running') {
+          const sec = Math.round((Date.now() - start) / 1000);
+          status.className = 'mi-fetch-status mi-fetch-pending';
+          status.textContent = `🚀 Server-side run in progress (~${sec}s elapsed)…`;
+          setTimeout(tick, POLL_MS);
+          return;
+        }
+        if (j.state === 'done') {
+          status.className = 'mi-fetch-status mi-fetch-ok';
+          status.textContent = `✓ Run complete. Reloading data — every dashboard will pick this up on next refresh.`;
+          await _refresh();
+          btn.disabled = false;
+          btn.textContent = '🚀 Run Now';
+          return;
+        }
+        if (j.state === 'failed') {
+          status.className = 'mi-fetch-status mi-fetch-fail';
+          status.textContent = `✗ Run failed (exit ${j.exit_code}). Check Railway logs.`;
+          btn.disabled = false;
+          btn.textContent = '🚀 Run Now';
+          return;
+        }
+        /* never_run — shouldn't happen post-dispatch, but handle anyway */
+        setTimeout(tick, POLL_MS);
+      } catch (e) {
+        status.className = 'mi-fetch-status mi-fetch-fail';
+        status.textContent = `✗ poll error: ${e.message}`;
+        btn.disabled = false;
+        btn.textContent = '🚀 Run Now';
+      }
+    };
+    setTimeout(tick, POLL_MS);
   }
 
   /* ── Local Claude Code shim ─────────────────────────────
