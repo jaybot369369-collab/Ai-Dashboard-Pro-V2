@@ -116,6 +116,89 @@ html[data-theme="midnight"] {
   --teal:#14b8a6; --teal-dim:rgba(20,184,166,.15);
   --shadow-sm:var(--shadow);
 }
+/* ── Orange Night themes — warm, low-blue palettes for evening use.
+   Three intensity levels: ember (softest) → amber (mid) → inferno (boldest).
+   All force a warm orange accent regardless of data-accent so the night
+   palette stays coherent. */
+html[data-theme="ember"] {
+  --bg:#140a04; --surface:#1d1209; --surface2:#261810; --surface3:#321f15;
+  --border:#3a241a; --border-2:#4a3024;
+  --text:#f1d9bf; --muted:#bf9a78; --muted-2:#9a785a; --heading:#fff1de;
+  --accent:#c2531a; --accent-2:#9a3f10; --accent-soft:rgba(194,83,26,.16);
+  --accent-warm:#e07a2c; --accent-warm-soft:rgba(224,122,44,.16);
+  --kpi-1-bg:rgba(194,83,26,.18); --kpi-1-fg:#e88a3a;
+  --kpi-2-bg:rgba(224,122,44,.14); --kpi-2-fg:#f1a25a;
+  --kpi-3-bg:rgba(255,170,80,.14); --kpi-3-fg:#ffbc6e;
+  --kpi-4-bg:rgba(212,90,40,.16); --kpi-4-fg:#f08a52;
+  --good:#9bb86a; --good-soft:rgba(155,184,106,.14);
+  --warn:#e3b04b; --warn-soft:rgba(227,176,75,.14);
+  --bad:#e06640;  --bad-soft:rgba(224,102,64,.16);
+  --shadow:0 1px 2px rgba(0,0,0,.55),0 6px 24px -10px rgba(0,0,0,.65);
+  --shadow-lg:0 6px 16px -4px rgba(0,0,0,.6),0 24px 60px -20px rgba(0,0,0,.8);
+  --shadow-card:0 1px 0 rgba(255,180,120,.02),0 8px 24px -16px rgba(0,0,0,.7);
+  --bg-mid:var(--surface); --bg-card:var(--surface); --bg-card2:var(--surface2);
+  --border-sub:var(--border); --text-sub:var(--muted); --text-dim:var(--muted-2);
+  --accent-dim:var(--accent-soft); --accent-glow:var(--accent-soft);
+  --green:var(--good); --green-dim:var(--good-soft);
+  --red:var(--bad);   --red-dim:var(--bad-soft);
+  --orange:var(--accent-warm); --orange-dim:var(--accent-warm-soft);
+  --gold:var(--warn); --gold-dim:var(--warn-soft);
+  --teal:#a87e3a; --teal-dim:rgba(168,126,58,.15);
+  --shadow-sm:var(--shadow);
+}
+html[data-theme="amber"] {
+  --bg:#1a0d03; --surface:#27170a; --surface2:#341e0e; --surface3:#442815;
+  --border:#4d2e18; --border-2:#623c20;
+  --text:#fbe1c0; --muted:#d6a878; --muted-2:#ad8557; --heading:#fff3d8;
+  --accent:#ec6a1a; --accent-2:#c4520c; --accent-soft:rgba(236,106,26,.20);
+  --accent-warm:#ff8b3b; --accent-warm-soft:rgba(255,139,59,.18);
+  --kpi-1-bg:rgba(236,106,26,.22); --kpi-1-fg:#ff9744;
+  --kpi-2-bg:rgba(255,139,59,.18); --kpi-2-fg:#ffaa66;
+  --kpi-3-bg:rgba(255,190,100,.16); --kpi-3-fg:#ffc879;
+  --kpi-4-bg:rgba(220,90,40,.20); --kpi-4-fg:#ff7a4a;
+  --good:#a8c862; --good-soft:rgba(168,200,98,.16);
+  --warn:#f0bc4d; --warn-soft:rgba(240,188,77,.18);
+  --bad:#f47245;  --bad-soft:rgba(244,114,69,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.6),0 6px 24px -10px rgba(0,0,0,.7);
+  --shadow-lg:0 6px 16px -4px rgba(0,0,0,.65),0 24px 60px -20px rgba(0,0,0,.85);
+  --shadow-card:0 1px 0 rgba(255,180,120,.03),0 8px 24px -16px rgba(0,0,0,.75);
+  --bg-mid:var(--surface); --bg-card:var(--surface); --bg-card2:var(--surface2);
+  --border-sub:var(--border); --text-sub:var(--muted); --text-dim:var(--muted-2);
+  --accent-dim:var(--accent-soft); --accent-glow:var(--accent-soft);
+  --green:var(--good); --green-dim:var(--good-soft);
+  --red:var(--bad);   --red-dim:var(--bad-soft);
+  --orange:var(--accent-warm); --orange-dim:var(--accent-warm-soft);
+  --gold:var(--warn); --gold-dim:var(--warn-soft);
+  --teal:#bc8a3a; --teal-dim:rgba(188,138,58,.18);
+  --shadow-sm:var(--shadow);
+}
+html[data-theme="inferno"] {
+  --bg:#1f0a02; --surface:#2e1408; --surface2:#3e1c0c; --surface3:#522612;
+  --border:#5e2d18; --border-2:#783c22;
+  --text:#ffe6c2; --muted:#e8b07a; --muted-2:#bc8a58; --heading:#ffffff;
+  --accent:#ff7a18; --accent-2:#e25b08; --accent-soft:rgba(255,122,24,.24);
+  --accent-warm:#ff9a3c; --accent-warm-soft:rgba(255,154,60,.22);
+  --kpi-1-bg:rgba(255,122,24,.26); --kpi-1-fg:#ffa551;
+  --kpi-2-bg:rgba(255,154,60,.22); --kpi-2-fg:#ffb878;
+  --kpi-3-bg:rgba(255,200,110,.20); --kpi-3-fg:#ffd28a;
+  --kpi-4-bg:rgba(255,85,40,.24); --kpi-4-fg:#ff8758;
+  --good:#b5d472; --good-soft:rgba(181,212,114,.18);
+  --warn:#ffc862; --warn-soft:rgba(255,200,98,.20);
+  --bad:#ff6a3a;  --bad-soft:rgba(255,106,58,.22);
+  --shadow:0 1px 2px rgba(0,0,0,.65),0 6px 24px -10px rgba(255,120,40,.18);
+  --shadow-lg:0 6px 16px -4px rgba(0,0,0,.7),0 24px 60px -20px rgba(255,120,40,.22);
+  --shadow-card:0 1px 0 rgba(255,180,120,.05),0 8px 24px -16px rgba(255,120,40,.20);
+  --bg-mid:var(--surface); --bg-card:var(--surface); --bg-card2:var(--surface2);
+  --border-sub:var(--border); --text-sub:var(--muted); --text-dim:var(--muted-2);
+  --accent-dim:var(--accent-soft); --accent-glow:var(--accent-soft);
+  --green:var(--good); --green-dim:var(--good-soft);
+  --red:var(--bad);   --red-dim:var(--bad-soft);
+  --orange:var(--accent-warm); --orange-dim:var(--accent-warm-soft);
+  --gold:var(--warn); --gold-dim:var(--warn-soft);
+  --teal:#d09848; --teal-dim:rgba(208,152,72,.20);
+  --shadow-sm:var(--shadow);
+}
+
 html[data-theme="sand"] {
   --bg:#f5f0e6; --surface:#fffaf2; --surface2:#f6efe1; --surface3:#ecdfca;
   --border:#e7dcc4; --border-2:#d8c9a9;
