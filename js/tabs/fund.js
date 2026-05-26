@@ -681,7 +681,18 @@ const FundTab = (() => {
   }
 
   function _patchOverviewView() {
-    /* Re-render in place. Cheap because content already exists. */
+    /* Re-render in place. Cheap because content already exists.
+       MUST guard with _isActiveTab() — without this, the SSE health
+       event handler (fires every ~5s) blows away whatever the user
+       is currently viewing on a different tab. Symptom: Confluence /
+       Daily Report / AI Coach tabs "flick back to Bot Farm" while
+       you're on them. Also close the stream so we don't keep
+       hammering it for nothing. */
+    if (!_isActiveTab()) {
+      _closeStream();
+      _stopPolling();
+      return;
+    }
     const content = document.getElementById('content');
     if (!content || !_overview) return;
     content.innerHTML = _liveHTML(_overview);

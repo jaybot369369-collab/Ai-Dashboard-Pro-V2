@@ -310,7 +310,15 @@ const ConfluenceTab = (() => {
 
     // LW family: bias + funding extremity + OI ROC + liquidation rate
     if (lw?.scores) {
-      const row = lw.scores.find(s => (s.asset || '').toUpperCase() === sym);
+      // LW's /api/scores returns scores as an object keyed by symbol
+      // ({BTC:{...}, ETH:{...}}), not an array. Older code expected an
+      // array and used .find() — that throws TypeError and aborts the
+      // entire pull, leaving the Confluence table empty. Support both
+      // shapes so a future LW server change can't break this again.
+      const scores = lw.scores;
+      const row = Array.isArray(scores)
+        ? scores.find(s => (s.asset || '').toUpperCase() === sym)
+        : (scores[sym] || scores[sym.toUpperCase()] || null);
       if (row) {
         // 1) Bias
         if (row.bias && ['bull','bear'].includes(row.bias)) {
