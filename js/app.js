@@ -641,9 +641,6 @@ const App = (() => {
     }
     if ($('fConfluenceVal')) $('fConfluenceVal').textContent = '—';
     renderConfluenceChips();
-    // Reset MFE/MAE
-    if ($('fMfe')) $('fMfe').value = '';
-    if ($('fMae')) $('fMae').value = '';
     // Clear any stashed AI critique on form
     if (form) { form.dataset.aiCritique = ''; form.dataset.scanConfidence = ''; }
 
@@ -770,9 +767,6 @@ const App = (() => {
       cSlider.dataset.userSet = t.confluenceScore ? '1' : '';
       if ($('fConfluenceVal')) $('fConfluenceVal').textContent = cSlider.value > 0 ? cSlider.value : '—';
     }
-    // Load MFE/MAE
-    if ($('fMfe') && t.mfe !== undefined) $('fMfe').value = t.mfe ?? '';
-    if ($('fMae') && t.mae !== undefined) $('fMae').value = t.mae ?? '';
     // Stash AI critique if present so a re-save preserves it
     const form = $('tradeForm');
     if (form) {
@@ -829,7 +823,6 @@ const App = (() => {
     try { scanConfidence = form?.dataset.scanConfidence ? JSON.parse(form.dataset.scanConfidence) : null; } catch {}
 
     const confluenceScore = parseInt(f('fConfluenceScore'), 10) || 0;
-    const mfe = f('fMfe'), mae = f('fMae');
 
     const data = {
       symbol: sym, direction: f('fDirection'),
@@ -839,7 +832,6 @@ const App = (() => {
       dateEnd: f('fDateEnd') || window._jb_pendingEndDate || '',
       preGrade: f('fPreGrade'), preGradeNotes: f('fPreGradeNotes'),
       exitPrice: f('fExitPrice'), result: f('fResult'), rMultiple,
-      mfe, mae,
       confluenceScore,
       confluenceFactors: [..._pendingConfluence],
       postGrade: f('fPostGrade'), postGradeNotes: f('fPostGradeNotes'),

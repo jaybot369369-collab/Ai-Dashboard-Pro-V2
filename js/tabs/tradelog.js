@@ -129,7 +129,6 @@ const TradeLogTab = (() => {
         ${th('entry', 'Entry')}
         ${th('result', 'P&L')}
         ${th('rMultiple', 'R')}
-        <th>MFE</th>
         <th>Conf</th>
         <th>Grade</th>
         <th>Source</th>
@@ -172,7 +171,7 @@ const TradeLogTab = (() => {
 
       const groupRow = document.createElement('tr');
       groupRow.className = 'trade-group-row';
-      groupRow.innerHTML = `<td colspan="13">
+      groupRow.innerHTML = `<td colspan="12">
         <div class="group-row-inner" onclick="TradeLogTab._toggleGroup('${esc(key).replace(/'/g,'&#39;')}')">
           <span class="gr-chevron">${isCollapsed ? '▶' : '▼'}</span>
           <span class="gr-name">${esc(key)}</span>
@@ -212,19 +211,6 @@ const TradeLogTab = (() => {
     row.className = isExpanded ? 'expanded' : '';
     row.dataset.id = t.id;
 
-    const mfe = (t.mfe !== '' && t.mfe !== undefined && t.mfe !== null) ? parseFloat(t.mfe) : null;
-    const realR = (t.rMultiple !== '' && t.rMultiple !== undefined && t.rMultiple !== null) ? parseFloat(t.rMultiple) : null;
-    let mfeCell = '<span class="text-dim">—</span>';
-    if (mfe !== null) {
-      let captureNote = '';
-      if (realR !== null && mfe > 0) {
-        const pct = (realR / mfe) * 100;
-        const col = pct >= 70 ? 'text-green' : pct >= 40 ? 'text-orange' : 'text-red';
-        captureNote = ` <span class="${col}" style="font-size:.68rem">(${pct.toFixed(0)}%)</span>`;
-      }
-      mfeCell = `<span class="mono-num">${mfe.toFixed(2)}R</span>${captureNote}`;
-    }
-
     const conf = (t.confluenceScore !== undefined && t.confluenceScore !== null && t.confluenceScore !== 0)
       ? `<span class="conf-pill conf-pill-${t.confluenceScore >= 7 ? 'hi' : t.confluenceScore >= 4 ? 'md' : 'lo'}">${t.confluenceScore}</span>`
       : '<span class="text-dim">—</span>';
@@ -238,7 +224,6 @@ const TradeLogTab = (() => {
       <td class="mono-num">${t.entry ? parseFloat(t.entry).toLocaleString() : '—'}</td>
       <td class="${pl !== null ? (pl >= 0 ? 'text-green' : 'text-red') : ''} font-bold mono-num">${pl !== null ? fmt$(pl) : '—'}</td>
       <td class="mono-num">${t.rMultiple !== '' && t.rMultiple !== undefined ? parseFloat(t.rMultiple).toFixed(2) + 'R' : '—'}</td>
-      <td>${mfeCell}</td>
       <td>${conf}</td>
       <td>${gradeBadge(t.postGrade || t.preGrade)}</td>
       <td><span class="badge badge-dim" style="font-size:.65rem">${esc(t.source || 'manual')}</span></td>
@@ -260,7 +245,7 @@ const TradeLogTab = (() => {
     if (isExpanded) {
       const expRow = document.createElement('tr');
       expRow.className = 'trade-expand-row';
-      expRow.innerHTML = `<td colspan="13"><div class="trade-expand-inner">${expandHTML(t)}</div></td>`;
+      expRow.innerHTML = `<td colspan="12"><div class="trade-expand-inner">${expandHTML(t)}</div></td>`;
       tbody.appendChild(expRow);
     }
   }
@@ -270,7 +255,6 @@ const TradeLogTab = (() => {
       ['SL', t.sl], ['TP', t.tp], ['Exit', t.exitPrice], ['Size ($)', t.size],
       ['HTF Bias', t.htfBias], ['Pre-Grade', t.preGrade], ['Pre-Notes', t.preGradeNotes],
       ['Post-Grade', t.postGrade], ['Post-Notes', t.postGradeNotes],
-      ['MFE (R)', t.mfe], ['MAE (R)', t.mae],
       ['Confluence', t.confluenceScore ? `${t.confluenceScore} / 10` : ''],
       ['Linked Mistakes', (t.linkedMistakeIds || []).length],
       ['Source', t.source],

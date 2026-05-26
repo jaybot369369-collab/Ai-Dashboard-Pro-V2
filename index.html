@@ -279,22 +279,6 @@
               <input type="number" id="fRMultiple" step="any" placeholder="e.g. 1.5" />
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>MFE — Best price reached <span class="text-xs text-sub">(in R)</span></label>
-              <input type="number" id="fMfe" step="any" placeholder="e.g. 2.8" />
-            </div>
-            <div class="form-group">
-              <label>MAE — Worst price reached <span class="text-xs text-sub">(in R, positive number)</span></label>
-              <input type="number" id="fMae" step="any" placeholder="e.g. 0.6" />
-            </div>
-            <div class="form-group" style="flex:2;display:flex;align-items:flex-end">
-              <div class="text-xs text-sub" style="line-height:1.4">
-                MFE = furthest price went in your favour. MAE = furthest it went against you.
-                Track capture rate (realized R ÷ MFE) — &lt;50% means you're exiting early.
-              </div>
-            </div>
-          </div>
         </fieldset>
 
         <!-- Post-Trade Grade -->
@@ -483,7 +467,7 @@
 <script src="js/charts.js"></script>
 <script src="js/tabs/dashboard.js?v=aud2"></script>
 <script src="js/tabs/daily_report.js?v=aud1"></script>
-<script src="js/tabs/tradelog.js?v=tl4"></script>
+<script src="js/tabs/tradelog.js?v=tl5nomfe"></script>
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
 <script src="js/tabs/watchlist.js"></script>
@@ -506,7 +490,7 @@
 <script src="js/tabs/market_intel.js?v=mi4runnow"></script>
 <script src="js/tabs/fund.js?v=fund9panels"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=aud5"></script>
+<script src="js/app.js?v=aud6nomfe"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

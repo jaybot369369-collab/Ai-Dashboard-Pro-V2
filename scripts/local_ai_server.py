@@ -129,16 +129,39 @@ class Handler(BaseHTTPRequestHandler):
                         pass
                 self._send(200, {"text": "".join(text_parts)})
             else:
-                # Text-only path — same `--allowedTools ""` lockdown so
-                # the CLI can't spawn Bash/Read/Write/Edit. Pure Q&A.
-                cmd = [CLAUDE_CLI, "--print",
+                # Text-only path — use stream-json so the system prompt
+                # is delivered as a proper system message instead of being
+                # text-prefixed (which Claude correctly rejects as prompt
+                # injection). Same --allowedTools "" lockdown.
+                lines = []
+                if system:
+                    lines.append(json.dumps({"type": "system", "system": system}))
+                lines.append(json.dumps({"type": "user", "message":
+                                          {"role": "user", "content": prompt}}))
+                stdin_data = "\n".join(lines)
+                cmd = [CLAUDE_CLI, "--print", "--verbose",
                        "--allowedTools", "",
-                       full_prompt]
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                       "--input-format=stream-json", "--output-format=stream-json"]
+                result = subprocess.run(cmd, input=stdin_data,
+                                        capture_output=True, text=True, timeout=120)
                 if result.returncode != 0:
                     err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
                     self._send(500, {"error": err}); return
-                self._send(200, {"text": result.stdout})
+                # Extract text from stream-json output lines
+                text_parts = []
+                for line in result.stdout.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        if obj.get("type") == "assistant":
+                            for block in obj.get("message", {}).get("content", []):
+                                if block.get("type") == "text":
+                                    text_parts.append(block["text"])
+                    except json.JSONDecodeError:
+                        pass
+                self._send(200, {"text": "".join(text_parts)})
         except FileNotFoundError:
             self._send(500, {"error": f"Claude CLI not found at {CLAUDE_CLI}. Install Claude Code first."})
         except subprocess.TimeoutExpired:
