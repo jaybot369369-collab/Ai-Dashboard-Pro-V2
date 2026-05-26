@@ -16,15 +16,8 @@ const App = (() => {
   // Pending trade-form state (reset each time modal opens)
   let _pendingScreenshots = [];  // array of data-URL / http URL strings
   let _pendingSetups      = [];  // array of setup name strings
-  let _pendingConfluence  = [];  // array of confluence-factor chip strings
   let _pendingScan        = null; // last scan result (so Edit & Save can attach aiCritique)
   let _scanImage          = null; // { dataUrl, b64, mediaType } for current scan
-
-  // Confluence factor presets (toggle chips)
-  const CONFLUENCE_FACTORS = [
-    'HTF bias', 'Killzone', 'Sweep', 'Displacement',
-    'OB+FVG stack', 'Daily level', 'Confluence tab ≥70', 'News clear',
-  ];
 
   /* ── Cached DOM refs ─────────────────────────────────── */
   const $ = id => document.getElementById(id);
@@ -348,30 +341,6 @@ const App = (() => {
     return out;
   }
 
-  /* ── Confluence chip helpers ─────────────────────────── */
-  function renderConfluenceChips() {
-    const el = $('fConfluenceChips');
-    if (!el) return;
-    el.innerHTML = CONFLUENCE_FACTORS.map(f => {
-      const on = _pendingConfluence.includes(f);
-      return `<button type="button" class="conf-factor-chip${on ? ' on' : ''}"
-                onclick="App._toggleConfluenceFactor('${f.replace(/'/g, "\\'")}')">${f}</button>`;
-    }).join('');
-  }
-
-  function toggleConfluenceFactor(name) {
-    const i = _pendingConfluence.indexOf(name);
-    if (i >= 0) _pendingConfluence.splice(i, 1);
-    else _pendingConfluence.push(name);
-    renderConfluenceChips();
-    // Sync score with chip count if user hasn't manually set one yet
-    const slider = $('fConfluenceScore');
-    if (slider && (slider.dataset.userSet !== '1')) {
-      slider.value = Math.min(10, _pendingConfluence.length * 1.5).toFixed(0);
-      $('fConfluenceVal').textContent = slider.value > 0 ? slider.value : '—';
-    }
-  }
-
   /* ══════════════════════════════════════════════════════
      SCAN TRADE MODAL — vision read of a marked-up chart
   ══════════════════════════════════════════════════════ */
@@ -628,19 +597,6 @@ const App = (() => {
     // Reset pending state
     _pendingScreenshots = [];
     _pendingSetups      = [];
-    _pendingConfluence  = [];
-    // Reset confluence slider
-    const cSlider = $('fConfluenceScore');
-    if (cSlider) {
-      cSlider.value = 0;
-      cSlider.dataset.userSet = '';
-      cSlider.oninput = () => {
-        cSlider.dataset.userSet = '1';
-        $('fConfluenceVal').textContent = cSlider.value > 0 ? cSlider.value : '—';
-      };
-    }
-    if ($('fConfluenceVal')) $('fConfluenceVal').textContent = '—';
-    renderConfluenceChips();
     // Clear any stashed AI critique on form
     if (form) { form.dataset.aiCritique = ''; form.dataset.scanConfidence = ''; }
 
@@ -758,15 +714,6 @@ const App = (() => {
     // Load setup chips
     _pendingSetups = t.setupTypes || (t.setupType ? [t.setupType] : []);
     renderSetupChips();
-    // Load confluence
-    _pendingConfluence = Array.isArray(t.confluenceFactors) ? [...t.confluenceFactors] : [];
-    renderConfluenceChips();
-    const cSlider = $('fConfluenceScore');
-    if (cSlider) {
-      cSlider.value = t.confluenceScore || 0;
-      cSlider.dataset.userSet = t.confluenceScore ? '1' : '';
-      if ($('fConfluenceVal')) $('fConfluenceVal').textContent = cSlider.value > 0 ? cSlider.value : '—';
-    }
     // Stash AI critique if present so a re-save preserves it
     const form = $('tradeForm');
     if (form) {
@@ -822,8 +769,6 @@ const App = (() => {
     try { aiCritique     = form?.dataset.aiCritique     ? JSON.parse(form.dataset.aiCritique)     : null; } catch {}
     try { scanConfidence = form?.dataset.scanConfidence ? JSON.parse(form.dataset.scanConfidence) : null; } catch {}
 
-    const confluenceScore = parseInt(f('fConfluenceScore'), 10) || 0;
-
     const data = {
       symbol: sym, direction: f('fDirection'),
       entry: f('fEntry'), sl: f('fSl'), tp: f('fTp'), size: f('fSize'),
@@ -832,8 +777,6 @@ const App = (() => {
       dateEnd: f('fDateEnd') || window._jb_pendingEndDate || '',
       preGrade: f('fPreGrade'), preGradeNotes: f('fPreGradeNotes'),
       exitPrice: f('fExitPrice'), result: f('fResult'), rMultiple,
-      confluenceScore,
-      confluenceFactors: [..._pendingConfluence],
       postGrade: f('fPostGrade'), postGradeNotes: f('fPostGradeNotes'),
       notes: f('fNotes'),
       screenshotUrls: [..._pendingScreenshots],
@@ -1443,8 +1386,6 @@ Please analyse:
     _scanAnalyzeLocal,
     _scanReset,
     _scanCommit,
-    // Confluence chips
-    _toggleConfluenceFactor: toggleConfluenceFactor,
   };
 
 })();

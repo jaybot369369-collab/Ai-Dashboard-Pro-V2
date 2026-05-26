@@ -225,22 +225,6 @@
           </div>
         </fieldset>
 
-        <!-- Confluence Score -->
-        <fieldset>
-          <legend>Confluence at Entry <span class="text-xs text-sub">— how many things lined up?</span></legend>
-          <div class="form-row" style="align-items:center">
-            <div class="form-group" style="flex:0 0 220px">
-              <label>Score <span id="fConfluenceVal" style="font-weight:700;color:var(--accent)">—</span> / 10</label>
-              <input type="range" id="fConfluenceScore" min="0" max="10" step="1" value="0"
-                     oninput="document.getElementById('fConfluenceVal').textContent = this.value > 0 ? this.value : '—'" />
-            </div>
-            <div class="form-group" style="flex:1">
-              <label>Factors that aligned</label>
-              <div id="fConfluenceChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-            </div>
-          </div>
-        </fieldset>
-
         <!-- Pre-Trade Grade -->
         <fieldset>
           <legend>Pre-Trade Grade (Plan Quality)</legend>
@@ -467,7 +451,7 @@
 <script src="js/charts.js"></script>
 <script src="js/tabs/dashboard.js?v=aud2"></script>
 <script src="js/tabs/daily_report.js?v=aud1"></script>
-<script src="js/tabs/tradelog.js?v=tl5nomfe"></script>
+<script src="js/tabs/tradelog.js?v=tl6noconf"></script>
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
 <script src="js/tabs/watchlist.js"></script>
@@ -490,7 +474,7 @@
 <script src="js/tabs/market_intel.js?v=mi4runnow"></script>
 <script src="js/tabs/fund.js?v=fund9panels"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=aud6nomfe"></script>
+<script src="js/app.js?v=aud7noconf"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">
