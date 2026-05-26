@@ -93,17 +93,53 @@ const AICoachTab = (() => {
     return { text: j.text, usage: { input_tokens: 0, output_tokens: 0 } };
   }
 
+  /* ── Server-side proxy (Railway's ANTHROPIC_API_KEY env var) ──
+     Works from ANY Mac with no per-browser setup. Used as the default
+     fallback when the operator hasn't pasted a local API key. */
+  async function _callServerProxy({ system, user, maxTokens = 1024, imageData = null }) {
+    const payload = { system, user, max_tokens: maxTokens, model: getModel() };
+    if (imageData) {
+      payload.image_b64        = imageData.b64;
+      payload.image_media_type = imageData.mediaType;
+    }
+    const r = await fetch(`${window.location.origin}/api/_ai/claude`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      throw new Error(j.error || `server proxy ${r.status}`);
+    }
+    return { text: j.text, usage: j.usage || { input_tokens: 0, output_tokens: 0 } };
+  }
+
   /* ── Claude API call ────────────────────────────────── */
   async function callClaude({ system, user, maxTokens = 1024, imageData = null }) {
-    // Use local Claude Code proxy if in local mode or no API key
     const apiKey = getKey();
-    const useLocal = isLocalMode() || !apiKey;
+    const localOn = isLocalMode();
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
-    if (useLocal) {
+    // Routing rules (most specific → most generic):
+    //   1. Operator explicitly turned on Local mode → use the localhost shim
+    //   2. Operator pasted an API key in Settings → use direct browser-to-Anthropic
+    //   3. We're on Railway / any non-localhost host → use the server-side proxy
+    //      (uses Railway's ANTHROPIC_API_KEY env var; works on every Mac)
+    //   4. Otherwise (localhost dev with no key, no local mode) → try the shim
+    //      and surface a clear error if it isn't running
+
+    if (localOn) {
+      return await _callLocal({ system, user, imageData });
+    }
+    if (!apiKey && !isLocalHost) {
+      // Default cross-Mac path — Railway-hosted dashboard, no per-browser setup.
+      return await _callServerProxy({ system, user, maxTokens, imageData });
+    }
+    if (!apiKey) {
+      // Localhost dev, no key, no local-mode toggle → fall back to shim with a useful error
       return await _callLocal({ system, user, imageData });
     }
 
-    if (!apiKey) throw new Error('No API key — set one in Settings, or run ai_local_server.py and enable Local mode');
     const model = getModel();
 
     const userContent = imageData
