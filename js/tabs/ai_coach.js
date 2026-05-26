@@ -438,50 +438,85 @@ ${JSON.stringify(trades.map(t => ({
     return `<div class="ai-section">
       <h3 class="ai-section-hdr">⚙️ Settings</h3>
 
-      <div class="ai-grid" style="margin-bottom:18px; padding:14px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:12px;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-          <div>
-            <div style="font-weight:700; font-size:14px; color:var(--heading);">🖥️ Local mode <span style="font-size:11px; font-weight:500; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:8px; margin-left:6px;">Free — uses Claude Code</span></div>
-            <div style="font-size:12px; color:var(--muted); margin-top:3px;">Routes all AI calls through your local Claude Code CLI. No API credits needed.</div>
-            <div style="font-size:11px; color:var(--muted-2); margin-top:3px;">
-              Start shim: <code style="font-size:10px;">python3 ~/.local/bin/local_ai_server.py</code>
+      <div class="ai-local-card" style="margin-bottom:18px;padding:18px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;display:block;">
+
+        <!-- HEADER ROW: title (left) + ON/OFF toggle (right) ─────── -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:15px;color:var(--heading);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              🖥️ Local mode
+              <span style="font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:8px;">Free · Uses Claude Code CLI</span>
+            </div>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5;">
+              When ON, all AI calls go to your local Claude Code subscription instead of Anthropic's billable API. Zero credits used.
             </div>
           </div>
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink:0;">
-            <input type="checkbox" id="aiLocalToggle" ${localOn ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);" />
-            <span style="font-size:13px; font-weight:600;">${localOn ? 'On' : 'Off'}</span>
+
+          <!-- Toggle switch — proper styled switch, not a stock checkbox -->
+          <label class="ai-toggle" style="display:inline-flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0;user-select:none;">
+            <span id="aiLocalToggleLabel" style="font-size:13px;font-weight:700;color:${localOn ? '#16a34a' : 'var(--muted)'};min-width:28px;text-align:right;">${localOn ? 'ON' : 'OFF'}</span>
+            <span style="position:relative;display:inline-block;width:44px;height:24px;">
+              <input type="checkbox" id="aiLocalToggle" ${localOn ? 'checked' : ''} style="opacity:0;width:0;height:0;" onchange="document.getElementById('aiLocalToggleLabel').textContent = this.checked ? 'ON' : 'OFF'; document.getElementById('aiLocalToggleLabel').style.color = this.checked ? '#16a34a' : 'var(--muted)'; this.nextElementSibling.style.background = this.checked ? '#16a34a' : 'var(--border)'; this.nextElementSibling.querySelector('span').style.transform = this.checked ? 'translateX(20px)' : 'translateX(0)';" />
+              <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:${localOn ? '#16a34a' : 'var(--border)'};border-radius:24px;transition:background .2s;">
+                <span style="position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform .2s;transform:${localOn ? 'translateX(20px)' : 'translateX(0)'};box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+              </span>
+            </span>
           </label>
         </div>
 
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
-          <label for="aiLocalUrl" style="font-size:12px; font-weight:600; color:var(--heading); display:block; margin-bottom:4px;">
-            Local AI URL <span class="text-xs text-sub" style="font-weight:400;">(public tunnel — required when accessing dashboard from Railway/github.io)</span>
-          </label>
-          <input type="url" id="aiLocalUrl"
-            value="${esc(localStorage.getItem('jb_local_ai_url') || '')}"
-            placeholder="https://*.trycloudflare.com  (leave empty on localhost dashboards)"
-            style="width:100%; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; font-family:ui-monospace,monospace;" />
+        <!-- STATUS PILL ─────────────────────────────────────────── -->
+        <div id="aiLocalStatus" style="margin:10px 0 14px;padding:8px 12px;border-radius:8px;background:var(--bg);font-size:12px;color:var(--muted);border:1px solid var(--border);">Checking local server…</div>
 
-          <label for="aiLocalToken" style="font-size:12px; font-weight:600; color:var(--heading); display:block; margin-top:10px; margin-bottom:4px;">
-            Local AI Token <span class="text-xs text-sub" style="font-weight:400;">(must match LOCAL_SHIM_TOKEN env var on your Mac — REQUIRED when tunneling)</span>
-          </label>
-          <input type="password" id="aiLocalToken"
-            value="${esc(localStorage.getItem('jb_local_ai_token') || '')}"
-            placeholder="$(openssl rand -hex 24) — same value as LOCAL_SHIM_TOKEN"
-            style="width:100%; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; font-family:ui-monospace,monospace;" />
+        <!-- URL INPUT ──────────────────────────────────────────── -->
+        <label for="aiLocalUrl" style="display:block;font-size:12px;font-weight:700;color:var(--heading);margin-bottom:4px;">
+          Local AI URL
+        </label>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;line-height:1.45;">
+          Empty when running dashboard from <code>localhost</code>. Required when on Railway — paste the public Cloudflare tunnel URL.
+        </div>
+        <input type="url" id="aiLocalUrl"
+          value="${esc(localStorage.getItem('jb_local_ai_url') || '')}"
+          placeholder="https://shed-recovery-tracks.trycloudflare.com"
+          style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;" />
 
-          <div class="text-xs text-sub" style="margin-top:10px; line-height:1.55;">
-            <strong>Why this exists:</strong> Chrome blocks <code>railway.app</code> from fetching <code>localhost:8770</code> (Private Network Access). Solution: tunnel localhost to a public HTTPS URL.<br><br>
-            <strong>Safe setup (3 terminal commands on your Mac):</strong><br>
-            <code style="font-size:11px; display:block; margin-top:4px;">TOKEN=$(openssl rand -hex 24); echo "Token: $TOKEN"</code>
-            <code style="font-size:11px; display:block;">LOCAL_SHIM_TOKEN=$TOKEN python3 ~/.local/bin/local_ai_server.py &amp;</code>
-            <code style="font-size:11px; display:block;">"_CLAUDE PROJECTS/Crypto Liquidity Watcher/bin/cloudflared" tunnel --url http://localhost:8770</code>
-            <br>
-            Then paste the <code>$TOKEN</code> value above + the <code>https://*.trycloudflare.com</code> URL Cloudflare prints. Without the token, anyone who finds the tunnel URL can hit your local Claude CLI. The shim uses <code>--allowedTools ""</code> so spawned sessions can't run Bash/Read/Write — but auth is still mandatory for tunnel mode.
+        <!-- TOKEN INPUT ─────────────────────────────────────────── -->
+        <label for="aiLocalToken" style="display:block;font-size:12px;font-weight:700;color:var(--heading);margin-top:14px;margin-bottom:4px;">
+          Local AI Token
+        </label>
+        <div style="font-size:11.5px;color:var(--muted);margin-bottom:6px;line-height:1.45;">
+          Must match the <code>LOCAL_SHIM_TOKEN</code> env var you set when starting the shim. <strong>Required when tunneling</strong> — otherwise anyone with the tunnel URL hits your local Claude.
+        </div>
+        <input type="password" id="aiLocalToken"
+          value="${esc(localStorage.getItem('jb_local_ai_token') || '')}"
+          placeholder="paste the same string you used for LOCAL_SHIM_TOKEN"
+          style="width:100%;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;box-sizing:border-box;" />
+
+        <!-- SETUP INSTRUCTIONS ────────────────────────────────── -->
+        <details style="margin-top:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+          <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--heading);user-select:none;">
+            📖 Setup — 3 commands on your Mac
+          </summary>
+          <div style="margin-top:10px;font-size:11.5px;color:var(--text);line-height:1.6;">
+            <strong>Why this is needed:</strong> Chrome blocks <code>railway.app</code> from fetching <code>localhost:8770</code> (Private Network Access policy). Tunnel localhost to a public URL so the Railway tab can reach it.
+
+            <div style="margin-top:10px;padding:10px 12px;background:#0d1117;color:#e6edf3;border-radius:6px;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;overflow-x:auto;">
+              <div style="color:#7d8590;"># 1 · Generate token (copy it for the box above)</div>
+              <div>TOKEN=$(openssl rand -hex 24); echo "Token: $TOKEN"</div>
+              <div style="margin-top:6px;color:#7d8590;"># 2 · Start the hardened shim with auth</div>
+              <div>LOCAL_SHIM_TOKEN=$TOKEN nohup python3 ~/.local/bin/local_ai_server.py &amp;</div>
+              <div style="margin-top:6px;color:#7d8590;"># 3 · Start the public tunnel (leave running)</div>
+              <div>"_CLAUDE PROJECTS/Crypto Liquidity Watcher/bin/cloudflared" tunnel --url http://localhost:8770</div>
+            </div>
+
+            <div style="margin-top:10px;">
+              Cloudflare prints a <code>https://*.trycloudflare.com</code> URL → paste it into <strong>Local AI URL</strong> above, paste <code>$TOKEN</code> into <strong>Local AI Token</strong>, toggle Local mode <strong>ON</strong>, click Save.
+            </div>
+
+            <div style="margin-top:10px;font-size:11px;color:var(--muted);">
+              <strong>Safety:</strong> the shim runs spawned sessions with <code>--allowedTools ""</code> so even if someone reaches the tunnel they can't run Bash/Read/Write. The token is a second layer.
+            </div>
           </div>
-        </div>
-
-        <div id="aiLocalStatus" style="margin-top:10px; font-size:11px; color:var(--muted);">Checking local server…</div>
+        </details>
       </div>
 
       <div class="ai-grid">
