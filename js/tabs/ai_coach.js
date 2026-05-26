@@ -133,7 +133,26 @@ const AICoachTab = (() => {
     }
     if (!apiKey && !isLocalHost) {
       // Default cross-Mac path — Railway-hosted dashboard, no per-browser setup.
-      return await _callServerProxy({ system, user, maxTokens, imageData });
+      try {
+        return await _callServerProxy({ system, user, maxTokens, imageData });
+      } catch (e) {
+        // Auto-fallback when Anthropic billing is exhausted. We can ONLY
+        // reach the local shim if the dashboard itself is served from
+        // localhost (Chrome Private Network Access blocks public→localhost
+        // fetches). Surface a clear, actionable error instead of "Failed
+        // to fetch" so the operator knows what to switch.
+        const msg = (e && e.message) || '';
+        if (/credit balance|insufficient|quota|too low|billing/i.test(msg)) {
+          throw new Error(
+            'Anthropic credit balance is empty. To keep working without topping up:\n' +
+            '  1. Run the dashboard locally: cd "AI Dashboard Pro V2" && python3 -m http.server 8768\n' +
+            '  2. Open http://localhost:8768 instead of the Railway URL\n' +
+            '  3. AI Coach → Settings → toggle "Use local Claude Code CLI" ON\n' +
+            '  4. Make sure local_ai_server.py is running on port 8770'
+          );
+        }
+        throw e;
+      }
     }
     if (!apiKey) {
       // Localhost dev, no key, no local-mode toggle → fall back to shim with a useful error
