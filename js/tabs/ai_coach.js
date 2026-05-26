@@ -66,8 +66,9 @@ const AICoachTab = (() => {
 
   /* ── Local AI proxy (Claude Code CLI, port 8770 by default) ───── */
   const DEFAULT_LOCAL_AI_URL = 'http://127.0.0.1:8770';
-  const LOCAL_KEY = 'jb_ai_local';            // 'on' | 'off'
-  const LOCAL_URL_KEY = 'jb_local_ai_url';    // override (used when on Railway)
+  const LOCAL_KEY = 'jb_ai_local';              // 'on' | 'off'
+  const LOCAL_URL_KEY = 'jb_local_ai_url';      // override (used when on Railway)
+  const LOCAL_TOKEN_KEY = 'jb_local_ai_token';  // X-Shim-Token (required if tunneled)
 
   function isLocalMode() { return get(LOCAL_KEY) === 'on'; }
 
@@ -83,6 +84,10 @@ const AICoachTab = (() => {
     return isLocalHost ? DEFAULT_LOCAL_AI_URL : '';   // empty → unreachable
   }
 
+  function getLocalAIToken() {
+    return (localStorage.getItem(LOCAL_TOKEN_KEY) || '').trim();
+  }
+
   async function _localAvailable() {
     const base = getLocalAIUrl();
     if (!base) return false;
@@ -90,7 +95,10 @@ const AICoachTab = (() => {
       const r = await fetch(base + '/health', {
         signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
       });
-      return r.ok;
+      if (!r.ok) return false;
+      const j = await r.json();
+      // If shim requires auth but client has no token, surface that too
+      return { ok: true, auth_required: !!j.auth_required };
     } catch { return false; }
   }
 
@@ -109,11 +117,17 @@ const AICoachTab = (() => {
       payload.image_b64          = imageData.b64;
       payload.image_media_type   = imageData.mediaType;
     }
+    const headers = { 'content-type': 'application/json' };
+    const token = getLocalAIToken();
+    if (token) headers['x-shim-token'] = token;
+
     const r = await fetch(base + '/chat', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      method: 'POST', headers,
       body: JSON.stringify(payload),
     });
+    if (r.status === 403) {
+      throw new Error('Local shim rejected the request — token mismatch. Paste the LOCAL_SHIM_TOKEN value you set when starting local_ai_server.py into AI Coach → Settings → Local AI Token.');
+    }
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
     return { text: j.text, usage: { input_tokens: 0, output_tokens: 0 } };
@@ -447,11 +461,23 @@ ${JSON.stringify(trades.map(t => ({
             value="${esc(localStorage.getItem('jb_local_ai_url') || '')}"
             placeholder="https://*.trycloudflare.com  (leave empty on localhost dashboards)"
             style="width:100%; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; font-family:ui-monospace,monospace;" />
-          <div class="text-xs text-sub" style="margin-top:6px; line-height:1.5;">
-            Why this exists: Chrome blocks <code>https://railway.app/*</code> from fetching <code>localhost:8770</code> (Private Network Access policy).
-            Tunnel localhost via Cloudflare to get a public URL the Railway tab can reach:<br>
-            <code style="font-size:11px;">cd "_CLAUDE PROJECTS/Crypto Liquidity Watcher" &amp;&amp; ./bin/cloudflared tunnel --url http://localhost:8770</code><br>
-            Then paste the <code>https://*.trycloudflare.com</code> URL it prints into the box above and Save. URL changes each session.
+
+          <label for="aiLocalToken" style="font-size:12px; font-weight:600; color:var(--heading); display:block; margin-top:10px; margin-bottom:4px;">
+            Local AI Token <span class="text-xs text-sub" style="font-weight:400;">(must match LOCAL_SHIM_TOKEN env var on your Mac — REQUIRED when tunneling)</span>
+          </label>
+          <input type="password" id="aiLocalToken"
+            value="${esc(localStorage.getItem('jb_local_ai_token') || '')}"
+            placeholder="$(openssl rand -hex 24) — same value as LOCAL_SHIM_TOKEN"
+            style="width:100%; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; font-family:ui-monospace,monospace;" />
+
+          <div class="text-xs text-sub" style="margin-top:10px; line-height:1.55;">
+            <strong>Why this exists:</strong> Chrome blocks <code>railway.app</code> from fetching <code>localhost:8770</code> (Private Network Access). Solution: tunnel localhost to a public HTTPS URL.<br><br>
+            <strong>Safe setup (3 terminal commands on your Mac):</strong><br>
+            <code style="font-size:11px; display:block; margin-top:4px;">TOKEN=$(openssl rand -hex 24); echo "Token: $TOKEN"</code>
+            <code style="font-size:11px; display:block;">LOCAL_SHIM_TOKEN=$TOKEN python3 ~/.local/bin/local_ai_server.py &amp;</code>
+            <code style="font-size:11px; display:block;">"_CLAUDE PROJECTS/Crypto Liquidity Watcher/bin/cloudflared" tunnel --url http://localhost:8770</code>
+            <br>
+            Then paste the <code>$TOKEN</code> value above + the <code>https://*.trycloudflare.com</code> URL Cloudflare prints. Without the token, anyone who finds the tunnel URL can hit your local Claude CLI. The shim uses <code>--allowedTools ""</code> so spawned sessions can't run Bash/Read/Write — but auth is still mandatory for tunnel mode.
           </div>
         </div>
 
@@ -586,7 +612,8 @@ ${JSON.stringify(trades.map(t => ({
         const k = document.getElementById('aiKey')?.value.trim();
         const m = document.getElementById('aiModel')?.value;
         const localChk = document.getElementById('aiLocalToggle');
-        const localUrl = document.getElementById('aiLocalUrl')?.value.trim();
+        const localUrl   = document.getElementById('aiLocalUrl')?.value.trim();
+        const localToken = document.getElementById('aiLocalToken')?.value.trim();
         if (k !== undefined) setS(KEYS.apiKey, k);
         if (m) setS(KEYS.model, m);
         if (localChk) localStorage.setItem(LOCAL_KEY, localChk.checked ? 'on' : 'off');
@@ -594,18 +621,27 @@ ${JSON.stringify(trades.map(t => ({
           if (localUrl) localStorage.setItem(LOCAL_URL_KEY, localUrl.replace(/\/$/, ''));
           else localStorage.removeItem(LOCAL_URL_KEY);
         }
+        if (localToken !== undefined) {
+          if (localToken) localStorage.setItem(LOCAL_TOKEN_KEY, localToken);
+          else localStorage.removeItem(LOCAL_TOKEN_KEY);
+        }
         if (typeof App !== 'undefined' && App.toast) App.toast('Settings saved');
         _settingsOpen = false; render();
       });
       // Probe local server status immediately when settings is shown
-      _localAvailable().then(ok => {
+      _localAvailable().then(probe => {
         const el = document.getElementById('aiLocalStatus');
         if (!el) return;
         const base = getLocalAIUrl();
+        const haveToken = !!getLocalAIToken();
         const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-        if (ok) {
-          el.innerHTML = `✅ Local server reachable at <code>${esc(base)}</code> — ready to use`;
-          el.style.color = 'var(--good, #16a34a)';
+        if (probe && probe.ok) {
+          const tokenNote = probe.auth_required
+            ? (haveToken ? ' · token configured' : ' · ⚠ shim requires token but none configured here')
+            : ' · auth off (localhost only)';
+          el.innerHTML = `✅ Local server reachable at <code>${esc(base)}</code>${tokenNote}`;
+          el.style.color = probe.auth_required && !haveToken
+            ? 'var(--warn, #ca8a04)' : 'var(--good, #16a34a)';
         } else if (!base) {
           el.innerHTML = `⚠️ Local AI URL not set. Paste a public tunnel URL above (Chrome PNA blocks direct localhost from this Railway-served page).`;
           el.style.color = 'var(--warn, #ca8a04)';

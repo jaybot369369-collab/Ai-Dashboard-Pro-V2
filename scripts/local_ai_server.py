@@ -1,21 +1,37 @@
 #!/usr/bin/env python3
 """
 Local AI proxy server for AI Dashboard Pro V2 — port 8770
-Routes /chat requests to the Claude Code CLI so the Dojo Top Down Analysis
-(and any other dashboard AI feature in local mode) works without spending
-Anthropic API credits.
+Routes /chat requests to the Claude Code CLI so the dashboard's AI
+features (Scan Trade, Top Down Analysis, AI Coach insights, etc.) work
+without spending Anthropic API credits.
 
 Usage:
-    python3 scripts/local_ai_server.py
+    python3 ~/.local/bin/local_ai_server.py
 
-Keep this running in a terminal while using the dashboard.
-In the Dojo tab, click the 🖥️ Local button to enable local mode.
+Auth:
+    Optional but STRONGLY recommended when exposing this shim via a
+    Cloudflare quick-tunnel. Set the env var LOCAL_SHIM_TOKEN to a
+    random string and the server will require requests to carry
+    X-Shim-Token: <same value>. Without a token, the server accepts
+    any caller — safe ONLY when bound to 127.0.0.1 with no tunnel.
+
+    Example:
+        LOCAL_SHIM_TOKEN=$(openssl rand -hex 24) python3 ~/.local/bin/local_ai_server.py
+        echo $LOCAL_SHIM_TOKEN  # paste this into dashboard
+
+Safety:
+    Both /chat code paths pass `--allowedTools ""` to the Claude CLI so
+    the spawned session cannot use Bash / Read / Write / Edit tools.
+    The shim is effectively a pure Q&A surface — model thinking + text,
+    no file access, no shell, no network from the model side.
 """
-import subprocess, json, sys, base64
+import os, subprocess, json, sys, base64, hmac
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 CLAUDE_CLI = "/Users/claudebot-1/.local/bin/claude"
 PORT = 8770
+SHIM_TOKEN = os.environ.get("LOCAL_SHIM_TOKEN", "").strip()
+
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
@@ -27,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "content-type")
+        self.send_header("Access-Control-Allow-Headers", "content-type, x-shim-token")
         self.end_headers()
         self.wfile.write(data)
 
@@ -35,18 +51,35 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "content-type")
+        self.send_header("Access-Control-Allow-Headers", "content-type, x-shim-token")
         self.end_headers()
+
+    def _auth_ok(self) -> bool:
+        """If LOCAL_SHIM_TOKEN is set, require a matching X-Shim-Token
+        header on every non-health request. Constant-time compare."""
+        if not SHIM_TOKEN:
+            return True   # no token configured → open (localhost-only default)
+        supplied = (self.headers.get("X-Shim-Token", "") or "").strip()
+        return hmac.compare_digest(SHIM_TOKEN, supplied)
 
     def do_GET(self):
         if self.path.startswith("/health"):
-            self._send(200, {"status": "ok", "port": PORT})
+            # /health is intentionally unauth so dashboards can probe it
+            # without the token; reveals only "alive + token required?"
+            self._send(200, {
+                "status": "ok",
+                "port": PORT,
+                "auth_required": bool(SHIM_TOKEN),
+            })
         else:
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
         if not self.path.startswith("/chat"):
             self._send(404, {"error": "not found"}); return
+        if not self._auth_ok():
+            self._send(403, {"error": "bad or missing X-Shim-Token"}); return
+
         length = int(self.headers.get("Content-Length", 0))
         body   = json.loads(self.rfile.read(length))
         system    = body.get("system", "")
@@ -96,8 +129,11 @@ class Handler(BaseHTTPRequestHandler):
                         pass
                 self._send(200, {"text": "".join(text_parts)})
             else:
-                # Text-only path: simple --print
-                cmd = [CLAUDE_CLI, "--print", full_prompt]
+                # Text-only path — same `--allowedTools ""` lockdown so
+                # the CLI can't spawn Bash/Read/Write/Edit. Pure Q&A.
+                cmd = [CLAUDE_CLI, "--print",
+                       "--allowedTools", "",
+                       full_prompt]
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
                 if result.returncode != 0:
                     err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
@@ -110,10 +146,16 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:
             self._send(500, {"error": str(e)})
 
+
 if __name__ == "__main__":
     print(f"[local-ai] Starting on http://127.0.0.1:{PORT}")
     print(f"[local-ai] Claude CLI: {CLAUDE_CLI}")
-    print(f"[local-ai] In Dojo tab click 🖥️ Local to route through here.")
+    if SHIM_TOKEN:
+        print(f"[local-ai] AUTH:    on — clients must send X-Shim-Token: <your token>")
+    else:
+        print(f"[local-ai] AUTH:    OFF — safe only when bound to 127.0.0.1 with no tunnel.")
+        print(f"[local-ai]                 To enable: LOCAL_SHIM_TOKEN=<rand> python3 ~/.local/bin/local_ai_server.py")
+    print(f"[local-ai] Tool lockdown: --allowedTools '' (CLI cannot spawn Bash/Read/Write)")
     print(f"[local-ai] Press Ctrl+C to stop.\n")
     server = HTTPServer(("127.0.0.1", PORT), Handler)
     try:
