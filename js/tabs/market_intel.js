@@ -377,7 +377,12 @@ const MarketIntelTab = (() => {
       ? `<a href="${esc(safeHref(d.pdf_url))}" target="_blank" rel="noopener" class="btn-ghost btn-sm" title="Download companion PDF">📥 PDF</a>`
       : '';
     const fetchBtn = `<button class="btn-primary btn-sm" id="miFreshFetch" title="Trigger a fresh server-side fetch via Cloudflare Worker (uses Anthropic API tokens, ~3 minutes)">☁️ Run Cloud</button>`;
-    const localBtn = `<button class="btn-ghost btn-sm" id="miLocalRun" title="Run the same pipeline locally via your Claude Code CLI (no API tokens; requires market_intel_local_server.py on :8769)">🖥️ Run Locally</button>`;
+    // Local-shim button only makes sense when V2 itself is on localhost —
+    // on Railway / github.io there's no operator-Mac shim to call.
+    const _miIsLocalHost = ['localhost','127.0.0.1'].includes(window.location.hostname);
+    const localBtn = _miIsLocalHost
+      ? `<button class="btn-ghost btn-sm" id="miLocalRun" title="Run the same pipeline locally via your Claude Code CLI (no API tokens; requires market_intel_local_server.py on :8769)">🖥️ Run Locally</button>`
+      : '';
 
     content.innerHTML = _pageHead() + `<div class="mi-wrap">
       ${isStale ? `<div class="mi-stale-banner">⚠ Data may be stale — last refresh ${fmtAge(d.generated)} (cron schedule: 2x/day weekdays).</div>` : ''}
@@ -452,6 +457,17 @@ const MarketIntelTab = (() => {
     const btn    = document.getElementById('miLocalRun');
     const status = document.getElementById('miLocalStatus');
     if (!btn || !status) return;
+
+    /* Hard guard — the local shim only exists on the operator's Mac.
+       If V2 is served from anywhere else, the button shouldn't have been
+       wired at all, but in case some entry point bypasses that check,
+       fail loud and clear instead of trying to hit localhost. */
+    if (!['localhost','127.0.0.1'].includes(window.location.hostname)) {
+      status.hidden = false;
+      status.className = 'mi-fetch-status mi-fetch-fail';
+      status.textContent = '✗ "Run Locally" only works when V2 is served from your own Mac. Use ☁️ Run Cloud here.';
+      return;
+    }
 
     const baseUrl = (localStorage.getItem(LS_LOCAL_URL) || LOCAL_DEFAULT).replace(/\/$/, '');
 

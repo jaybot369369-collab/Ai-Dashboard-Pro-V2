@@ -619,6 +619,17 @@ Traders on different exchanges are positioned completely differently. This means
 
     const cardCount = allAssets.length;
     const liveCount = allAssets.filter(a => !scores[a].warming && scores[a].score !== null).length;
+    const warmingCount = cardCount - liveCount;
+    /* The LW score model needs a rolling z-score baseline per component.
+       After a Railway redeploy the server has no history yet — funding,
+       OI, liquidations, etc. show as "warming" until ~50 samples have
+       been polled per metric (≈20-30 minutes). Surface that explicitly
+       so the dashboard doesn't look broken during warmup. */
+    const warmingNote = warmingCount > 0
+      ? `<div style="font-size:11px;color:var(--muted-2);margin-top:4px">
+           ⏳ ${warmingCount} asset${warmingCount !== 1 ? 's' : ''} warming up — scores need ~50 polls of history per metric (≈20–30 min after a redeploy). Funding/basis data is already flowing; calm-score appears once the baselines fill.
+         </div>`
+      : '';
 
     return `
       <div class="page-head">
@@ -632,11 +643,14 @@ Traders on different exchanges are positioned completely differently. This means
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">
-        <span class="lw-dot live"></span>
-        <span style="font-size:12px;color:var(--muted)">connected · ${esc(String(health.universe_size))} assets · ${esc(String(health.metrics_tracked))} metrics tracked · tf: ${esc(_activeTf)}</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--muted-2)" id="lwLastRefresh"></span>
-        <button class="btn-ghost" id="lwRefreshBtn" style="font-size:12px;padding:4px 10px">↺ Refresh</button>
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="lw-dot live"></span>
+          <span style="font-size:12px;color:var(--muted)">connected · ${esc(String(health.universe_size))} assets · ${esc(String(health.metrics_tracked))} metrics tracked · tf: ${esc(_activeTf)}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted-2)" id="lwLastRefresh"></span>
+          <button class="btn-ghost" id="lwRefreshBtn" style="font-size:12px;padding:4px 10px">↺ Refresh</button>
+        </div>
+        ${warmingNote}
       </div>
 
       ${_kpiStrip(scores, sorted)}

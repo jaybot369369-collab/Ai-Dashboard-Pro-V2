@@ -71,7 +71,39 @@ const ConfluenceTab = (() => {
   // Guide starts collapsed by default after first visit
   let _guideCollapsed = localStorage.getItem('jb_conf_guide_collapsed') !== 'off';
   let _refreshTimer = null;
-  let _lastRun = null;
+  /* Hydrate last-pull from localStorage so it survives full reloads
+     (closes the tab, re-opens — data still there until next Pull). */
+  const LS_LAST_RUN = 'jb_conf_last_run';
+  let _lastRun = (() => {
+    try {
+      const raw = localStorage.getItem(LS_LAST_RUN);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      /* Discard anything older than 6h to avoid showing yesterday's data */
+      if (parsed?.ts && Date.now() - parsed.ts < 6 * 3600 * 1000) return parsed;
+    } catch (_) {}
+    return null;
+  })();
+  function _persistLastRun() {
+    try { localStorage.setItem(LS_LAST_RUN, JSON.stringify(_lastRun)); } catch (_) {}
+  }
+
+  /* Proxy mode: when V2 is served from anything other than localhost,
+     hit the fund.api /api/klines endpoint (same-origin via Railway nginx)
+     instead of trying to reach Bybit/Binance/OKX directly from the
+     browser — those have unreliable CORS and Binance is geo-blocked from
+     US ISPs entirely. Localhost stays on the direct-fetch path so
+     desktop dev doesn't depend on a running fund.api. */
+  const _PROXY_MODE = !['localhost','127.0.0.1'].includes(window.location.hostname);
+  const _PROXY_BASE = _PROXY_MODE ? window.location.origin : null;
+  async function _fetchProxy(sym, tf, limit) {
+    const url = `${_PROXY_BASE}/api/klines?symbol=${encodeURIComponent(sym)}&tf=${encodeURIComponent(tf)}&limit=${limit}`;
+    const r = await fetch(url, { cache: 'no-store', signal: _timeoutSignal(12000) });
+    if (!r.ok) throw new Error(`proxy ${r.status}`);
+    const j = await r.json();
+    if (!j.ok || !Array.isArray(j.bars)) throw new Error(j.error || 'proxy bad payload');
+    return j.bars;
+  }
   let _klineCache = new Map();   // key `${sym}-${tf}` → { t, data }
   let _expandedSym = null;
 
@@ -149,6 +181,22 @@ const ConfluenceTab = (() => {
     const key = `${sym}-${tf}`;
     const cached = _klineCache.get(key);
     if (cached && Date.now() - cached.t < KLINE_TTL) return cached.data;
+
+    /* In proxy mode (Railway / github.io / any non-localhost host) try
+       the fund.api proxy first — it routes through the server-side
+       Binance→Bybit→OKX→CryptoCompare chain and avoids browser CORS. */
+    if (_PROXY_MODE) {
+      try {
+        const data = await _fetchProxy(sym, tf, limit);
+        if (data && data.length >= 50) {
+          _klineCache.set(key, { t: Date.now(), data, source: 'proxy' });
+          return data;
+        }
+      } catch (e) {
+        console.warn(`[confluence] proxy ${sym} ${tf} failed, falling through to direct exchange fetch:`, e.message);
+      }
+    }
+
     const sources = [
       { name: 'bybit',   fn: _fetchBybit },
       { name: 'binance', fn: _fetchBinance },
@@ -536,7 +584,9 @@ const ConfluenceTab = (() => {
       ts: Date.now(), results,
       lwOk: !!lw, dailyOk: !!daily,
       btcShock, macroGuard,
+      anchorTF: _anchorTF,
     };
+    _persistLastRun();
 
     // Persist history + per-TF snapshot
     const scoreMap = {};
@@ -1854,14 +1904,19 @@ Return ONLY valid JSON, no markdown, no explanation outside the JSON:
         localStorage.setItem('jb_conf_tf', tf);
         _klineCache.clear();    // old cache is wrong TF set
         _lastRun = null;        // old data is now stale
+        try { localStorage.removeItem(LS_LAST_RUN); } catch (_) {}
         render();               // re-render page-head + reset to empty state
       });
     });
 
-    // If we already have data from a prior session in memory, keep it.
-    // Otherwise show the empty state — wait for the user to click Pull Data.
-    if (_lastRun) _renderTable();
-    else _renderEmpty();
+    // If we have data from a prior pull (memory OR localStorage) AND
+    // it matches the current anchor TF, show it. Otherwise show the
+    // empty state — user clicks Pull Data when ready.
+    if (_lastRun && (_lastRun.anchorTF || _anchorTF) === _anchorTF) {
+      _renderTable();
+    } else {
+      _renderEmpty();
+    }
 
     // Only spin up the auto-refresh interval if the user opted in
     if (_autoOn) _startAutoRefresh();
