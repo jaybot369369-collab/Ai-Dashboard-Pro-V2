@@ -54,12 +54,19 @@ const MarketIntelTab = (() => {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
-  // Source URLs come from server-generated JSON. Enforce http(s) only
-  // so a compromised/malformed JSON can't introduce javascript:/data: links
-  // (esc() doesn't change the scheme; the browser would still execute).
+  // Source URLs come from server-generated JSON. Allow http(s) absolute URLs
+  // AND same-origin relative paths (e.g. "js/data/market_intel.pdf"). Reject
+  // anything that could execute (javascript:/data:/vbscript:) or that contains
+  // a colon outside an allowed scheme. esc() escapes characters but does NOT
+  // change the URL scheme, so this check is the only safety net.
   function safeHref(u) {
     if (!u || typeof u !== 'string') return '#';
-    return /^https?:\/\//i.test(u) ? u : '#';
+    const s = u.trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    // Same-origin relative path: must start with "/" or a path segment, must
+    // not contain "://" or a control-character scheme. Conservative regex.
+    if (/^[a-zA-Z0-9_\-./?#=&%]+$/.test(s) && !/^[a-z]+:/i.test(s)) return s;
+    return '#';
   }
   function fmtAge(iso) {
     if (!iso) return '—';
@@ -299,7 +306,7 @@ const MarketIntelTab = (() => {
         <thead><tr><th>Fetcher</th><th>Source</th><th>Age</th><th>OK</th><th>Note</th></tr></thead>
         <tbody>${rows.map(r => `<tr class="${r.ok ? '' : 'mi-fresh-fail'}">
           <td><code>${esc(r.id)}</code></td>
-          <td><a href="${esc(safeHref(r.source_url || r.source))}" target="_blank" rel="noopener" class="mi-cell-link">${esc(r.source || '—')}</a></td>
+          <td>${r.source_url ? `<a href="${esc(safeHref(r.source_url))}" target="_blank" rel="noopener" class="mi-cell-link">${esc(r.source || '—')}</a>` : `<span>${esc(r.source || '—')}</span>`}</td>
           <td class="mi-cell-dim">${r.age_hours != null ? `${r.age_hours.toFixed(1)}h` : '—'}</td>
           <td>${r.ok ? '<span class="mi-pos">✓</span>' : '<span class="mi-neg">✗</span>'}</td>
           <td class="mi-cell-dim">${esc(r.note || '')}</td>
