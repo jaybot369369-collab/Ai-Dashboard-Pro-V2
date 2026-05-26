@@ -64,26 +64,52 @@ const AICoachTab = (() => {
     return (s.inTok / 1e6) * m.inP + (s.outTok / 1e6) * m.outP;
   }
 
-  /* ── Local AI proxy (Claude Code CLI, port 8770) ───── */
-  const LOCAL_AI_URL = 'http://127.0.0.1:8770';
-  const LOCAL_KEY = 'jb_ai_local';   // 'on' | 'off'
+  /* ── Local AI proxy (Claude Code CLI, port 8770 by default) ───── */
+  const DEFAULT_LOCAL_AI_URL = 'http://127.0.0.1:8770';
+  const LOCAL_KEY = 'jb_ai_local';            // 'on' | 'off'
+  const LOCAL_URL_KEY = 'jb_local_ai_url';    // override (used when on Railway)
 
   function isLocalMode() { return get(LOCAL_KEY) === 'on'; }
 
+  /* Resolve the local-AI base URL. On localhost we use 127.0.0.1:8770
+     directly. On any public host (Railway, github.io, etc.) Chrome's
+     Private Network Access policy hard-blocks localhost fetches — so
+     the operator must point at a public tunnel (e.g. cloudflared
+     quick-tunnel) and paste that URL into Settings. */
+  function getLocalAIUrl() {
+    const override = (localStorage.getItem(LOCAL_URL_KEY) || '').trim();
+    if (override) return override.replace(/\/$/, '');
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    return isLocalHost ? DEFAULT_LOCAL_AI_URL : '';   // empty → unreachable
+  }
+
   async function _localAvailable() {
+    const base = getLocalAIUrl();
+    if (!base) return false;
     try {
-      const r = await fetch(LOCAL_AI_URL + '/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined });
+      const r = await fetch(base + '/health', {
+        signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
+      });
       return r.ok;
     } catch { return false; }
   }
 
   async function _callLocal({ system, user, imageData = null }) {
+    const base = getLocalAIUrl();
+    if (!base) {
+      throw new Error(
+        'Local AI URL is not configured. On Railway you need a public tunnel:\n' +
+        '  1. On your Mac: ./bin/cloudflared tunnel --url http://localhost:8770\n' +
+        '  2. Copy the https://*.trycloudflare.com URL it prints\n' +
+        '  3. Paste it into AI Coach → ⚙ Settings → Local AI URL → Save'
+      );
+    }
     const payload = { prompt: user, system };
     if (imageData) {
       payload.image_b64          = imageData.b64;
       payload.image_media_type   = imageData.mediaType;
     }
-    const r = await fetch(LOCAL_AI_URL + '/chat', {
+    const r = await fetch(base + '/chat', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -144,11 +170,12 @@ const AICoachTab = (() => {
         const msg = (e && e.message) || '';
         if (/credit balance|insufficient|quota|too low|billing/i.test(msg)) {
           throw new Error(
-            'Anthropic credit balance is empty. To keep working without topping up:\n' +
-            '  1. Run the dashboard locally: cd "AI Dashboard Pro V2" && python3 -m http.server 8768\n' +
-            '  2. Open http://localhost:8768 instead of the Railway URL\n' +
-            '  3. AI Coach → Settings → toggle "Use local Claude Code CLI" ON\n' +
-            '  4. Make sure local_ai_server.py is running on port 8770'
+            'Anthropic credits exhausted. To keep using the free Claude Code path from this Railway tab:\n' +
+            '  1. On your Mac, start the shim: python3 ~/.local/bin/local_ai_server.py\n' +
+            '  2. Tunnel it publicly: ./bin/cloudflared tunnel --url http://localhost:8770\n' +
+            '  3. Copy the https://*.trycloudflare.com URL it prints\n' +
+            '  4. AI Coach → ⚙ Settings → paste into "Local AI URL" → toggle Local mode ON → Save\n' +
+            '  5. Retry Scan Trade'
           );
         }
         throw e;
@@ -401,14 +428,33 @@ ${JSON.stringify(trades.map(t => ({
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <div>
             <div style="font-weight:700; font-size:14px; color:var(--heading);">🖥️ Local mode <span style="font-size:11px; font-weight:500; color:var(--accent); background:var(--accent-soft); padding:2px 7px; border-radius:8px; margin-left:6px;">Free — uses Claude Code</span></div>
-            <div style="font-size:12px; color:var(--muted); margin-top:3px;">Routes all AI calls through your local Claude Code CLI (port 8770). No API credits needed.</div>
-            <div style="font-size:11px; color:var(--muted-2); margin-top:3px;">Start: <code style="font-size:10px;">cd automation && python3 ai_local_server.py</code></div>
+            <div style="font-size:12px; color:var(--muted); margin-top:3px;">Routes all AI calls through your local Claude Code CLI. No API credits needed.</div>
+            <div style="font-size:11px; color:var(--muted-2); margin-top:3px;">
+              Start shim: <code style="font-size:10px;">python3 ~/.local/bin/local_ai_server.py</code>
+            </div>
           </div>
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; flex-shrink:0;">
             <input type="checkbox" id="aiLocalToggle" ${localOn ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent);" />
             <span style="font-size:13px; font-weight:600;">${localOn ? 'On' : 'Off'}</span>
           </label>
         </div>
+
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+          <label for="aiLocalUrl" style="font-size:12px; font-weight:600; color:var(--heading); display:block; margin-bottom:4px;">
+            Local AI URL <span class="text-xs text-sub" style="font-weight:400;">(public tunnel — required when accessing dashboard from Railway/github.io)</span>
+          </label>
+          <input type="url" id="aiLocalUrl"
+            value="${esc(localStorage.getItem('jb_local_ai_url') || '')}"
+            placeholder="https://*.trycloudflare.com  (leave empty on localhost dashboards)"
+            style="width:100%; padding:6px 10px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:12px; font-family:ui-monospace,monospace;" />
+          <div class="text-xs text-sub" style="margin-top:6px; line-height:1.5;">
+            Why this exists: Chrome blocks <code>https://railway.app/*</code> from fetching <code>localhost:8770</code> (Private Network Access policy).
+            Tunnel localhost via Cloudflare to get a public URL the Railway tab can reach:<br>
+            <code style="font-size:11px;">cd "_CLAUDE PROJECTS/Crypto Liquidity Watcher" &amp;&amp; ./bin/cloudflared tunnel --url http://localhost:8770</code><br>
+            Then paste the <code>https://*.trycloudflare.com</code> URL it prints into the box above and Save. URL changes each session.
+          </div>
+        </div>
+
         <div id="aiLocalStatus" style="margin-top:10px; font-size:11px; color:var(--muted);">Checking local server…</div>
       </div>
 
@@ -540,18 +586,36 @@ ${JSON.stringify(trades.map(t => ({
         const k = document.getElementById('aiKey')?.value.trim();
         const m = document.getElementById('aiModel')?.value;
         const localChk = document.getElementById('aiLocalToggle');
+        const localUrl = document.getElementById('aiLocalUrl')?.value.trim();
         if (k !== undefined) setS(KEYS.apiKey, k);
         if (m) setS(KEYS.model, m);
         if (localChk) localStorage.setItem(LOCAL_KEY, localChk.checked ? 'on' : 'off');
+        if (localUrl !== undefined) {
+          if (localUrl) localStorage.setItem(LOCAL_URL_KEY, localUrl.replace(/\/$/, ''));
+          else localStorage.removeItem(LOCAL_URL_KEY);
+        }
         if (typeof App !== 'undefined' && App.toast) App.toast('Settings saved');
         _settingsOpen = false; render();
       });
       // Probe local server status immediately when settings is shown
       _localAvailable().then(ok => {
         const el = document.getElementById('aiLocalStatus');
-        if (el) el.innerHTML = ok
-          ? '✅ Local server reachable at localhost:8770 — ready to use'
-          : '⚠️ Local server not found at localhost:8770 — start <code>ai_local_server.py</code> first';
+        if (!el) return;
+        const base = getLocalAIUrl();
+        const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        if (ok) {
+          el.innerHTML = `✅ Local server reachable at <code>${esc(base)}</code> — ready to use`;
+          el.style.color = 'var(--good, #16a34a)';
+        } else if (!base) {
+          el.innerHTML = `⚠️ Local AI URL not set. Paste a public tunnel URL above (Chrome PNA blocks direct localhost from this Railway-served page).`;
+          el.style.color = 'var(--warn, #ca8a04)';
+        } else if (isLocalHost) {
+          el.innerHTML = `⚠️ Local server not reachable at <code>${esc(base)}</code> — start <code>python3 ~/.local/bin/local_ai_server.py</code> on this Mac.`;
+          el.style.color = 'var(--warn, #ca8a04)';
+        } else {
+          el.innerHTML = `❌ Tunnel URL <code>${esc(base)}</code> didn't respond. The Cloudflare quick-tunnel URL may have expired — restart <code>cloudflared tunnel</code> and paste the fresh URL.`;
+          el.style.color = 'var(--bad, #dc2626)';
+        }
       });
       return;
     }
