@@ -21,8 +21,30 @@ const FundTab = (() => {
   let _connState     = 'idle';     // idle | live | reconnect | offline | polling
   let _overview      = null;
   let _positions     = null;
+  let _obxadx15m     = null;       // /api/obxadx_trades?bot=15m payload
+  let _obxadx1h      = null;       // /api/obxadx_trades?bot=1h payload
+  let _riskEvents    = null;       // /api/risk_events payload
+  let _escalations   = null;       // /api/escalations payload
   let _recentEvents  = [];         // last N events for the live feed pane
   const FEED_MAX     = 50;
+
+  /* Panel collapse state (persisted across reloads) */
+  const PANEL_KEY = 'jb_fund_panel_collapsed';
+  const PANEL_IDS = ['bots','feed','open','recent','vetoes','escs','hierarchy','howto'];
+  function _isCollapsed(id) {
+    try {
+      const m = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}');
+      return !!m[id];
+    } catch { return false; }
+  }
+  function _toggleCollapsed(id) {
+    try {
+      const m = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}');
+      m[id] = !m[id];
+      localStorage.setItem(PANEL_KEY, JSON.stringify(m));
+      return m[id];
+    } catch { return false; }
+  }
 
   /* ── helpers ─────────────────────────────────────────── */
   function esc(s) {
@@ -264,6 +286,238 @@ const FundTab = (() => {
     }
   }
 
+  /* ── collapsible panel wrapper ───────────────────────── */
+  function _panel(id, title, subtitle, bodyHtml) {
+    const collapsed = _isCollapsed(id);
+    return `<section class="bf-panel ${collapsed ? 'is-collapsed' : ''}" data-panel="${id}">
+      <header class="bf-panel-head" data-panel-toggle="${id}">
+        <div class="bf-panel-title">
+          <span class="bf-panel-chev">${collapsed ? '▸' : '▾'}</span>
+          <span>${title}</span>
+          ${subtitle ? `<span class="bf-panel-sub">${subtitle}</span>` : ''}
+        </div>
+      </header>
+      <div class="bf-panel-body">${bodyHtml}</div>
+    </section>`;
+  }
+
+  /* ── current trades (open positions across bots) ─────── */
+  function _openTradesHTML() {
+    const rows = [];
+    /* obxadx-bot-15m + 1h open trades */
+    [['obxadx-bot-15m', _obxadx15m], ['obxadx-bot-1h', _obxadx1h]].forEach(([bid, payload]) => {
+      if (!payload) return;
+      (payload.open_trades || []).forEach(t => rows.push({ ...t, bot: bid }));
+    });
+    /* fund.db positions (cio / v1_adapter / future bots) */
+    if (_positions?.positions) {
+      _positions.positions
+        .filter(p => p.status === 'open' || p.status === 'partial')
+        .forEach(p => rows.push({
+          bot: p.source_bot, sym: p.asset, direction: p.side,
+          entry: p.entry_price, stop: p.sl, tp1: p.tp1, tp2: p.tp2,
+          fill_ts: p.opened_at, dollar_risk: p.risk_usd, size_usd: p.size_usd,
+        }));
+    }
+
+    if (rows.length === 0) {
+      return `<div class="bf-empty">No open trades right now. Bots will fill this when an OB validates inside an active killzone with ADX gate passing.</div>`;
+    }
+    return `<div class="bf-table-wrap"><table class="bf-table">
+      <thead><tr>
+        <th>Bot</th><th>Sym</th><th>Dir</th><th>Entry</th><th>Stop</th>
+        <th>TP1</th><th>TP2</th><th>Size</th><th>Risk</th><th>Filled</th>
+      </tr></thead>
+      <tbody>${rows.map(t => `<tr>
+        <td><code>${esc(t.bot || '?')}</code></td>
+        <td>${esc(t.sym || '?')}</td>
+        <td class="${t.direction === 'bull' || t.direction === 'long' ? 'bf-dir-bull' : 'bf-dir-bear'}">${esc(t.direction || '?')}</td>
+        <td>${esc(t.entry ?? '—')}</td>
+        <td>${esc(t.stop ?? '—')}</td>
+        <td>${esc(t.tp1 ?? '—')}</td>
+        <td>${esc(t.tp2 ?? '—')}</td>
+        <td>${fmtUsd(t.size_usd)}</td>
+        <td>${fmtUsd(t.dollar_risk)}</td>
+        <td title="${esc(t.fill_ts || '')}">${esc((t.fill_ts || '').slice(5,16).replace('T',' '))}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  /* ── recent closed trades ────────────────────────────── */
+  function _recentTradesHTML() {
+    const rows = [];
+    [['obxadx-bot-15m', _obxadx15m], ['obxadx-bot-1h', _obxadx1h]].forEach(([bid, payload]) => {
+      if (!payload) return;
+      (payload.recent_closed || []).forEach(t => rows.push({ ...t, bot: bid }));
+    });
+    rows.sort((a, b) => (b.close_ts || '').localeCompare(a.close_ts || ''));
+    const limited = rows.slice(0, 30);
+
+    if (limited.length === 0) {
+      return `<div class="bf-empty">No closed trades yet. The first trade will appear here once an OB setup fills and resolves (typically via TP, stop, or time exit).</div>`;
+    }
+
+    /* small summary footer */
+    const wins   = limited.filter(t => t.close_reason && (t.close_reason.includes('win') || (t.net_pnl ?? 0) > 0)).length;
+    const losses = limited.filter(t => t.close_reason && (t.close_reason.includes('loss') || (t.net_pnl ?? 0) < 0)).length;
+    const totPnl = limited.reduce((s, t) => s + (Number(t.net_pnl) || 0), 0);
+    const wr     = (wins + losses) > 0 ? Math.round(100 * wins / (wins + losses)) : null;
+
+    return `<div class="bf-table-wrap"><table class="bf-table">
+      <thead><tr>
+        <th>Closed</th><th>Bot</th><th>Sym</th><th>Dir</th>
+        <th>Entry</th><th>Exit</th><th>Reason</th>
+        <th>P&L</th><th>Bars</th><th>Bal after</th>
+      </tr></thead>
+      <tbody>${limited.map(t => {
+        const pnl = Number(t.net_pnl) || 0;
+        const pnlCls = pnl > 0 ? 'bf-pnl-pos' : pnl < 0 ? 'bf-pnl-neg' : 'bf-pnl-flat';
+        const reasonCls = (t.close_reason || '').includes('win') ? 'bf-pnl-pos'
+                        : (t.close_reason || '').includes('loss') ? 'bf-pnl-neg' : '';
+        return `<tr>
+          <td title="${esc(t.close_ts || '')}">${esc((t.close_ts || '').slice(5,16).replace('T',' '))}</td>
+          <td><code>${esc(t.bot)}</code></td>
+          <td>${esc(t.sym || '?')}</td>
+          <td class="${t.direction === 'bull' || t.direction === 'long' ? 'bf-dir-bull' : 'bf-dir-bear'}">${esc(t.direction || '?')}</td>
+          <td>${esc(t.entry ?? '—')}</td>
+          <td>${esc(t.close_price ?? '—')}</td>
+          <td class="${reasonCls}">${esc(t.close_reason || '—')}</td>
+          <td class="${pnlCls}">${fmtUsd(pnl)}</td>
+          <td>${esc(t.bars_held ?? '—')}</td>
+          <td>${fmtUsd(t.balance_after)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+    <div class="bf-table-foot">
+      ${limited.length} trades · WR ${wr === null ? '—' : wr + '%'}
+      · wins ${wins} · losses ${losses}
+      · net <span class="${totPnl > 0 ? 'bf-pnl-pos' : totPnl < 0 ? 'bf-pnl-neg' : ''}">${fmtUsd(totPnl)}</span>
+    </div>`;
+  }
+
+  /* ── what didn't go through: risk vetoes ──────────────── */
+  function _vetoesHTML() {
+    const evs = _riskEvents?.risk_events || [];
+    if (evs.length === 0) {
+      return `<div class="bf-empty">No risk vetoes recorded. When a bot's trade signal is blocked by the pre-trade risk gate (max concurrent positions, daily loss halt, micro regime veto, etc.) it shows up here.</div>`;
+    }
+    return `<div class="bf-table-wrap"><table class="bf-table">
+      <thead><tr><th>When</th><th>Type</th><th>Reason</th><th>Intent</th></tr></thead>
+      <tbody>${evs.slice(0, 30).map(e => `<tr>
+        <td title="${esc(e.ts || '')}">${esc((e.ts || '').slice(5,16).replace('T',' '))}</td>
+        <td><span class="bf-tag bf-tag-${esc((e.event_type||'').toLowerCase())}">${esc(e.event_type || '—')}</span></td>
+        <td>${esc(e.reason || '—')}</td>
+        <td><code class="bf-uid">${esc(e.intent_id || '—')}</code></td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  /* ── escalations ─────────────────────────────────────── */
+  function _escalationsHTML() {
+    const evs = _escalations?.escalations || [];
+    if (evs.length === 0) {
+      return `<div class="bf-empty">No escalations. Tier-1 alerts (bot down &gt; 90s, daily-loss halt, 5-restart-cap, schema failure) surface here.</div>`;
+    }
+    return `<div class="bf-table-wrap"><table class="bf-table">
+      <thead><tr><th>When</th><th>Tier</th><th>Reason</th><th>Summary</th></tr></thead>
+      <tbody>${evs.slice(0, 20).map(e => `<tr>
+        <td title="${esc(e.ts || '')}">${esc((e.ts || '').slice(5,16).replace('T',' '))}</td>
+        <td><span class="bf-tier-${e.tier}">T${esc(String(e.tier ?? '?'))}</span></td>
+        <td>${esc(e.reason || '—')}</td>
+        <td>${esc(e.summary || '')}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+
+  /* ── bot hierarchy diagram ───────────────────────────── */
+  function _hierarchyHTML() {
+    return `<div class="bf-hier">
+      <div class="bf-hier-row bf-hier-trader">
+        <div class="bf-hier-node bf-hier-primary">
+          <div class="bf-hier-icon">⚡</div>
+          <div class="bf-hier-name">obxadx-bot-15m</div>
+          <div class="bf-hier-role">Sole live trader · 15m OB detection + 4h ADX gate + M3 management</div>
+        </div>
+        <div class="bf-hier-node bf-hier-secondary">
+          <div class="bf-hier-icon">🔬</div>
+          <div class="bf-hier-name">obxadx-bot-1h</div>
+          <div class="bf-hier-role">Shadow / backtest variant · same strategy, 1h timeframe</div>
+        </div>
+      </div>
+      <div class="bf-hier-arrow">▾ feed signals to + are governed by ▾</div>
+      <div class="bf-hier-row bf-hier-governance">
+        <div class="bf-hier-node">
+          <div class="bf-hier-icon">🛡️</div>
+          <div class="bf-hier-name">risk-1</div>
+          <div class="bf-hier-role">Pre-trade risk gate · monitors veto rate · daily loss halt</div>
+        </div>
+        <div class="bf-hier-node">
+          <div class="bf-hier-icon">🩺</div>
+          <div class="bf-hier-name">ops-1</div>
+          <div class="bf-hier-role">Tech nurse · audits heartbeats · auto-restarts the trader · escalates after 5 restarts/day</div>
+        </div>
+        <div class="bf-hier-node">
+          <div class="bf-hier-icon">🌊</div>
+          <div class="bf-hier-name">micro-1</div>
+          <div class="bf-hier-role">Polls Liquidity Watcher · publishes regime_view to fund.db (feeds the micro-veto gate)</div>
+        </div>
+        <div class="bf-hier-node">
+          <div class="bf-hier-icon">📊</div>
+          <div class="bf-hier-name">markov-1</div>
+          <div class="bf-hier-role">Daily kline → 3×3 transition matrix per symbol · sizes / vetoes via Markov gate</div>
+        </div>
+        <div class="bf-hier-node">
+          <div class="bf-hier-icon">🧠</div>
+          <div class="bf-hier-name">sensei-1</div>
+          <div class="bf-hier-role">Once-daily AI coach report · tier-1 escalation if budget exhausted or schema fails</div>
+        </div>
+      </div>
+      <div class="bf-hier-foot">
+        All five governance bots write to <code>fund.db</code> (heartbeats, messages, risk_events, escalations) and read each other's state via the message bus. obxadx-bot-15m is the only bot that places trades; the others advise + audit it.
+      </div>
+    </div>`;
+  }
+
+  /* ── how-to-use guide ─────────────────────────────────── */
+  function _howToHTML() {
+    return `<div class="bf-howto">
+      <h4>What you're looking at</h4>
+      <p>This is the operator console for the live paper-trading bot farm. Everything updates in real time over the SSE event stream (look for the 🟢 live pill at the top — that means the connection is open and events are arriving as they happen).</p>
+
+      <h4>Reading the panels</h4>
+      <ol>
+        <li><strong>Bot cards</strong> — one per bot. The dot tells you live status; 24h actions counts trades for traders + ticks for governance bots; 7-day P&L is only meaningful for traders. Click a card to expand its detail (coming soon).</li>
+        <li><strong>Live event feed</strong> — every heartbeat (5 s), message, escalation, and risk event flows here. Useful for "is anything happening right now?" sanity checks.</li>
+        <li><strong>Open trades</strong> — anything currently in play across the bot farm. Empty most of the time — the strategy fires ~1–2 trades per symbol per week.</li>
+        <li><strong>Recent trades</strong> — last 30 closed trades, newest first. The footer shows WR and net P&L for the visible window.</li>
+        <li><strong>Vetoes</strong> — trade signals that the risk gate blocked. If this fills up, the strategy is firing but the gate doesn't like the conditions (over concurrency cap, daily-loss-halted, micro regime contradicting bias, etc.).</li>
+        <li><strong>Escalations</strong> — anything tier-1. Should be empty most days. Bot-down &gt; 90 s, daily loss halt, 5-restart cap, sensei schema failure all surface here.</li>
+        <li><strong>Hierarchy</strong> — visual map of which bots advise the trader.</li>
+      </ol>
+
+      <h4>Action shortcuts</h4>
+      <ul>
+        <li><strong>↻ Refresh</strong> — re-fetches everything. Mostly redundant when 🟢 live.</li>
+        <li><strong>🧠 Run Sensei</strong> — fires the daily coach report on demand (Sonnet, ~$0.10).</li>
+        <li><strong>↗ Pop out</strong> — opens the raw fund API HTML view in a new tab.</li>
+      </ul>
+
+      <h4>If the 🟢 pill turns 🟡 or 🔴</h4>
+      <ul>
+        <li>🟡 reconnecting — single hiccup, browser auto-retries. Wait 5 s.</li>
+        <li>🔴 offline — fund.api isn't responding. Check Railway logs.</li>
+        <li>⚪ polling — SSE failed 3× in a row. Falls back to 15 s polling automatically; reopens SSE on each poll.</li>
+      </ul>
+
+      <h4>Common questions</h4>
+      <ul>
+        <li><strong>"All my trade tables are empty"</strong> — normal post-deploy. The bots fire ~1–2 setups per week per symbol; expect 0–3 entries per day across all 5 symbols. The 6 historical trades from your Mac are visible under <em>Recent trades</em>.</li>
+        <li><strong>"24h actions is 0"</strong> — actions counts trades opened / closed, not heartbeats. For governance bots it counts published messages.</li>
+        <li><strong>"What's the difference between obxadx-15m and obxadx-1h?"</strong> — only the 15m bot trades live. The 1h variant runs the same logic on a slower timeframe so we can compare PFs without risking double-counted signals.</li>
+      </ul>
+    </div>`;
+  }
+
   /* ── live page render ─────────────────────────────────── */
   function _liveHTML(overview) {
     const killState = overview.kill_state && overview.kill_state.state;
@@ -273,14 +527,44 @@ const FundTab = (() => {
       if (ta !== tb) return ta - tb;
       return (a.display_name || '').localeCompare(b.display_name || '');
     });
+
+    const openN  = ((_obxadx15m?.open_trades?.length) || 0)
+                  + ((_obxadx1h?.open_trades?.length)  || 0)
+                  + ((_positions?.positions || []).filter(p => p.status === 'open' || p.status === 'partial').length);
+    const closedN = ((_obxadx15m?.recent_closed?.length) || 0)
+                  + ((_obxadx1h?.recent_closed?.length)  || 0);
+    const vetoN  = (_riskEvents?.risk_events || []).length;
+    const escN   = (_escalations?.escalations || []).length;
+
     return `
       ${_pageHeadHTML(overview)}
       ${_kpiStripHTML(overview)}
-      <div class="bf-bot-grid">
-        ${sortedBots.map(b => _botCardHTML(b, killState)).join('')}
-      </div>
-      <h2 style="margin-top:24px;margin-bottom:8px;font-size:15px">Live event feed</h2>
-      ${_liveFeedHTML()}
+
+      ${_panel('bots', '🤖 Bots', `${bots.length} total · click a card for details`,
+        `<div class="bf-bot-grid">${sortedBots.map(b => _botCardHTML(b, killState)).join('')}</div>`)}
+
+      ${_panel('open', '🎯 Open trades', openN > 0 ? `${openN} in play` : 'none right now',
+        _openTradesHTML())}
+
+      ${_panel('recent', '📈 Recent trades', closedN > 0 ? `last ${Math.min(closedN, 30)} closed` : 'none yet',
+        _recentTradesHTML())}
+
+      ${_panel('vetoes', '🛡️ What didn’t go through (vetoes)',
+        vetoN > 0 ? `${vetoN} blocked` : 'clean',
+        _vetoesHTML())}
+
+      ${_panel('escs', '🚨 Escalations',
+        escN > 0 ? `${escN} alerts` : 'clean',
+        _escalationsHTML())}
+
+      ${_panel('feed', '📡 Live event feed',
+        `${_recentEvents.length} events in window`,
+        _liveFeedHTML())}
+
+      ${_panel('hierarchy', '🧬 Bot hierarchy', 'how the farm wires together', _hierarchyHTML())}
+
+      ${_panel('howto', '📖 How to use this tab', 'guide + FAQ', _howToHTML())}
+
       <p style="font-size:11px;color:var(--muted-2);margin-top:14px;text-align:right" id="fundLastRefresh">
         connected ${new Date().toLocaleTimeString()}
       </p>`;
@@ -402,6 +686,7 @@ const FundTab = (() => {
     if (!content || !_overview) return;
     content.innerHTML = _liveHTML(_overview);
     _wireLive(_resolveUrl());
+    _wirePanels();
   }
 
   /* ── polling fallback ────────────────────────────────── */
@@ -465,14 +750,41 @@ const FundTab = (() => {
       _retryTimer = setTimeout(() => { if (_isActiveTab()) render(); else _retryTimer = null; }, 5000);
       return;
     }
-    _positions = await _fetchJson(url, 'api/positions?status=closed&limit=500');
-    _overview  = overview;
+    /* Parallel — independent endpoints */
+    const [pos, ob15, ob1h, risks, escs] = await Promise.all([
+      _fetchJson(url, 'api/positions?status=open,partial,closed&limit=500'),
+      _fetchJson(url, 'api/obxadx_trades?bot=15m&limit=30'),
+      _fetchJson(url, 'api/obxadx_trades?bot=1h&limit=30'),
+      _fetchJson(url, 'api/risk_events?limit=30'),
+      _fetchJson(url, 'api/escalations?limit=20'),
+    ]);
+    _positions   = pos;
+    _obxadx15m   = ob15;
+    _obxadx1h    = ob1h;
+    _riskEvents  = risks;
+    _escalations = escs;
+    _overview    = overview;
     _recentEvents = [];
 
     content.innerHTML = _liveHTML(overview);
     _wireLive(url);
+    _wirePanels();
     _setConn('reconnect');     // start in 'reconnect' until SSE 'ready' fires
     _startStream(url);
+  }
+
+  function _wirePanels() {
+    document.querySelectorAll('[data-panel-toggle]').forEach(head => {
+      head.addEventListener('click', () => {
+        const id = head.dataset.panelToggle;
+        const sec = document.querySelector(`section.bf-panel[data-panel="${id}"]`);
+        if (!sec) return;
+        const nowCollapsed = _toggleCollapsed(id);
+        sec.classList.toggle('is-collapsed', nowCollapsed);
+        const chev = sec.querySelector('.bf-panel-chev');
+        if (chev) chev.textContent = nowCollapsed ? '▸' : '▾';
+      });
+    });
   }
 
   return { render };

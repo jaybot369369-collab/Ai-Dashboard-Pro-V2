@@ -6660,3 +6660,114 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .bf-feed-esc     .bf-feed-kind { color: #dc2626; }
 .bf-feed-risk    .bf-feed-kind { color: #ea580c; }
 .bf-feed-health  .bf-feed-kind { color: #16a34a; }
+
+/* ──────────────────────────────────────────────────────────────
+   Bot Farm — collapsible panels, trade tables, hierarchy, how-to
+   ────────────────────────────────────────────────────────────── */
+.bf-panel {
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface, var(--bg-card));
+  overflow: hidden;
+}
+.bf-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; cursor: pointer; user-select: none;
+  background: var(--surface2, transparent);
+}
+.bf-panel-head:hover { background: var(--surface3, rgba(0,0,0,.03)); }
+.bf-panel-title {
+  display: flex; align-items: baseline; gap: 10px;
+  font-size: 14.5px; font-weight: 700; color: var(--heading);
+}
+.bf-panel-chev { font-size: 11px; color: var(--muted); width: 12px; display: inline-block; }
+.bf-panel-sub { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.bf-panel-body { padding: 14px 18px 18px; }
+.bf-panel.is-collapsed .bf-panel-body { display: none; }
+
+.bf-empty {
+  padding: 18px 20px; font-size: 12.5px; color: var(--muted);
+  background: var(--surface2, rgba(0,0,0,.02));
+  border: 1px dashed var(--border); border-radius: 10px;
+}
+
+.bf-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+.bf-table {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.bf-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface2, rgba(0,0,0,.04));
+  color: var(--muted); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em; font-size: 10.5px;
+  padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border);
+}
+.bf-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.bf-table tbody tr:last-child td { border-bottom: none; }
+.bf-table tbody tr:hover { background: var(--surface2, rgba(0,0,0,.025)); }
+.bf-table code { font-size: 11px; color: var(--text-sub); }
+.bf-uid { font-size: 10px; opacity: .7; }
+
+.bf-table-foot {
+  margin-top: 8px; font-size: 11.5px; color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.bf-dir-bull { color: #16a34a; font-weight: 600; }
+.bf-dir-bear { color: #dc2626; font-weight: 600; }
+
+.bf-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase;
+  background: rgba(0,0,0,.05); color: var(--text);
+}
+.bf-tag-veto      { background: rgba(239,68,68,.12); color: #dc2626; }
+.bf-tag-auto_halt { background: rgba(234,179,8,.14); color: #ca8a04; }
+.bf-tag-anomaly   { background: rgba(59,130,246,.12); color: #2563eb; }
+
+.bf-tier-1 { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #dc2626; color: #fff; font-weight: 700; font-size: 11px; }
+.bf-tier-2 { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #ca8a04; color: #fff; font-weight: 700; font-size: 11px; }
+
+/* ── Hierarchy diagram ──────────────────────────────────────── */
+.bf-hier { display: flex; flex-direction: column; gap: 10px; }
+.bf-hier-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.bf-hier-trader { grid-template-columns: 1fr 1fr; max-width: 720px; margin: 0 auto; width: 100%; }
+.bf-hier-node {
+  border: 1px solid var(--border);
+  background: var(--surface2, rgba(0,0,0,.025));
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.bf-hier-primary {
+  border-color: var(--accent, #8b5cf6);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, .12);
+  background: rgba(139, 92, 246, .06);
+}
+.bf-hier-secondary {
+  border-style: dashed;
+  background: var(--surface2, rgba(0,0,0,.02));
+}
+.bf-hier-icon { font-size: 22px; }
+.bf-hier-name { font-weight: 700; font-size: 13px; margin-top: 4px; font-family: ui-monospace, monospace; }
+.bf-hier-role { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.bf-hier-arrow {
+  text-align: center; font-size: 11px; color: var(--muted);
+  letter-spacing: .04em; margin: 4px 0;
+}
+.bf-hier-foot { margin-top: 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.bf-hier-foot code { font-size: 11px; }
+
+/* ── How-to guide ───────────────────────────────────────────── */
+.bf-howto h4 { font-size: 13px; font-weight: 700; margin: 14px 0 6px; color: var(--heading); }
+.bf-howto h4:first-child { margin-top: 0; }
+.bf-howto p, .bf-howto li { font-size: 12.5px; line-height: 1.55; color: var(--text-sub, var(--text)); }
+.bf-howto ol, .bf-howto ul { margin: 4px 0 8px 22px; }
+.bf-howto li { margin-bottom: 4px; }
+.bf-howto code { font-size: 11.5px; }
