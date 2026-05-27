@@ -142,12 +142,27 @@ const AICoachTab = (() => {
       payload.image_b64        = imageData.b64;
       payload.image_media_type = imageData.mediaType;
     }
-    const r = await fetch(`${window.location.origin}/api/_ai/claude`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const j = await r.json();
+    let r;
+    try {
+      r = await fetch(`${window.location.origin}/api/_ai/claude`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (netErr) {
+      // Fetch itself failed — DNS, offline, CORS, mixed-content, etc.
+      // Surface as a clear network error instead of bubbling raw "Failed to fetch".
+      throw new Error(`Network error reaching ${window.location.origin}/api/_ai/claude — ${netErr.message || 'fetch failed'}. Try hard-reload (Cmd+Shift+R) to clear cached JS, or check Railway service health.`);
+    }
+    // Parse defensively — if the server returned HTML (error page, nginx 502, etc.)
+    // we don't want a JSON.parse crash to surface as a useless message.
+    let j;
+    try {
+      j = await r.json();
+    } catch (parseErr) {
+      const ct = r.headers.get('content-type') || 'unknown';
+      throw new Error(`Server proxy returned non-JSON (HTTP ${r.status}, content-type ${ct}). Likely Railway/nginx error page. Check Railway logs for /api/_ai/claude.`);
+    }
     if (!r.ok || !j.ok) {
       throw new Error(j.error || `server proxy ${r.status}`);
     }
@@ -320,7 +335,12 @@ Return JSON only with the same schema as the vision scanner: symbol, timeframe, 
 
 Do not invent numbers — use null if the trader did not give a value.`;
     const user = `Trade description: "${description}"`;
-    const { text } = await _callLocal({ system, user });
+    // Use callClaude() (not _callLocal) so this routes properly:
+    //   - Local mode ON       → localhost shim / tunnel
+    //   - API key set         → direct browser → Anthropic
+    //   - Otherwise (Railway) → /api/_ai/claude server proxy
+    // The previous version hard-coded _callLocal which failed on Railway.
+    const { text } = await callClaude({ system, user, maxTokens: 1200 });
     try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text); }
     catch { return { _raw: text, _parseError: true }; }
   }
@@ -338,7 +358,9 @@ Return JSON only: {
   "notes": "1 sentence read of the setup"
 }`;
     const user = `Chart setup description: "${description}"`;
-    const { text } = await _callLocal({ system, user });
+    // Route via callClaude so Railway users hit the server proxy instead
+    // of the unreachable localhost shim (same fix as scanTradeFromText).
+    const { text } = await callClaude({ system, user, maxTokens: 600 });
     try { return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || text); }
     catch { return { notes: text, setup_type: '?', direction: '?', session: '?', key_features: [] }; }
   }
