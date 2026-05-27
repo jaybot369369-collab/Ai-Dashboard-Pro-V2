@@ -102,10 +102,16 @@ const AICoachTab = (() => {
     } catch { return false; }
   }
 
+  // Sentinel error type so callClaude() can distinguish "tunnel is dead, please
+  // fall back to server proxy" from "request reached the shim but failed".
+  class LocalUnreachableError extends Error {
+    constructor(msg) { super(msg); this.name = 'LocalUnreachableError'; }
+  }
+
   async function _callLocal({ system, user, imageData = null }) {
     const base = getLocalAIUrl();
     if (!base) {
-      throw new Error(
+      throw new LocalUnreachableError(
         'Local AI URL is not configured. On Railway you need a public tunnel:\n' +
         '  1. On your Mac: ./bin/cloudflared tunnel --url http://localhost:8770\n' +
         '  2. Copy the https://*.trycloudflare.com URL it prints\n' +
@@ -121,14 +127,25 @@ const AICoachTab = (() => {
     const token = getLocalAIToken();
     if (token) headers['x-shim-token'] = token;
 
-    const r = await fetch(base + '/chat', {
-      method: 'POST', headers,
-      body: JSON.stringify(payload),
-    });
+    let r;
+    try {
+      r = await fetch(base + '/chat', { method: 'POST', headers, body: JSON.stringify(payload) });
+    } catch (netErr) {
+      // Network-layer failure — usually a dead Cloudflare quick-tunnel (they
+      // expire when the cloudflared process stops) or DNS error.
+      throw new LocalUnreachableError(
+        `Local AI tunnel unreachable: ${base} — ${netErr.message || 'fetch failed'}.\n` +
+        `Cloudflare quick-tunnels expire when the local process stops. Either:\n` +
+        `  1. Restart cloudflared on your Mac, copy the NEW URL, update AI Coach → Settings → Local AI URL, OR\n` +
+        `  2. Toggle Local mode OFF in Settings to use the Railway server proxy instead.`
+      );
+    }
     if (r.status === 403) {
       throw new Error('Local shim rejected the request — token mismatch. Paste the LOCAL_SHIM_TOKEN value you set when starting local_ai_server.py into AI Coach → Settings → Local AI Token.');
     }
-    const j = await r.json();
+    let j;
+    try { j = await r.json(); }
+    catch { throw new Error(`Local AI returned non-JSON (HTTP ${r.status}). Tunnel may be misconfigured.`); }
     if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
     return { text: j.text, usage: { input_tokens: 0, output_tokens: 0 } };
   }
@@ -184,7 +201,28 @@ const AICoachTab = (() => {
     //      and surface a clear error if it isn't running
 
     if (localOn) {
-      return await _callLocal({ system, user, imageData });
+      try {
+        return await _callLocal({ system, user, imageData });
+      } catch (e) {
+        // If the local tunnel is dead (DNS error, expired Cloudflare quick-tunnel,
+        // shim not running, URL not set) AND we're on a non-localhost origin,
+        // automatically fall back to the server proxy instead of dead-ending.
+        const isUnreachable = e && e.name === 'LocalUnreachableError';
+        if (isUnreachable && !isLocalHost) {
+          try {
+            const r = await _callServerProxy({ system, user, maxTokens, imageData });
+            return r;
+          } catch (proxyErr) {
+            // Both paths failed — give the operator a combined explanation.
+            throw new Error(
+              `Both AI paths failed:\n\n` +
+              `LOCAL: ${e.message}\n\n` +
+              `RAILWAY PROXY FALLBACK: ${proxyErr.message}`
+            );
+          }
+        }
+        throw e;
+      }
     }
     if (!apiKey && !isLocalHost) {
       // Default cross-Mac path — Railway-hosted dashboard, no per-browser setup.
