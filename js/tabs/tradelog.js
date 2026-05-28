@@ -315,6 +315,144 @@ const TradeLogTab = (() => {
     return `<span class="badge ${map[g] || 'badge-dim'}">${g}</span>`;
   }
 
+  /* ═══════════════════════════════════════════════════════════════════
+     AI BACKFILL — append AI scan to existing trade notes
+     ═══════════════════════════════════════════════════════════════════
+     Pipes a trade's most recent screenshot through
+     AICoachTab.scanTradeImage() and appends a structured block to the
+     trade's existing notes (never overwrites). Idempotent — re-running
+     replaces the previous block in place rather than stacking.
+     Phase 1: callable from DevTools console for single-trade testing
+     before we ship the bulk button.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  // Convert any screenshot reference to a data:image/...;base64,... URL.
+  // Already-base64 URLs are returned as-is; R2/https URLs are fetched and
+  // converted via FileReader. Same pattern app.js already uses on line 383.
+  async function _fetchAsDataUrl(url) {
+    if (!url) throw new Error('empty url');
+    if (url.startsWith('data:image/')) return url;
+    if (!/^https?:\/\//i.test(url)) throw new Error(`unsupported url scheme: ${url.slice(0, 30)}…`);
+    const resp = await fetch(url, { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`R2 fetch ${resp.status}`);
+    const blob = await resp.blob();
+    return await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload  = ev => res(ev.target.result);
+      fr.onerror = () => rej(new Error('FileReader failed'));
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  // Render the AI scan JSON to a human-readable text block. Idempotency
+  // marker is the literal "[AI ANALYSIS — " — any block matching that
+  // header on a re-run gets replaced rather than stacked.
+  function _formatAiBlock(scan, isoTs) {
+    if (!scan || scan._parseError) {
+      const raw = (scan && scan._raw) ? scan._raw : '(no response)';
+      return `[AI PARSE WARNING — ${isoTs}]\nClaude returned non-JSON. Raw response:\n${raw.slice(0, 600)}`;
+    }
+    const c = scan.critique || {};
+    const conf = scan.confidence || {};
+    const lines = [];
+    lines.push(`[AI ANALYSIS — ${isoTs}]`);
+    if (c.grade)               lines.push(`Grade: ${c.grade}${c.suggested_pre_grade ? ` (suggested pre-grade: ${c.suggested_pre_grade})` : ''}`);
+    const setups = Array.isArray(scan.setup_types) ? scan.setup_types.join(' + ') : '';
+    if (setups || conf.setup) lines.push(`Setup: ${setups || '—'}${typeof conf.setup === 'number' ? ` (confidence ${conf.setup.toFixed(2)})` : ''}`);
+    const meta = [];
+    if (scan.direction) meta.push(`Direction: ${scan.direction}`);
+    if (scan.session)   meta.push(`Session: ${scan.session}`);
+    if (scan.htf_bias)  meta.push(`HTF bias: ${scan.htf_bias}`);
+    if (meta.length) lines.push(meta.join('  ·  '));
+    const lvl = [];
+    if (scan.entry != null) lvl.push(`Entry ${scan.entry}`);
+    if (scan.sl    != null) lvl.push(`SL ${scan.sl}`);
+    if (scan.tp    != null) lvl.push(`TP ${scan.tp}`);
+    if (scan.rr_planned != null) lvl.push(`R:R ${scan.rr_planned}`);
+    if (lvl.length) lines.push(lvl.join('  ·  '));
+    if (Array.isArray(c.strengths) && c.strengths.length) {
+      lines.push('Strengths:');
+      c.strengths.forEach(s => lines.push(`  · ${s}`));
+    }
+    if (Array.isArray(c.weaknesses) && c.weaknesses.length) {
+      lines.push('Weaknesses:');
+      c.weaknesses.forEach(s => lines.push(`  · ${s}`));
+    }
+    if (c.rr_assessment) lines.push(`R:R: ${c.rr_assessment}`);
+    return lines.join('\n');
+  }
+
+  // Merge an AI block into existing notes. Idempotent: any previous
+  // `---\n[AI ANALYSIS — ` / `[AI PARSE WARNING — ` block is stripped
+  // first, so re-runs cleanly replace the block rather than stacking.
+  function _mergeNotes(existing, aiBlock) {
+    const stripRe = /\n*---\n\[(?:AI ANALYSIS|AI PARSE WARNING) —[\s\S]*?\n---\s*$/;
+    const cleaned = (existing || '').replace(stripRe, '').replace(/\s+$/, '');
+    const sep = cleaned ? `${cleaned}\n\n` : '';
+    return `${sep}---\n${aiBlock}\n---`;
+  }
+
+  // Pick the target trade for a given YYYY-MM-DD date. If multiple trades
+  // share the date, prefer ones with screenshots; tiebreak by most
+  // screenshots, then latest createdAt.
+  function _pickTradeByDate(dateStr) {
+    const candidates = DB.getTrades().filter(t => t.date === dateStr);
+    if (!candidates.length) return null;
+    const withShots = candidates.filter(t => DB.getScreenshots(t).length > 0);
+    const pool = withShots.length ? withShots : candidates;
+    pool.sort((a, b) => {
+      const da = DB.getScreenshots(a).length;
+      const db = DB.getScreenshots(b).length;
+      if (da !== db) return db - da;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+    return pool[0];
+  }
+
+  // PUBLIC: backfill one trade by date OR trade.id. Returns a promise
+  // resolving to { trade, scan, skipped, reason } so console invocations
+  // can inspect the parsed JSON.
+  async function _aiBackfillOne(arg) {
+    if (typeof AICoachTab === 'undefined' || !AICoachTab.scanTradeImage) {
+      App.toast('AICoachTab.scanTradeImage not loaded — reload the page', 'error');
+      return { skipped: true, reason: 'no-aicoach' };
+    }
+    const trade = (typeof arg === 'string' && arg.includes('-') && arg.length === 10)
+      ? _pickTradeByDate(arg)
+      : DB.getTradeById(arg);
+    if (!trade) {
+      App.toast(`No trade found for "${arg}"`, 'error');
+      return { skipped: true, reason: 'no-trade' };
+    }
+    const shots = DB.getScreenshots(trade);
+    if (!shots.length) {
+      App.toast(`Trade ${trade.symbol} ${trade.date} has no screenshot — skipped`, 'warn');
+      return { trade, skipped: true, reason: 'no-screenshot' };
+    }
+    const lastShot = shots[shots.length - 1];
+    console.log(`[ai-backfill] ${trade.symbol} ${trade.date} (${trade.id}) — fetching screenshot ${lastShot.slice(0, 60)}…`);
+    App.toast(`✨ Scanning ${trade.symbol} ${trade.date} — Claude Code can take 20-60s`, 'info');
+
+    let scan;
+    try {
+      const dataUrl = await _fetchAsDataUrl(lastShot);
+      scan = await AICoachTab.scanTradeImage(dataUrl);
+    } catch (err) {
+      console.error('[ai-backfill] failed:', err);
+      App.toast(`✗ Scan failed: ${err.message}`, 'error');
+      return { trade, skipped: true, reason: err.message };
+    }
+
+    const isoTs   = new Date().toISOString();
+    const aiBlock = _formatAiBlock(scan, isoTs);
+    const merged  = _mergeNotes(trade.notes || '', aiBlock);
+    DB.updateTrade(trade.id, { notes: merged, _aiScanAt: isoTs });
+    App.toast(`✓ AI scan appended to ${trade.symbol} ${trade.date}`, 'success');
+    console.log('[ai-backfill] result:', scan);
+    render();
+    return { trade: DB.getTradeById(trade.id), scan, skipped: false };
+  }
+
   return {
     render,
     _sort: col => {
@@ -359,6 +497,10 @@ const TradeLogTab = (() => {
         App.toast('Trade deleted');
         render();
       });
-    }
+    },
+    // Phase-1 AI backfill — console-callable single-trade test.
+    // Usage: await TradeLogTab._aiBackfillOne('2026-05-22')
+    //    or: await TradeLogTab._aiBackfillOne('<trade.id>')
+    _aiBackfillOne,
   };
 })();
