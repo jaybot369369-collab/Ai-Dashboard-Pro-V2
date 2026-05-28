@@ -84,6 +84,36 @@ const AICoachTab = (() => {
     return isLocalHost ? DEFAULT_LOCAL_AI_URL : '';   // empty → unreachable
   }
 
+  /* Async URL resolver — used by _callLocal so we can fetch the current
+     tunnel URL from Railway's /api/_ai/tunnel_url endpoint (published
+     by the operator's launchd-managed cloudflared wrapper). This kills
+     the "tunnel died overnight, paste new URL into Settings" loop —
+     the dashboard auto-discovers the latest URL on every call.
+
+     Precedence: localStorage override (manual paste, for dev) > server
+     discovery > DEFAULT_LOCAL_AI_URL when on localhost. */
+  let _tunnelUrlCache = { url: null, ts: 0 };
+  async function _resolveLocalAIUrl() {
+    const override = (localStorage.getItem(LOCAL_URL_KEY) || '').trim();
+    if (override) return override.replace(/\/$/, '');
+    const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (isLocalHost) return DEFAULT_LOCAL_AI_URL;
+    // Public origin (Railway, github.io, etc.) — ask the server.
+    // 60s cache so back-to-back Scan Trade calls don't hammer the endpoint.
+    if (_tunnelUrlCache.url && Date.now() - _tunnelUrlCache.ts < 60_000) {
+      return _tunnelUrlCache.url;
+    }
+    try {
+      const r = await fetch(`${window.location.origin}/api/_ai/tunnel_url`, { cache: 'no-store' });
+      const j = await r.json();
+      if (j && j.ok && j.url) {
+        _tunnelUrlCache = { url: j.url.replace(/\/$/, ''), ts: Date.now() };
+        return _tunnelUrlCache.url;
+      }
+    } catch (_) { /* fall through to empty (unreachable) */ }
+    return '';
+  }
+
   function getLocalAIToken() {
     return (localStorage.getItem(LOCAL_TOKEN_KEY) || '').trim();
   }
@@ -109,7 +139,7 @@ const AICoachTab = (() => {
   }
 
   async function _callLocal({ system, user, imageData = null }) {
-    const base = getLocalAIUrl();
+    const base = await _resolveLocalAIUrl();
     if (!base) {
       throw new LocalUnreachableError(
         'Local AI URL is not configured. On Railway you need a public tunnel:\n' +
