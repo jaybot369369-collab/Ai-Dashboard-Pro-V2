@@ -355,13 +355,38 @@ Return JSON only: {
      symbol, timeframe, entry/SL/TP prices, direction, session,
      HTF bias, setup types, plus an ICT-coach critique.
   ══════════════════════════════════════════════════════ */
+  // Build a compact playbook digest (name + 1-line description) for the
+  // AI prompt — so the scanner picks from the user's REAL setup library
+  // instead of a hardcoded ICT list, and flags genuinely-new patterns
+  // as candidates to add to the playbook rather than inventing names.
+  function _playbookDigest() {
+    try {
+      const pb = (typeof DB !== 'undefined' && DB.getPlaybook) ? DB.getPlaybook() : [];
+      return pb.map(s => ({
+        name: s.name,
+        desc: (s.description || '').replace(/\s+/g, ' ').slice(0, 180),
+      }));
+    } catch { return []; }
+  }
+
+  function _playbookPromptBlock() {
+    const digest = _playbookDigest();
+    if (!digest.length) return '(empty playbook — pick the closest standard ICT/SMC label)';
+    return digest.map((s, i) => `  ${i+1}. "${s.name}" — ${s.desc}`).join('\n');
+  }
+
   async function scanTradeImage(b64DataUrl) {
     const m = b64DataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
     if (!m) throw new Error('Bad image data');
     const mediaType = m[1];
     const b64       = m[2];
 
+    const pbBlock = _playbookPromptBlock();
+
     const system = `You are an ICT/SMC trade-journal scanner. The image is a TradingView chart with the trader's planned trade ALREADY DRAWN — typically horizontal lines for ENTRY, STOP LOSS, and TAKE PROFIT. Read the chart literally.
+
+THE TRADER'S PLAYBOOK (their actual catalogued setups):
+${pbBlock}
 
 EXTRACT:
 - symbol from the top-left header (return as "BTC/USDT" style with slash).
@@ -372,10 +397,15 @@ EXTRACT:
 - rr_planned = |tp - entry| / |entry - sl|, 2 decimal places.
 - session from the chart timestamp: Asian (21:00-07:00 UTC), London (07:00-13:00 UTC), NY (13:00-21:00 UTC). If unknown → "Other".
 - htf_bias from visible structure: "Bullish" / "Bearish" / "Neutral".
-- setup_types: array, any of [OB, FVG, IFVG, OTE, Sweep, BB, SilverBullet, TurtleSoup, CISD, Continuation]. Pick 1–3.
-- key_features: array of up to 4 short phrases.
+- setup_types: array of 1–3 strings. EACH STRING MUST BE THE EXACT \`name\` of a setup from the playbook above. Pick the playbook entries that best fit what's on the chart. If nothing in the playbook fits, return an empty array — DO NOT invent or use generic ICT labels.
+- key_features: array of up to 4 short phrases describing what's actually visible on this chart.
 - confidence: object with numeric 0–1 values for keys symbol, entry, sl, tp, setup.
 - exit_price: number if a trade has clearly already closed, else null.
+- playbook_suggestion: null in most cases. ONLY when the chart shows a recurring, recognizable pattern that does NOT match any playbook entry above AND would be a credible new entry for an ICT/SMC trader, return:
+    { "name": "<short title, 3-6 words>",
+      "description": "<1-2 sentence definition of when this setup applies and how to enter>",
+      "why_missing": "<1 sentence on why none of the existing playbook entries fit>" }
+  Be conservative — only suggest if you're confident this is a distinct, repeatable setup. Otherwise null.
 
 THEN CRITIQUE the trade as an ICT coach:
 - grade: "A" / "B" / "C" / "D".
@@ -386,7 +416,7 @@ THEN CRITIQUE the trade as an ICT coach:
 
 Return JSON only, no prose, no markdown fences. Use null for any field you genuinely cannot read.`;
 
-    const user = `Scan this chart. Return one JSON object with keys: symbol, timeframe, chart_timestamp, entry, sl, tp, direction, rr_planned, session, htf_bias, setup_types, key_features, confidence, exit_price, critique. critique is an object with keys: grade, strengths, weaknesses, rr_assessment, suggested_pre_grade.`;
+    const user = `Scan this chart. Return one JSON object with keys: symbol, timeframe, chart_timestamp, entry, sl, tp, direction, rr_planned, session, htf_bias, setup_types, key_features, confidence, exit_price, playbook_suggestion, critique. critique is an object with keys: grade, strengths, weaknesses, rr_assessment, suggested_pre_grade.`;
 
     const { text } = await callClaude({
       system, user, maxTokens: 1500,
@@ -397,11 +427,16 @@ Return JSON only, no prose, no markdown fences. Use null for any field you genui
   }
 
   async function scanTradeFromText(description) {
+    const pbBlock = _playbookPromptBlock();
     const system = `You are an ICT/SMC trade-journal scanner. Vision is not available — the trader has described their setup in text. Infer trade fields and critique.
 
-Return JSON only with the same schema as the vision scanner: symbol, timeframe, chart_timestamp (null if not stated), entry, sl, tp (numbers if stated, else null), direction, rr_planned, session, htf_bias, setup_types (array), key_features (array), confidence (object, lower values since no vision), exit_price (null if not stated), critique: { grade, strengths, weaknesses, rr_assessment, suggested_pre_grade }.
+THE TRADER'S PLAYBOOK (their actual catalogued setups):
+${pbBlock}
 
-Do not invent numbers — use null if the trader did not give a value.`;
+Return JSON only with the same schema as the vision scanner: symbol, timeframe, chart_timestamp (null if not stated), entry, sl, tp (numbers if stated, else null), direction, rr_planned, session, htf_bias, setup_types (array of EXACT playbook names; empty array if none fit), key_features (array), confidence (object, lower values since no vision), exit_price (null if not stated), playbook_suggestion (object with name/description/why_missing if a credible new pattern emerges, else null), critique: { grade, strengths, weaknesses, rr_assessment, suggested_pre_grade }.
+
+Do not invent numbers — use null if the trader did not give a value.
+Do not invent setup labels — only use names from the playbook above; if nothing fits, leave setup_types empty and optionally fill playbook_suggestion.`;
     const user = `Trade description: "${description}"`;
     // Use callClaude() (not _callLocal) so this routes properly:
     //   - Local mode ON       → localhost shim / tunnel

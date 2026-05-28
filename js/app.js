@@ -487,6 +487,20 @@ const App = (() => {
           ${conf('setup')}
         </div>
 
+        ${r.playbook_suggestion && r.playbook_suggestion.name ? `
+          <div class="scan-pb-suggest" style="margin-top:10px;padding:10px 12px;border:1px dashed var(--accent);border-radius:8px;background:var(--accent-soft)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:1.1em">💡</span>
+              <strong style="color:var(--accent)">New playbook entry suggested</strong>
+            </div>
+            <div style="font-weight:600;margin-bottom:4px">${esc(r.playbook_suggestion.name)}</div>
+            <div class="text-sm text-sub" style="margin-bottom:6px">${esc(r.playbook_suggestion.description || '')}</div>
+            ${r.playbook_suggestion.why_missing ? `<div class="text-xs text-dim" style="margin-bottom:8px">Why missing: ${esc(r.playbook_suggestion.why_missing)}</div>` : ''}
+            <button class="btn-primary btn-sm" onclick="App._scanAddPlaybookSuggestion()">＋ Add to playbook</button>
+            <button class="btn-ghost btn-sm" onclick="App._scanDismissPlaybookSuggestion(this)">Dismiss</button>
+          </div>
+        ` : ''}
+
         ${r.key_features?.length ? `<ul class="scan-features">${r.key_features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
 
         <div class="scan-critique">
@@ -506,6 +520,45 @@ const App = (() => {
       </div>`;
     $('scanStage1').classList.add('hidden');
     $('scanStage2').classList.remove('hidden');
+  }
+
+  // Add the AI's suggested new playbook entry from the scan result.
+  // Auto-attaches the new entry's name to the current trade's setup_types
+  // so the next "Edit & Save Trade" picks it up. Idempotent — clicking
+  // twice doesn't add duplicates (we match by case-insensitive name).
+  function _scanAddPlaybookSuggestion() {
+    if (!_pendingScan || !_pendingScan.playbook_suggestion) return;
+    const sug = _pendingScan.playbook_suggestion;
+    const name = (sug.name || '').trim();
+    if (!name) { toast('Suggestion has no name', 'error'); return; }
+    const existing = DB.getPlaybook().find(s =>
+      (s.name || '').toLowerCase() === name.toLowerCase()
+    );
+    if (existing) {
+      toast(`"${name}" already in playbook`, 'warn');
+    } else {
+      DB.addSetup({
+        name,
+        description: sug.description || '',
+        rules: '',
+        screenshotUrl: '',
+      });
+      toast(`✓ Added "${name}" to playbook`, 'success');
+    }
+    // Auto-attach to this trade's setup_types so the form prefill includes it
+    const types = _pendingScan.setup_types || [];
+    if (!types.some(t => t.toLowerCase() === name.toLowerCase())) {
+      _pendingScan.setup_types = [...types, name];
+    }
+    // Clear the suggestion + re-render
+    _pendingScan.playbook_suggestion = null;
+    _renderScanResult(_pendingScan);
+  }
+
+  function _scanDismissPlaybookSuggestion(btn) {
+    if (_pendingScan) _pendingScan.playbook_suggestion = null;
+    const block = btn?.closest('.scan-pb-suggest');
+    if (block) block.remove();
   }
 
   function _scanCommit() {
@@ -1386,6 +1439,8 @@ Please analyse:
     _scanAnalyzeLocal,
     _scanReset,
     _scanCommit,
+    _scanAddPlaybookSuggestion,
+    _scanDismissPlaybookSuggestion,
   };
 
 })();
