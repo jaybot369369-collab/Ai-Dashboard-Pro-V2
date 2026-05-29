@@ -86,7 +86,6 @@ const Lock = (() => {
           <span class="lock-dot" id="ld0"></span>
           <span class="lock-dot" id="ld1"></span>
           <span class="lock-dot" id="ld2"></span>
-          <span class="lock-dot" id="ld3"></span>
         </div>
         <div class="lock-err" id="lockErr"></div>
         <div class="lock-pad">
@@ -102,7 +101,7 @@ const Lock = (() => {
   }
 
   function _updateDots() {
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       const dot = document.getElementById('ld' + i);
       if (dot) dot.classList.toggle('filled', i < _entry.length);
     }
@@ -116,10 +115,10 @@ const Lock = (() => {
       if (err) err.textContent = '';
       return;
     }
-    if (_entry.length >= 4) return;
+    if (_entry.length >= 3) return;
     _entry += String(k);
     _updateDots();
-    if (_entry.length === 4) {
+    if (_entry.length === 3) {
       const ok = await verify(_entry);
       if (ok) {
         hide();

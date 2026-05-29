@@ -597,17 +597,17 @@ const ProToolsTab = (() => {
     return `<div class="pro-section">
       <h3 class="pro-section-hdr">🔐 PIN Lock</h3>
       <p class="text-sub" style="font-size:.85rem;margin:0 0 14px">
-        Protect the dashboard with a 4-digit PIN. Lock screen appears on every page load and after idle timeout.
+        Protect the dashboard with a 3-digit PIN. Lock screen appears on every page load and after idle timeout.
         ${!pinSet ? '' : '<br><strong style="color:var(--green)">✅ PIN is active</strong>'}
       </p>
       <div class="ai-grid">
         <div class="form-group">
           <label>${pinSet ? 'Change PIN' : 'Set PIN'}</label>
-          <input type="password" id="pinA" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="New 4-digit PIN" style="letter-spacing:.3em;font-size:1.2rem" />
+          <input type="password" id="pinA" maxlength="3" inputmode="numeric" pattern="[0-9]*" placeholder="New 3-digit PIN" style="letter-spacing:.3em;font-size:1.2rem" />
         </div>
         <div class="form-group">
           <label>Confirm PIN</label>
-          <input type="password" id="pinB" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="Repeat PIN" style="letter-spacing:.3em;font-size:1.2rem" />
+          <input type="password" id="pinB" maxlength="3" inputmode="numeric" pattern="[0-9]*" placeholder="Repeat PIN" style="letter-spacing:.3em;font-size:1.2rem" />
         </div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -633,7 +633,7 @@ const ProToolsTab = (() => {
     document.getElementById('pinSetBtn')?.addEventListener('click', async () => {
       const a = document.getElementById('pinA').value.trim();
       const b = document.getElementById('pinB').value.trim();
-      if (!/^\d{4}$/.test(a)) { status.textContent = '⚠ PIN must be exactly 4 digits'; status.style.color = 'var(--red)'; return; }
+      if (!/^\d{3}$/.test(a)) { status.textContent = '⚠ PIN must be exactly 3 digits'; status.style.color = 'var(--red)'; return; }
       if (a !== b) { status.textContent = '⚠ PINs do not match'; status.style.color = 'var(--red)'; return; }
       await Lock.setup(a);
       if (typeof toast === 'function') toast('PIN saved — active on next load', 'success');
