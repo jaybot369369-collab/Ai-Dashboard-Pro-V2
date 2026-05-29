@@ -343,6 +343,35 @@ const FundTab = (() => {
     </table></div>`;
   }
 
+  /* ── price move % for a closed trade ──────────────────── */
+  // close_price is null for TP/SL exits (P&L is R-derived, not price-derived),
+  // so we reconstruct the effective price move from the strategy's exit levels.
+  // risk distance comes from TP1 (fixed at +1.5R) because the stored `stop`
+  // slides to break-even after the partial and can't be trusted for sizing.
+  // Returned %; profit-signed (positive = trade made money, matching P&L).
+  function _movePct(t) {
+    const entry = Number(t.entry);
+    const tp1   = Number(t.tp1);
+    if (!isFinite(entry) || entry === 0 || !isFinite(tp1)) return null;
+    const riskPrice = Math.abs(entry - tp1) / 1.5;   // M3 TP1 = +1.5R
+    if (!isFinite(riskPrice) || riskPrice === 0) return null;
+    const reason = t.close_reason || '';
+    let r;
+    if (reason === 'full_win')                            r = 2.25;
+    else if (reason === 'sl_after_partial' ||
+             reason === 'partial_sl_be')                  r = 0.75;
+    else if (reason === 'sl_hit')                         r = -1.0;
+    else if (reason === 'forced' && t.close_price != null) {
+      const move = (t.direction === 'bull' || t.direction === 'long')
+        ? (Number(t.close_price) - entry) : (entry - Number(t.close_price));
+      const realized = move / riskPrice;
+      r = t.partial_done ? (0.75 + 0.5 * realized) : realized;
+    } else if (Number(t.dollar_risk) > 0) {
+      r = Number(t.net_pnl) / Number(t.dollar_risk);    // gross-approx fallback
+    } else return null;
+    return r * riskPrice / entry * 100;
+  }
+
   /* ── recent closed trades ────────────────────────────── */
   function _recentTradesHTML() {
     const rows = [];
@@ -367,11 +396,13 @@ const FundTab = (() => {
       <thead><tr>
         <th>Closed</th><th>Bot</th><th>Sym</th><th>Dir</th>
         <th>Entry</th><th>Exit</th><th>Reason</th>
-        <th>P&L</th><th>Bars</th><th>Bal after</th>
+        <th>P&L</th><th title="Net price move in the trade's favour, % of entry">Move %</th><th>Bars</th><th>Bal after</th>
       </tr></thead>
       <tbody>${limited.map(t => {
         const pnl = Number(t.net_pnl) || 0;
         const pnlCls = pnl > 0 ? 'bf-pnl-pos' : pnl < 0 ? 'bf-pnl-neg' : 'bf-pnl-flat';
+        const mv = _movePct(t);
+        const mvCls = mv === null ? '' : mv > 0 ? 'bf-pnl-pos' : mv < 0 ? 'bf-pnl-neg' : 'bf-pnl-flat';
         const reasonCls = (t.close_reason || '').includes('win') ? 'bf-pnl-pos'
                         : (t.close_reason || '').includes('loss') ? 'bf-pnl-neg' : '';
         return `<tr>
@@ -383,6 +414,7 @@ const FundTab = (() => {
           <td>${esc(t.close_price ?? '—')}</td>
           <td class="${reasonCls}">${esc(t.close_reason || '—')}</td>
           <td class="${pnlCls}">${fmtUsd(pnl)}</td>
+          <td class="${mvCls}">${mv === null ? '—' : (mv > 0 ? '+' : '') + mv.toFixed(2) + '%'}</td>
           <td>${esc(t.bars_held ?? '—')}</td>
           <td>${fmtUsd(t.balance_after)}</td>
         </tr>`;
