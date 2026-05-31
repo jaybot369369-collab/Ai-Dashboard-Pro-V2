@@ -44,10 +44,6 @@ New TRADING-group tab. Manual ICT alignment scanner across BTC/ETH/XRP/SOL/SUI. 
 - ~~No Take Trade button~~ ✅ shipped (prefills modal with SL=1% placeholder)
 - ~~No direction filter~~ ✅ shipped (All/Bulls/Bears + Setups ≥ N pills)
 - ~~No sticky table header~~ ✅ shipped (`.conf-table-wrap` overflow + sticky th)
-- Universe still 5 assets — skipped per user direction (item #11)
-- Take Trade SL placeholder is 1%, not the detected OB low/high yet
-- Hit-rate threshold is generic 1×ATR / 4h — not your actual SL/TP per-trade
-- No "Clear history" / "Reset calls" button — user wipes localStorage manually
 
 ---
 
