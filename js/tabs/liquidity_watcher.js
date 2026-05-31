@@ -13,7 +13,6 @@ const LiquidityWatcherTab = (() => {
     ? (localStorage.getItem('lw_remote_url') || 'http://127.0.0.1:8766')
     : (window.location.origin + '/lw');
   const TFS = ['15m', '4h', 'D', 'W'];
-  const HARD_FLOOR = new Set(['BTC', 'ETH', 'SOL']);  // mirrors data/universe.py — can't be removed
   let _activeTf = 'D';
   let _refreshTimer = null;
   let _lastScores = null;
@@ -296,7 +295,6 @@ const LiquidityWatcherTab = (() => {
       ? (topHint.kind === 'bear' ? '#ef4444' : topHint.kind === 'bull' ? '#22c55e' : topHint.kind === 'organic' ? '#22c55e' : '#f59e0b')
       : '';
 
-    const canRemove = !HARD_FLOOR.has(asset);
     return `<tr class="lw-row">
       <td class="lw-td-asset">
         <div style="display:flex;align-items:center;gap:8px">
@@ -305,7 +303,7 @@ const LiquidityWatcherTab = (() => {
             <div style="font-weight:600;font-size:13px">${esc(asset)}/USDT</div>
             ${topHint ? `<div style="font-size:11px;color:${hintColor};margin-top:2px">${esc(topHint.tag)} — ${esc(topHint.hint)}</div>` : ''}
           </div>
-          ${canRemove ? `<button class="lw-remove-asset" data-asset="${esc(asset)}" title="Remove ${esc(asset)} from the watchlist">✕</button>` : ''}
+          <button class="lw-remove-asset" data-asset="${esc(asset)}" title="Remove ${esc(asset)} from the watchlist">✕</button>
         </div>
       </td>
       <td class="lw-td-score">${_scoreBar(score)}</td>
