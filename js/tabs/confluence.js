@@ -600,10 +600,6 @@ const ConfluenceTab = (() => {
   async function _refresh({ quiet = false } = {}) {
     const root = document.getElementById('confluenceRoot');
     if (!root) return;
-    if (!quiet) {
-      const lastUpdEl = document.getElementById('confLastUpd');
-      if (lastUpdEl) lastUpdEl.textContent = 'fetching…';
-    }
 
     // Snapshot prev for alert comparison BEFORE we overwrite
     const prevSnap = _loadPerTF()[_anchorTF];
@@ -901,8 +897,6 @@ const ConfluenceTab = (() => {
     const root = document.getElementById('confluenceRoot');
     if (!root || !_lastRun) return;
     const { ts, results, lwOk, dailyOk, btcShock, macroGuard } = _lastRun;
-    const aligned = results.filter(r => r.score != null && (r.score >= 65 || r.score <= 35)).length;
-    const kz = ICTDetect.activeKillzone();
     const hr = _hitRateSummary();
 
     // Banners
@@ -925,26 +919,6 @@ const ConfluenceTab = (() => {
       return true;
     };
     const filteredResults = results.filter(filterApplies);
-
-    const kpiHtml = `
-      <div class="kpi-row" style="margin-bottom:16px">
-        <div class="kpi-card">
-          <div class="kpi-ic kpi-1">🎯</div>
-          <div class="kpi-body"><div class="kpi-val">${results.length}</div><div class="kpi-lbl">Tracked</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-ic kpi-2">⚡</div>
-          <div class="kpi-body"><div class="kpi-val ${aligned ? 'pos' : ''}">${aligned}</div><div class="kpi-lbl">Aligned ≥65 / ≤35</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-ic kpi-3">⏱️</div>
-          <div class="kpi-body"><div class="kpi-val">${kz || 'Off'}</div><div class="kpi-lbl">Killzone</div></div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-ic kpi-4">🛰</div>
-          <div class="kpi-body"><div class="kpi-val" id="confLastUpd">${timeAgo(ts)}</div><div class="kpi-lbl">Last update</div></div>
-        </div>
-      </div>`;
 
     const agreement = _crossTFAgreement();
 
@@ -1001,7 +975,6 @@ const ConfluenceTab = (() => {
       </div>`;
 
     root.innerHTML = `
-      ${kpiHtml}
       ${bannersHtml}
       <div class="card conf-card">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
