@@ -5768,6 +5768,43 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 }
 .conf-tv-link:hover { opacity: 1; }
 
+/* Per-row remove ✕ (mirror of .lw-remove-asset) */
+.conf-remove-sym {
+  margin-left: 6px;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  vertical-align: middle;
+  border: 1px solid rgba(239,68,68,.4);
+  background: rgba(239,68,68,.12);
+  color: #ef4444;
+  border-radius: 6px;
+  font-size: 11px; line-height: 1;
+  cursor: pointer;
+  opacity: .45;
+  transition: opacity .15s, background .15s, color .15s;
+}
+.conf-row:hover .conf-remove-sym { opacity: .9; }
+.conf-remove-sym:hover { opacity: 1; background: #ef4444; color: #fff; }
+.conf-remove-sym:disabled { opacity: .35; cursor: default; }
+
+/* Add-ticker form (page-head) */
+.conf-add-form {
+  display: flex; align-items: center; gap: 8px;
+  margin: -2px 0 12px;
+}
+.conf-add-form input {
+  flex: 0 1 240px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card, #fff);
+  color: var(--text);
+  font-size: 13px;
+}
+.conf-add-status { font-size: 12px; color: var(--muted); }
+.conf-reset-link { font-size: 12px; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.conf-reset-link:hover { color: var(--text); }
+
 /* Take trade button in price cell */
 .conf-px-cell {
   display: flex;

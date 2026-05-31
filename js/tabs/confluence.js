@@ -7,7 +7,46 @@
 ════════════════════════════════════════════════════════════ */
 const ConfluenceTab = (() => {
 
-  const SYMBOLS = ['BTC', 'ETH', 'XRP', 'SOL', 'SUI'];
+  const DEFAULT_SYMBOLS = ['BTC', 'ETH', 'XRP', 'SOL', 'SUI'];
+  const LS_SYMBOLS = 'jb_conf_symbols';
+
+  // User-editable watchlist, persisted to localStorage. Falls back to the
+  // canonical 5 when unset/corrupt. Add via the +Add form, remove via the
+  // per-row ✕ — fully browser-side (no server, unlike the LW universe).
+  function _symbols() {
+    try {
+      const raw = localStorage.getItem(LS_SYMBOLS);
+      if (!raw) return DEFAULT_SYMBOLS.slice();
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length && arr.every(x => typeof x === 'string')) {
+        return arr.map(x => x.toUpperCase());
+      }
+    } catch (_) {}
+    return DEFAULT_SYMBOLS.slice();
+  }
+  function _saveSymbols(arr) {
+    const seen = new Set();
+    const clean = [];
+    for (const x of arr) {
+      const s = (x || '').toUpperCase().trim();
+      if (s && !seen.has(s)) { seen.add(s); clean.push(s); }
+    }
+    try { localStorage.setItem(LS_SYMBOLS, JSON.stringify(clean)); } catch (_) {}
+    return clean;
+  }
+  function _isDefaultSymbols() {
+    const s = _symbols();
+    return s.length === DEFAULT_SYMBOLS.length && s.every((x, i) => x === DEFAULT_SYMBOLS[i]);
+  }
+  // Normalise a pasted pair to its base symbol: 'HBARUSDC' -> 'HBAR'.
+  // Longest suffixes first so USDC/USDT win over USD (mirror of universe.py).
+  function _stripQuote(s) {
+    let a = (s || '').toUpperCase().trim();
+    for (const suf of ['USDT', 'USDC', 'PERP', 'USD']) {
+      if (a.endsWith(suf) && a.length > suf.length) return a.slice(0, -suf.length);
+    }
+    return a;
+  }
   const TFS = ['15m', '1h', '4h'];
   const BINANCE = 'https://api.binance.com/api/v3/klines';
   // LW deep detectors: localhost direct, Railway via nginx /lw/ proxy
@@ -538,11 +577,12 @@ const ConfluenceTab = (() => {
   function _crossTFAgreement() {
     const perTF = _loadPerTF();
     const summary = {};
-    for (const sym of SYMBOLS) summary[sym] = { bull: 0, bear: 0, neutral: 0, totalSeen: 0, anchors: {} };
+    const syms = _symbols();
+    for (const sym of syms) summary[sym] = { bull: 0, bear: 0, neutral: 0, totalSeen: 0, anchors: {} };
     for (const tf of TF_OPTIONS) {
       const snap = perTF[tf];
       if (!snap || !snap.scores) continue;
-      for (const sym of SYMBOLS) {
+      for (const sym of syms) {
         const s = snap.scores[sym];
         if (!s || s.score == null) continue;
         summary[sym].totalSeen += 1;
@@ -574,7 +614,7 @@ const ConfluenceTab = (() => {
     ]);
     const macroGuard = _macroGuardActive();
 
-    const results = await Promise.all(SYMBOLS.map(s => _scoreAsset(s, daily, lw, btcShock)));
+    const results = await Promise.all(_symbols().map(s => _scoreAsset(s, daily, lw, btcShock)));
 
     // sort by most extreme score (distance from 50), tiebreak fired count
     results.sort((a, b) => {
@@ -704,7 +744,7 @@ const ConfluenceTab = (() => {
         const nGood = snap2 && snap2.scores
           ? Object.values(snap2.scores).filter(s => s && s.score != null).length
           : 0;
-        console.log(`[confluence] pull-all ${tf} saved · ${nGood}/${SYMBOLS.length} symbols scored`);
+        console.log(`[confluence] pull-all ${tf} saved · ${nGood}/${_symbols().length} symbols scored`);
       } catch (e) {
         console.warn('[confluence] pull-all', tf, e?.message);
       }
@@ -910,7 +950,7 @@ const ConfluenceTab = (() => {
 
     const rows = filteredResults.map((r, i) => {
       if (r.score == null) {
-        return `<tr class="conf-row"><td>${i+1}</td><td>${esc(r.sym)}</td><td colspan="9" class="muted">${esc(r.error || 'no data')}</td></tr>`;
+        return `<tr class="conf-row"><td>${i+1}</td><td class="conf-sym"><span>${esc(r.sym)}</span><button class="conf-remove-sym" data-rm="${esc(r.sym)}" title="Remove ${esc(r.sym)} from the scan" onclick="event.stopPropagation()">✕</button></td><td colspan="8" class="muted">${esc(r.error || 'no data')}</td></tr>`;
       }
       const isExpanded = _expandedSym === r.sym;
       const hist = _historyForSym(r.sym, _anchorTF, 8);
@@ -921,6 +961,7 @@ const ConfluenceTab = (() => {
           <td class="conf-sym">
             <span>${esc(r.sym)}</span>
             <a class="conf-tv-link" href="https://www.tradingview.com/symbols/${esc(r.sym)}USDT/" target="_blank" rel="noopener" title="Open ${esc(r.sym)} on TradingView" onclick="event.stopPropagation()">📊</a>
+            <button class="conf-remove-sym" data-rm="${esc(r.sym)}" title="Remove ${esc(r.sym)} from the scan" onclick="event.stopPropagation()">✕</button>
           </td>
           <td>${_dirBadge(r.dir, r.score)}</td>
           <td>${_scoreBar(r.score)}</td>
@@ -995,6 +1036,24 @@ const ConfluenceTab = (() => {
         const sym = tr.dataset.sym;
         _expandedSym = (_expandedSym === sym) ? null : sym;
         _renderTable();
+      });
+    });
+
+    // Per-row remove ✕ — drop from watchlist + prune the cached run so the
+    // row disappears immediately (analog of the LW _prune_latest fix).
+    root.querySelectorAll('.conf-remove-sym').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sym = btn.dataset.rm;
+        if (!sym) return;
+        if (!confirm(`Remove ${sym} from the scan?\n\nIt'll be gone until you re-add it via the box up top.`)) return;
+        _saveSymbols(_symbols().filter(x => x !== sym));
+        if (_expandedSym === sym) _expandedSym = null;
+        if (_lastRun && Array.isArray(_lastRun.results)) {
+          _lastRun.results = _lastRun.results.filter(r => r.sym !== sym);
+          try { localStorage.setItem(LS_LAST_RUN, JSON.stringify(_lastRun)); } catch (_) {}
+        }
+        render();
       });
     });
 
@@ -1524,7 +1583,7 @@ const ConfluenceTab = (() => {
       <div class="page-head">
         <div>
           <h1 class="page-title">Confluence</h1>
-          <p class="page-sub">Manual ICT alignment scan · BTC · ETH · XRP · SOL · SUI</p>
+          <p class="page-sub">Manual ICT alignment scan · ${esc(_symbols().join(' · '))}</p>
         </div>
         <div class="page-actions">
           <div class="conf-tf-row" role="group" aria-label="Anchor timeframe">
@@ -1538,12 +1597,60 @@ const ConfluenceTab = (() => {
       <div class="conf-tf-stack muted" style="font-size:.78rem;margin:-6px 0 10px">
         Scanning: <strong>${ltf}</strong> (entry) · <strong>${mtf}</strong> (mid) · <strong>${htf}</strong> (bias). Switch TF, then Pull Data.
       </div>
+      <form id="confAddForm" class="conf-add-form">
+        <input id="confAddInput" type="text" autocomplete="off" spellcheck="false"
+               placeholder="add ticker (e.g. ADA, LINKUSDT)…" />
+        <button type="submit" id="confAddBtn" class="btn-soft">+ Add</button>
+        <span id="confAddStatus" class="conf-add-status"></span>
+        ${_isDefaultSymbols() ? '' : '<a href="#" id="confResetSyms" class="conf-reset-link">Reset to defaults</a>'}
+      </form>
       <div id="confPullProgress" class="conf-progress muted" style="display:none"></div>
       <div id="confluenceRoot"></div>
       ${GUIDE_HTML}
       ${_renderAlertSettings()}`;
 
     document.getElementById('confRefreshBtn').addEventListener('click', _pullData);
+
+    // Add-ticker form — probe live klines before accepting (typos rejected)
+    const addForm = document.getElementById('confAddForm');
+    if (addForm) {
+      const input  = document.getElementById('confAddInput');
+      const addBtn = document.getElementById('confAddBtn');
+      const status = document.getElementById('confAddStatus');
+      const setStatus = (msg, color) => { if (status) { status.textContent = msg || ''; status.style.color = color || 'var(--muted)'; } };
+      addForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const base = _stripQuote(input.value);
+        if (!base) return;
+        if (!/^[A-Z0-9]{1,12}$/.test(base)) { setStatus('invalid symbol', '#ef4444'); return; }
+        if (_symbols().includes(base)) { setStatus(`already tracking ${base}`, 'var(--muted)'); return; }
+        addBtn.disabled = true;
+        setStatus(`checking ${base}…`, 'var(--muted)');
+        try {
+          const probe = await _fetchKlines(base, TF_SETS[_anchorTF].ltf);
+          if (!probe || probe.length < 50) {
+            setStatus(`${base} not found on Bybit/Binance/OKX`, '#ef4444');
+            addBtn.disabled = false;
+            return;
+          }
+          _saveSymbols([..._symbols(), base]);
+          setStatus(`✓ added ${base}`, '#22c55e');
+          input.value = '';
+          render();
+          _pullData();
+        } catch (err) {
+          setStatus('network error', '#ef4444');
+          addBtn.disabled = false;
+        }
+      });
+      const resetLink = document.getElementById('confResetSyms');
+      if (resetLink) resetLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        try { localStorage.removeItem(LS_SYMBOLS); } catch (_) {}
+        render();
+      });
+    }
+
     document.getElementById('confAutoBtn').addEventListener('click', () => {
       _autoOn = !_autoOn;
       localStorage.setItem('jb_conf_auto', _autoOn ? 'on' : 'off');
