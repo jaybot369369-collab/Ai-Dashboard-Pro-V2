@@ -525,12 +525,23 @@ ${JSON.stringify(trades.map(t => ({
 
     if (!trades.length) throw new Error(`No trades found in ${from} → ${to}`);
 
-    const system = `You are a structured trading coach. Generate a weekly performance review as clean HTML (no <html>/<body> tags, just inline content). Use sections:
-1. <h3>📊 Summary</h3> — total trades, win rate, P&L, best/worst day
-2. <h3>✅ Best setup</h3> — which setup performed best, why likely
-3. <h3>⚠️ Worst setup / rule violations</h3> — what to avoid
-4. <h3>🎯 3 focus areas for next week</h3> — concrete actions
-Use <p>, <ul>, <li>, <strong>. Keep it punchy.`;
+    const system = `You are a structured trading coach. Generate a weekly performance review in MARKDOWN ONLY — no HTML tags, no big monolithic tables. The goal is a light, staggered, easy-to-scan report with breathing room.
+
+Use these EXACT section headers in this order, each on its own line, separated by a blank line:
+
+## 📊 Snapshot
+## 📅 Day by day
+## ✅ What worked
+## ⚠️ What hurt
+## 🎯 3 focus areas for next week
+
+Rules for each section:
+- 📊 Snapshot: 4–6 short bullets in "- **Label:** value" form (Trades, Win rate, Net P&L, Best day, Worst day). Bullets only — do NOT use a table.
+- 📅 Day by day: one short bullet per trading day, e.g. "- **May 21:** +4.2R, 3 trades, clean execution".
+- ✅ What worked / ⚠️ What hurt: short one-line bullets. Lead each bullet with a relevant emoji and bold the key label.
+- 🎯 3 focus areas: a numbered list (1. 2. 3.) — one concrete action each.
+
+Keep every bullet to a single punchy line. Separate major sections with a blank line. Use **bold** for labels and emojis to make it pop. No paragraphs of prose.`;
 
     const user = `Trades from ${from} to ${to}:
 ${JSON.stringify(trades.map(t => ({
@@ -545,6 +556,105 @@ ${JSON.stringify(trades.map(t => ({
     all.unshift({ weekOf: from, html: text, generated: Date.now() });
     setJ(KEYS.reviews, all.slice(0, 12));
     return { html: text, weekOf: from };
+  }
+
+  /* Self-contained markdown → HTML renderer for the Weekly Review.
+     Escapes first (via esc), then converts headings / bold / italic / code /
+     lists / hr / GitHub-style pipe tables / paragraphs. Built in-module so it
+     doesn't depend on the retired Sensei tab (whose parser lacks tables). */
+  function _reviewMd(src) {
+    if (!src) return '';
+    // If the text is already HTML (legacy reviews generated under the old
+    // "clean HTML" prompt), pass it through untouched.
+    if (/<(h3|h4|ul|ol|li|p|table|strong|em)\b/i.test(src)) return src;
+
+    const inline = s => esc(s)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    const lines = String(src).replace(/\r\n/g, '\n').split('\n');
+    const out = [];
+    let i = 0;
+    const closeList = (tag) => { if (tag) out.push(`</${tag}>`); };
+
+    while (i < lines.length) {
+      let line = lines[i];
+      const trimmed = line.trim();
+
+      // blank
+      if (!trimmed) { i++; continue; }
+
+      // horizontal rule
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { out.push('<hr>'); i++; continue; }
+
+      // headings
+      let m;
+      if ((m = trimmed.match(/^(#{1,6})\s+(.*)$/))) {
+        const level = m[1].length;
+        const tag = level <= 2 ? 'h3' : 'h4';
+        out.push(`<${tag}>${inline(m[2])}</${tag}>`);
+        i++; continue;
+      }
+
+      // pipe table: header row + separator row of dashes
+      if (/^\|.*\|$/.test(trimmed) && i + 1 < lines.length &&
+          /^\|?[\s:|-]+\|?$/.test(lines[i + 1].trim()) &&
+          lines[i + 1].includes('-')) {
+        const splitRow = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+        const headers = splitRow(trimmed);
+        i += 2; // skip header + separator
+        const rows = [];
+        while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) {
+          rows.push(splitRow(lines[i].trim()));
+          i++;
+        }
+        let t = '<table class="ai-review-tbl"><thead><tr>';
+        t += headers.map(h => `<th>${inline(h)}</th>`).join('');
+        t += '</tr></thead><tbody>';
+        for (const r of rows) {
+          t += '<tr>' + r.map(c => `<td>${inline(c)}</td>`).join('') + '</tr>';
+        }
+        t += '</tbody></table>';
+        out.push(t);
+        continue;
+      }
+
+      // unordered list
+      if (/^[-*]\s+/.test(trimmed)) {
+        out.push('<ul>');
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+          out.push(`<li>${inline(lines[i].replace(/^\s*[-*]\s+/, ''))}</li>`);
+          i++;
+        }
+        closeList('ul');
+        continue;
+      }
+
+      // ordered list
+      if (/^\d+\.\s+/.test(trimmed)) {
+        out.push('<ol>');
+        while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+          out.push(`<li>${inline(lines[i].replace(/^\s*\d+\.\s+/, ''))}</li>`);
+          i++;
+        }
+        closeList('ol');
+        continue;
+      }
+
+      // paragraph — gather consecutive non-blank, non-special lines
+      const para = [];
+      while (i < lines.length) {
+        const t2 = lines[i].trim();
+        if (!t2) break;
+        if (/^(#{1,6})\s+/.test(t2) || /^[-*]\s+/.test(t2) || /^\d+\.\s+/.test(t2) ||
+            /^(-{3,}|\*{3,}|_{3,})$/.test(t2) || /^\|.*\|$/.test(t2)) break;
+        para.push(t2);
+        i++;
+      }
+      if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`);
+    }
+    return out.join('\n');
   }
 
   /* ══════════════════════════════════════════════════════
@@ -706,7 +816,7 @@ ${JSON.stringify(trades.map(t => ({
       ${latest ? `
         <div class="ai-review" style="margin-top:14px">
           <div class="text-sub" style="font-size:.78rem;margin-bottom:8px">Week of ${esc(latest.weekOf)} · generated ${new Date(latest.generated).toLocaleString()}</div>
-          <div class="ai-review-body">${latest.html}</div>
+          <div class="ai-review-body">${_reviewMd(latest.html)}</div>
         </div>
       ` : ''}
       ${all.length > 1 ? `<details style="margin-top:14px"><summary class="text-sub" style="cursor:pointer;font-size:.82rem">Past reviews (${all.length-1})</summary>
@@ -1132,7 +1242,7 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
       const w = window.open('', '_blank');
       // weekOf is whitelisted (regex above) so it's safe in <title>; html is
       // intentional rendered AI output (see audit deferred note).
-      w.document.write(`<html><head><title>Review · Week of ${weekOf}</title><style>body{font-family:system-ui;max-width:720px;margin:30px auto;padding:0 20px;line-height:1.55;color:#222}h3{margin-top:24px;color:#0a3}</style></head><body>${r.html}</body></html>`);
+      w.document.write(`<html><head><title>Review · Week of ${weekOf}</title><style>body{font-family:system-ui;max-width:720px;margin:30px auto;padding:0 20px;line-height:1.65;color:#222}h3{margin:24px 0 8px;color:#0a3;border-bottom:1px solid #eee;padding-bottom:4px}h4{margin:16px 0 6px;color:#444}ul,ol{margin:6px 0 12px 22px}li{margin:5px 0}hr{border:0;border-top:1px solid #ddd;margin:18px 0}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5}</style></head><body>${_reviewMd(r.html)}</body></html>`);
       w.document.close();
     },
   };

@@ -2456,17 +2456,63 @@ input.date-picker::-webkit-calendar-picker-indicator {
 }
 
 .ai-review {
-  background: var(--bg);
+  background: var(--surface, var(--bg));
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 20px 22px;
 }
-.ai-review-body { line-height: 1.55; font-size: .92rem; }
-.ai-review-body h3 { margin: 18px 0 6px; font-size: 1rem; color: var(--accent); }
+.ai-review-body { line-height: 1.65; font-size: .92rem; }
+
+/* Section headers — staggered, spaced, accent rule under each */
+.ai-review-body h3 {
+  margin: 22px 0 10px;
+  font-size: 1.05rem;
+  color: var(--accent);
+  letter-spacing: .2px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
 .ai-review-body h3:first-child { margin-top: 0; }
-.ai-review-body ul { margin: 4px 0 8px 20px; }
-.ai-review-body li { margin: 3px 0; }
-.ai-review-body strong { color: var(--text); }
+.ai-review-body h4 {
+  margin: 16px 0 6px;
+  font-size: .95rem;
+  color: var(--text);
+}
+.ai-review-body p { margin: 8px 0; }
+.ai-review-body hr { border: 0; border-top: 1px solid var(--border); margin: 18px 0; }
+
+/* Lists — comfortable indent + breathing room */
+.ai-review-body ul,
+.ai-review-body ol { margin: 8px 0 14px 22px; padding: 0; }
+.ai-review-body li { margin: 5px 0; }
+.ai-review-body ul li::marker { color: var(--accent); }
+.ai-review-body ol li::marker { color: var(--accent); font-weight: 700; }
+
+/* Snapshot "stat" look — muted label, bold value */
+.ai-review-body strong { color: var(--text); font-weight: 700; }
+.ai-review-body li strong { color: var(--muted, var(--text)); font-weight: 600; }
+.ai-review-body code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .85em;
+}
+
+/* Any table that slips through still looks clean */
+.ai-review-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 14px;
+  font-size: .9rem;
+}
+.ai-review-tbl td,
+.ai-review-tbl th {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.ai-review-tbl th { background: var(--bg); color: var(--text); font-weight: 700; }
 
 .ai-autotag-out {
   background: var(--bg-card);
