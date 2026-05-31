@@ -4864,6 +4864,22 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 .lw-row:hover td { background: var(--surface2); }
 .lw-td-asset { white-space: nowrap; }
 .lw-td-score { min-width: 140px; }
+.lw-remove-asset {
+  margin-left: auto;
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(239,68,68,.4);
+  background: rgba(239,68,68,.12);
+  color: #ef4444;
+  border-radius: 6px;
+  font-size: 12px; line-height: 1;
+  cursor: pointer;
+  opacity: .85;
+  transition: opacity .15s, background .15s;
+}
+.lw-remove-asset:hover { opacity: 1; background: #ef4444; color: #fff; }
+.lw-remove-asset:disabled { opacity: .4; cursor: default; }
 
 /* Chips */
 .lw-chip {

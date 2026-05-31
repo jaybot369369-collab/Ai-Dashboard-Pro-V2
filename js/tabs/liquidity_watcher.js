@@ -13,6 +13,7 @@ const LiquidityWatcherTab = (() => {
     ? (localStorage.getItem('lw_remote_url') || 'http://127.0.0.1:8766')
     : (window.location.origin + '/lw');
   const TFS = ['15m', '4h', 'D', 'W'];
+  const HARD_FLOOR = new Set(['BTC', 'ETH', 'SOL']);  // mirrors data/universe.py — can't be removed
   let _activeTf = 'D';
   let _refreshTimer = null;
   let _lastScores = null;
@@ -295,6 +296,7 @@ const LiquidityWatcherTab = (() => {
       ? (topHint.kind === 'bear' ? '#ef4444' : topHint.kind === 'bull' ? '#22c55e' : topHint.kind === 'organic' ? '#22c55e' : '#f59e0b')
       : '';
 
+    const canRemove = !HARD_FLOOR.has(asset);
     return `<tr class="lw-row">
       <td class="lw-td-asset">
         <div style="display:flex;align-items:center;gap:8px">
@@ -303,6 +305,7 @@ const LiquidityWatcherTab = (() => {
             <div style="font-weight:600;font-size:13px">${esc(asset)}/USDT</div>
             ${topHint ? `<div style="font-size:11px;color:${hintColor};margin-top:2px">${esc(topHint.tag)} — ${esc(topHint.hint)}</div>` : ''}
           </div>
+          ${canRemove ? `<button class="lw-remove-asset" data-asset="${esc(asset)}" title="Remove ${esc(asset)} from the watchlist">✕</button>` : ''}
         </div>
       </td>
       <td class="lw-td-score">${_scoreBar(score)}</td>
@@ -684,7 +687,15 @@ Traders on different exchanges are positioned completely differently. This means
           </tbody>
         </table>
       </div>
-      <p style="font-size:11px;color:var(--muted-2);margin-top:6px;text-align:right">
+
+      <form id="lwAddForm" style="display:flex;align-items:center;gap:8px;margin:10px 0 4px">
+        <input id="lwAddInput" type="text" autocomplete="off" spellcheck="false"
+          placeholder="add a ticker (e.g. AVAX, LINK)…"
+          style="flex:0 1 260px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card,#fff);color:var(--text);font-size:13px" />
+        <button type="submit" id="lwAddBtn" class="btn-ghost" style="font-size:13px;padding:7px 14px">+ Add</button>
+        <span id="lwAddStatus" style="font-size:12px"></span>
+      </form>
+      <p style="font-size:11px;color:var(--muted-2);margin-top:2px;text-align:right">
         Calm score 0–100: low = stretched / high-risk · HIGH priority = act with caution · data from Bybit, OKX, Deribit
       </p>
 
@@ -712,6 +723,63 @@ Traders on different exchanges are positioned completely differently. This means
     if (el) el.textContent = 'updated ' + new Date().toLocaleTimeString();
   }
 
+  /* ── Add / remove ticker controls (hit LW universe endpoints) ── */
+  function _wireUniverseControls(content) {
+    /* Per-row remove */
+    content.querySelectorAll('.lw-remove-asset').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const asset = btn.dataset.asset;
+        if (!asset) return;
+        if (!confirm(`Remove ${asset} from the watchlist?\n\nIt'll be hidden until you re-add it via the box below.`)) return;
+        btn.disabled = true;
+        try {
+          const r = await fetch(`${API}/api/universe/remove`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            mode: 'cors', body: JSON.stringify({ asset }),
+          });
+          const d = await r.json();
+          if (!d.ok) { alert(`Couldn't remove ${asset}: ${d.error || 'unknown error'}`); btn.disabled = false; return; }
+          if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+          render();
+        } catch (err) {
+          alert(`Network error: ${err.message}`); btn.disabled = false;
+        }
+      });
+    });
+
+    /* Add ticker form */
+    const form = content.querySelector('#lwAddForm');
+    const input = content.querySelector('#lwAddInput');
+    const addBtn = content.querySelector('#lwAddBtn');
+    const status = content.querySelector('#lwAddStatus');
+    function setStatus(msg, color) { if (status) { status.textContent = msg || ''; status.style.color = color || 'var(--muted)'; } }
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const asset = (input.value || '').trim().toUpperCase();
+        if (!asset) return;
+        if (!/^[A-Z0-9]{1,12}$/.test(asset.replace('_', ''))) { setStatus('invalid symbol', '#ef4444'); return; }
+        addBtn.disabled = true;
+        setStatus('checking Bybit listing…', 'var(--muted)');
+        try {
+          const r = await fetch(`${API}/api/universe/add`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            mode: 'cors', body: JSON.stringify({ asset }),
+          });
+          const d = await r.json();
+          if (!d.ok) { setStatus(d.error || 'failed', '#ef4444'); addBtn.disabled = false; return; }
+          setStatus(`✓ added ${asset}`, '#22c55e');
+          input.value = '';
+          if (_refreshTimer) { clearInterval(_refreshTimer); _refreshTimer = null; }
+          setTimeout(render, 600);
+        } catch (err) {
+          setStatus('network error', '#ef4444'); addBtn.disabled = false;
+        }
+      });
+    }
+  }
+
   let _retryTimer = null;
 
   async function render() {
@@ -734,6 +802,7 @@ Traders on different exchanges are positioned completely differently. This means
     _lastScores = scoresData;
     content.innerHTML = _liveHTML(health, scoresData);
     _updateTimestamp();
+    _wireUniverseControls(content);
 
     /* TF buttons */
     content.querySelectorAll('.lw-tf-btn').forEach(btn => {
@@ -763,6 +832,7 @@ Traders on different exchanges are positioned completely differently. This means
           const h = await _fetchHealth();
           content.innerHTML = _liveHTML(h || health, fresh);
           _updateTimestamp();
+          _wireUniverseControls(content);
           content.querySelectorAll('.lw-tf-btn').forEach(b => {
             b.addEventListener('click', () => { _activeTf = b.dataset.tf; clearInterval(_refreshTimer); _refreshTimer = null; render(); });
           });
