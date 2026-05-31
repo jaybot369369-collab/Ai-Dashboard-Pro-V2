@@ -399,6 +399,13 @@ const MarketIntelTab = (() => {
     // JSON straight to the Volume so every viewer sees it on next reload
     // (no V2 redeploy needed). Requires ADMIN_API_SECRET prompt on first use.
     const runNowBtn = `<button class="btn-ghost btn-sm" id="miRunNow" title="Run server-side on Railway and broadcast to all dashboards (~3 minutes). Asks for your admin secret on first use.">🚀 Run Now</button>`;
+    // "Run Locally" — only shown when V2 is served from the operator's own Mac
+    // (localhost). Hits the local shim on :8769 which runs the pipeline with
+    // --backend claude-code (Claude Code subscription, NO Anthropic API tokens).
+    const _miIsLocal = ['localhost','127.0.0.1'].includes(window.location.hostname);
+    const localRunBtn = _miIsLocal
+      ? `<button class="btn-ghost btn-sm" id="miLocalRun" title="Refresh via your local Claude Code subscription — no Anthropic API tokens. Requires the local shim running: cd automation && python3 market_intel_local_server.py">🖥️ Run Locally</button>`
+      : '';
 
     content.innerHTML = _pageHead() + `<div class="mi-wrap">
       ${isStale ? `<div class="mi-stale-banner">⚠ Data may be stale — last refresh ${fmtAge(d.generated)} (cron schedule: 2x/day weekdays).</div>` : ''}
@@ -412,6 +419,7 @@ const MarketIntelTab = (() => {
           ${pdfBtn}
           ${fetchBtn}
           ${runNowBtn}
+          ${localRunBtn}
           <button class="btn-ghost btn-sm" onclick="MarketIntelTab._refresh()" title="Re-fetch JSON from server (does NOT call Claude)">↻ Reload</button>
         </div>
         <div class="mi-fetch-status" id="miFetchStatus" hidden></div>
@@ -460,6 +468,12 @@ const MarketIntelTab = (() => {
     const runNowEl = document.getElementById('miRunNow');
     if (runNowEl) {
       runNowEl.addEventListener('click', () => _runNow());
+    }
+
+    // Wire "Run Locally" button (local Claude Code shim — only present on localhost)
+    const localRunEl = document.getElementById('miLocalRun');
+    if (localRunEl) {
+      localRunEl.addEventListener('click', () => _runLocal());
     }
   }
 
