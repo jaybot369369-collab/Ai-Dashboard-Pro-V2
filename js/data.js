@@ -126,6 +126,11 @@ const DB = (() => {
   function filterByRange(trades, rangeStr, from, to) {
     const now = new Date();
     let cutoff = null;
+    if (rangeStr === 'alltime') {
+      // "All time" is anchored to the first-ever trade date (27 Apr 2026).
+      const start = new Date('2026-04-27T00:00:00');
+      return trades.filter(tr => new Date(tr.date) >= start);
+    }
     if (rangeStr === 'custom' && from && to) {
       const f = new Date(from), t2 = new Date(to);
       return trades.filter(tr => {

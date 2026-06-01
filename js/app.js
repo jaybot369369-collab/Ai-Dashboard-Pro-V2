@@ -8,8 +8,10 @@ const App = (() => {
   /* ── State ───────────────────────────────────────────── */
   let currentTab    = 'dashboard';
   let dateRange     = '30';
-  let dateFrom      = '';
+  let dateFrom      = '';   // legacy custom-range fields (UI removed; kept for compat)
   let dateTo        = '';
+  // Single app-wide date-range dropdown options. '7/30/60/90' = days back; 'alltime' = since 27 Apr 2026.
+  const RANGE_LABEL = { '7': '1 week', '30': '1 month', '60': '2 months', '90': '3 months', 'alltime': 'All time' };
   let dataMode      = 'all';   // 'imported' | 'new' | 'all'
   let confirmCallback = null;
 
@@ -222,12 +224,15 @@ const App = (() => {
   function getDataMode() { return dataMode; }
 
   function applyDateFilter(range) {
+    if (!RANGE_LABEL[range]) range = '30';
     dateRange = range;
-    document.querySelectorAll('#dateFilter .date-btn').forEach(btn => {
+    const label = $('dateRangeLabel');
+    if (label) label.textContent = RANGE_LABEL[range];
+    document.querySelectorAll('#dateRangeMenu .pill-menu-item').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.range === range);
     });
-    const customDiv = $('customDates');
-    customDiv.classList.toggle('hidden', range !== 'custom');
+    const menu = $('dateRangeMenu');
+    if (menu) menu.classList.add('hidden');
     DB.saveSettings({ dateRange: range });
     renderTab(currentTab);
   }
@@ -1045,8 +1050,11 @@ const App = (() => {
     applyTweaks();
     wireTweaksPanel();
     dateRange = s.dateRange || '30';
+    if (!RANGE_LABEL[dateRange]) dateRange = '30';   // normalize legacy 'custom'/'1'
     dataMode  = s.dataMode  || 'all';
-    document.querySelectorAll('#dateFilter .date-btn').forEach(btn => {
+    const _drLabel = $('dateRangeLabel');
+    if (_drLabel) _drLabel.textContent = RANGE_LABEL[dateRange];
+    document.querySelectorAll('#dateRangeMenu .pill-menu-item').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.range === dateRange);
     });
     document.querySelectorAll('#dataModeFilter .date-btn').forEach(btn => {
@@ -1094,17 +1102,27 @@ const App = (() => {
       document.getElementById('sidebar').classList.toggle('mobile-open');
     });
 
-    // Date range
-    document.querySelectorAll('#dateFilter .date-btn').forEach(btn => {
-      btn.addEventListener('click', () => applyDateFilter(btn.dataset.range));
-    });
+    // Date range dropdown (single app-wide filter)
+    const _drTrigger = $('dateRangeTrigger');
+    const _drMenu    = $('dateRangeMenu');
+    if (_drTrigger && _drMenu) {
+      _drTrigger.addEventListener('click', e => {
+        e.stopPropagation();
+        _drMenu.classList.toggle('hidden');
+      });
+      _drMenu.querySelectorAll('.pill-menu-item').forEach(btn => {
+        btn.addEventListener('click', () => applyDateFilter(btn.dataset.range));
+      });
+      // Close on outside click
+      document.addEventListener('click', e => {
+        if (!e.target.closest('#dateRangeDD')) _drMenu.classList.add('hidden');
+      });
+    }
 
     // Data mode toggle (Past / New / Both)
     document.querySelectorAll('#dataModeFilter .date-btn').forEach(btn => {
       btn.addEventListener('click', () => applyDataMode(btn.dataset.mode));
     });
-    $('dateFrom').addEventListener('change', e => { dateFrom = e.target.value; if (dateRange === 'custom') renderTab(currentTab); });
-    $('dateTo').addEventListener('change', e => { dateTo = e.target.value; if (dateRange === 'custom') renderTab(currentTab); });
 
     // FAB + sidebar new trade button
     $('fab').addEventListener('click', () => openTradeModal());

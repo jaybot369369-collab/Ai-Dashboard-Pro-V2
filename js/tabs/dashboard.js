@@ -6,10 +6,7 @@ const DashboardTab = (() => {
   let calMonth, calYear;
   let dragStart = null;
   let dragEnd   = null;
-  let _pnlRange = localStorage.getItem('jb_dash_pnlrange') || '30';
   const _charts = [];
-
-  const PNL_LABEL = { '1': 'Last 24 hours', '7': 'Last 7 days', '30': 'Last 30 days' };
 
   function destroyCharts() {
     while (_charts.length) {
@@ -143,8 +140,11 @@ const DashboardTab = (() => {
     destroyCharts();
     const content = document.getElementById('content');
     const allTrades = DB.getTrades();
-    const periodDays = parseInt(_pnlRange) || 30;
-    const pnlTrades  = DB.filterByRange(allTrades, _pnlRange);
+    const { range, from, to } = App.getDateFilter();
+    const periodDays = range === 'alltime'
+      ? Math.max(1, Math.ceil((Date.now() - new Date('2026-04-27')) / 86400000))
+      : (parseInt(range) || 30);
+    const pnlTrades  = DB.filterByRange(allTrades, range, from, to);
     const stats      = DB.calcStats(pnlTrades);
 
     // Previous-period stats for deltas
@@ -187,12 +187,6 @@ const DashboardTab = (() => {
         <div>
           <h1>Overview</h1>
           <div class="sub">${greeting()} · ${todayLabel()}</div>
-        </div>
-        <div class="right">
-          <div class="pill-select" id="dashPeriod">
-            <span>${PNL_LABEL[_pnlRange] || 'Last 30 days'}</span>
-            <span class="chev">▾</span>
-          </div>
         </div>
       </div>
 
@@ -288,7 +282,6 @@ const DashboardTab = (() => {
     drawSetupDonut('setupCanvas', _setupLast);
 
     renderCalendar(DB.dailyPLMap(allTrades));
-    wirePeriodPill();
   }
 
   function kpiCard(idx, icon, value, label, deltaHtml) {
@@ -527,17 +520,6 @@ const DashboardTab = (() => {
     </table></div>`;
   }
 
-  function wirePeriodPill() {
-    const el = document.getElementById('dashPeriod');
-    if (!el) return;
-    el.addEventListener('click', () => {
-      const cycle = { '1': '7', '7': '30', '30': '1' };
-      _pnlRange = cycle[_pnlRange] || '30';
-      localStorage.setItem('jb_dash_pnlrange', _pnlRange);
-      render();
-    });
-  }
-
   /* ── CALENDAR (unchanged behaviour) ─────────────────── */
   function renderCalendar(dlMap) {
     const sec = document.getElementById('calendarSection');
@@ -721,7 +703,6 @@ const DashboardTab = (() => {
   /* ── Public ──────────────────────────────────────────── */
   return {
     render,
-    _setPnlRange: r => { _pnlRange = r; localStorage.setItem('jb_dash_pnlrange', r); render(); },
     _prevMonth: () => {
       calMonth--;
       if (calMonth < 0) { calMonth = 11; calYear--; }

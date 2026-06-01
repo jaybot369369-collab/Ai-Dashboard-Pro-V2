@@ -4737,6 +4737,31 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 .pill-select:hover { border-color: var(--accent); }
 .pill-select .chev { color: var(--muted-2); }
 
+/* Single app-wide date-range dropdown menu */
+.date-range-dd { position: relative; }
+.pill-menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  min-width: 150px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  padding: 6px;
+  z-index: 60;
+  display: flex; flex-direction: column;
+}
+.pill-menu.hidden { display: none; }
+.pill-menu-item {
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13.6px; font-weight: 600;
+  color: var(--text);
+  background: none; border: 0; cursor: pointer;
+}
+.pill-menu-item:hover { background: var(--surface2); }
+.pill-menu-item.active { color: var(--accent); }
+
 /* Hero P&L card */
 .hi-card {
   position: relative;
