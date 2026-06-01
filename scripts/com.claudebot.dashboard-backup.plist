@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Local pull-only backup of the AI Dashboard Pro V2 (Railway).
+  Runs every 5 minutes (StartInterval=300); the script does one pass then exits.
+
+  Install:
+    cp "scripts/com.claudebot.dashboard-backup.plist" ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.claudebot.dashboard-backup.plist
+
+  The script is mirrored to ~/.local/bin/ because macOS TCC blocks launchd from
+  reading ~/Documents/ without Full Disk Access. Canonical source lives in this
+  repo at scripts/dashboard_backup.py. No Full Disk Access is needed: data is
+  pulled over the network (Railway API + GitHub) and written to
+  ~/_2026 Dashboard Backup/, which is outside the TCC-shielded ~/Documents/.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>com.claudebot.dashboard-backup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/claudebot-1/.local/bin/dashboard_backup.py</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>StartInterval</key><integer>300</integer>
+    <key>StandardOutPath</key><string>/tmp/dashboard_backup.log</string>
+    <key>StandardErrorPath</key><string>/tmp/dashboard_backup.log</string>
+    <key>WorkingDirectory</key><string>/Users/claudebot-1/.local/bin</string>
+</dict>
+</plist>

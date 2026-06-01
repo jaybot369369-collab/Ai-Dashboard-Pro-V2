@@ -17,6 +17,7 @@ import base64
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import urllib.request
@@ -69,6 +70,27 @@ def ext_from_http(url, content_type):
     if tail in ("png", "jpg", "jpeg", "webp", "gif", "svg"):
         return "jpg" if tail == "jpeg" else tail
     return "png"
+
+
+def sanitize(s):
+    return re.sub(r"[^A-Za-z0-9.-]+", "-", str(s or "").strip()).strip("-")
+
+
+def trade_folder_name(t):
+    """Date-first, human-labelled, unique: YYYY-MM-DD_SYMBOL_DIRECTION_<id>.
+
+    Date-first so a plain name sort = chronological order. The trade id is kept
+    as a suffix to guarantee uniqueness when several trades share date+symbol+dir.
+    """
+    tid = str(t.get("id") or t.get("createdAt") or "").strip()
+    if not tid:
+        return None
+    date = sanitize(t.get("date") or (str(t.get("createdAt") or "")[:10]) or "0000-00-00") or "0000-00-00"
+    sym = sanitize(t.get("symbol")) or "UNKNOWN"
+    direction = sanitize(t.get("direction"))
+    sid = re.sub(r"[^A-Za-z0-9._-]", "_", tid)
+    parts = [date, sym] + ([direction] if direction else []) + [sid]
+    return "_".join(parts)
 
 
 def save_screenshot(folder, idx, url):
@@ -125,12 +147,13 @@ def backup_trades():
         json.dump(state, fh, indent=2)
 
     new_imgs = 0
+    expected = set()
     for t in trades:
-        tid = str(t.get("id") or t.get("createdAt") or "").strip()
-        if not tid:
+        name = trade_folder_name(t)
+        if not name:
             continue
-        tid = re.sub(r"[^A-Za-z0-9._-]", "_", tid)
-        folder = os.path.join(TRADES_DIR, tid)
+        expected.add(name)
+        folder = os.path.join(TRADES_DIR, name)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, "trade.json"), "w") as fh:
             json.dump(t, fh, indent=2)
@@ -138,7 +161,16 @@ def backup_trades():
             if save_screenshot(folder, idx, url):
                 new_imgs += 1
 
-    log(f"trades: {len(trades)} saved, {new_imgs} new screengrab(s)")
+    # Prune folders that no longer match a current trade (also migrates the old
+    # id-only naming to the new date-labelled scheme on first run).
+    pruned = 0
+    for existing in os.listdir(TRADES_DIR):
+        p = os.path.join(TRADES_DIR, existing)
+        if os.path.isdir(p) and existing not in expected:
+            shutil.rmtree(p, ignore_errors=True)
+            pruned += 1
+
+    log(f"trades: {len(trades)} saved, {new_imgs} new screengrab(s), {pruned} folder(s) pruned")
     return len(trades), new_imgs
 
 
