@@ -791,7 +791,40 @@ const ProToolsTab = (() => {
 
       <h4 style="margin:24px 0 8px;font-size:.95rem">☁️ Cloud sync (private GitHub Gist)</h4>
       ${renderCloudSection()}
+
+      <h4 style="margin:24px 0 8px;font-size:.95rem">💾 Local disk (fund API)</h4>
+      ${renderLocalSection()}
     </div>`;
+  }
+
+  function renderLocalSection() {
+    if (typeof LocalPersist === 'undefined') {
+      return `<p class="text-sub" style="font-size:.8rem">LocalPersist module not loaded.</p>`;
+    }
+    const inf = LocalPersist.info();
+    const tradeCount = DB.getTrades().length;
+    let stateLine;
+    if (inf.available === true)       stateLine = `<strong style="color:var(--green)">✅ Connected</strong>`;
+    else if (inf.available === false) stateLine = `<strong style="color:var(--text-dim)">○ Fund API offline</strong>`;
+    else                              stateLine = `<strong style="color:var(--accent)">⟳ Checking…</strong>`;
+    const lastSave = localStorage.getItem('jb_localpersist_lastsave');
+    return `<p class="text-sub" style="font-size:.8rem;margin:0 0 10px">
+        Auto-saves your trades to <code>fund_data/dashboard_state.json</code> on disk via the local
+        fund API (debounced ${Math.round((inf.debounceMs || 2000) / 1000)}s). No token needed — works
+        whenever the fund app is running. On the Railway site this writes to the server volume instead.
+      </p>
+      <div style="background:var(--bg-mid);padding:12px 14px;border-radius:8px;margin-bottom:10px">
+        <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:.85rem">
+          <div><span class="text-dim">Status:</span> ${stateLine}</div>
+          <div><span class="text-dim">Endpoint:</span> <code>${esc(inf.url || '—')}</code></div>
+          <div><span class="text-dim">Last manual save:</span> ${_fmtAge(lastSave)}</div>
+          <div><span class="text-dim">Trades:</span> ${tradeCount}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn-primary" id="lpSaveBtn">💾 Save to disk now</button>
+      </div>
+      <p id="lpMsg" class="text-sub" style="font-size:.78rem;margin:0;min-height:1.2em"></p>`;
   }
 
   function _fmtAge(iso) {
@@ -909,6 +942,27 @@ const ProToolsTab = (() => {
       if (f) restoreBackupJSON(f);
     });
     wireCloud();
+    wireLocal();
+  }
+
+  function wireLocal() {
+    document.getElementById('lpSaveBtn')?.addEventListener('click', async () => {
+      const m = document.getElementById('lpMsg');
+      if (m) { m.style.color = 'var(--text-sub)'; m.textContent = 'Saving…'; }
+      const r = await LocalPersist.saveNow();
+      if (r && r.ok) {
+        localStorage.setItem('jb_localpersist_lastsave', new Date().toISOString());
+        if (m) { m.style.color = 'var(--green)'; m.textContent = `✓ Saved ${r.trades_count ?? ''} trades to disk`.replace('  ', ' '); }
+        render();
+      } else {
+        const why = (r && (r.reason || (r.status && `HTTP ${r.status}`))) || 'fund API unreachable';
+        if (m) { m.style.color = 'var(--red)'; m.textContent = `⚠ ${why} — start the fund app (port 8767) and retry`; }
+      }
+    });
+    // Probe availability once so the status flips from "Checking…" to Connected/Offline.
+    if (typeof LocalPersist !== 'undefined' && LocalPersist.info().available === null) {
+      LocalPersist.isAvailable().then(() => { if (document.getElementById('lpSaveBtn')) render(); });
+    }
   }
 
   /* ── Inline calculators ─────────────────────────────── */
