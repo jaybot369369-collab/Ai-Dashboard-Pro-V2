@@ -94,7 +94,9 @@ const DashboardTab = (() => {
 
   /* ── DERIVED METRICS ────────────────────────────────── */
   function accountBalance(trades) {
-    const start = 25000;
+    // Balance starts at 0 on the date of the first trade (27 Apr) and is the
+    // pure running sum of every closed trade's $ P&L from there on.
+    const start = 0;
     const closed = trades.filter(t => t.result !== '' && t.result !== undefined);
     return closed.reduce((s, t) => s + (parseFloat(t.result) || 0), 0) + start;
   }
