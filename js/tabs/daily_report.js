@@ -16,6 +16,16 @@ const DailyReportTab = (() => {
   const REFRESH_MS = 2 * 24 * 60 * 60 * 1000;
   const CHECK_MS   = 60 * 60 * 1000;
 
+  /* Data sources. The local copy is what's baked into a deployed build
+     (e.g. the Railway Docker image snapshot — can go stale between deploys).
+     The remote copy is the live GitHub source that /THE_DAILY_REPORT pushes
+     to on every run, so it reflects the latest report within ~1 min.
+     loadReport() fetches BOTH and keeps whichever has the newer `generated`
+     timestamp — so Railway shows the just-pushed report, localhost shows the
+     freshly-written local file, and Refresh always pulls the newest. */
+  const LOCAL_URL  = 'js/data/daily_report.json';
+  const REMOTE_URL = 'https://raw.githubusercontent.com/jaybot369369-collab/Ai-Dashboard-Pro-V2/main/js/data/daily_report.json';
+
   /* ── Utilities ─────────────────────────────────────────── */
   function esc(s) {
     if (s == null) return '';
@@ -56,13 +66,35 @@ const DailyReportTab = (() => {
   }
 
   /* ── Report JSON fetch ─────────────────────────────────── */
+  async function _fetchJSON(url) {
+    const r = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now(),
+                          { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  function _gen(obj) {
+    const t = obj && new Date(obj.generated || obj.news_as_of || 0).getTime();
+    return isNaN(t) ? 0 : t;
+  }
+
   async function loadReport() {
     if (_loading) return;
     _loading = true; _reportErr = null;
     try {
-      const r = await fetch('js/data/daily_report.json?t=' + Date.now());
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      _report = await r.json();
+      // Fetch local (baked snapshot) + remote (live GitHub) in parallel,
+      // keep whichever report is newest. Either source alone is enough.
+      const settled = await Promise.allSettled([
+        _fetchJSON(LOCAL_URL),
+        _fetchJSON(REMOTE_URL),
+      ]);
+      const cands = settled.filter(s => s.status === 'fulfilled').map(s => s.value);
+      if (!cands.length) {
+        const firstErr = settled.find(s => s.status === 'rejected');
+        throw new Error(firstErr ? firstErr.reason.message : 'fetch failed');
+      }
+      cands.sort((a, b) => _gen(b) - _gen(a));   // newest `generated` first
+      _report = cands[0];
     } catch(e) {
       _reportErr = e.message;
     } finally {
