@@ -25,6 +25,8 @@ const DailyReportTab = (() => {
      freshly-written local file, and Refresh always pulls the newest. */
   const LOCAL_URL  = 'js/data/daily_report.json';
   const REMOTE_URL = 'https://raw.githubusercontent.com/jaybot369369-collab/Ai-Dashboard-Pro-V2/main/js/data/daily_report.json';
+  const LOCAL_INTEL_URL  = 'js/data/market_intel.json';
+  const REMOTE_INTEL_URL = 'https://raw.githubusercontent.com/jaybot369369-collab/Ai-Dashboard-Pro-V2/main/js/data/market_intel.json';
 
   /* ── Utilities ─────────────────────────────────────────── */
   function esc(s) {
@@ -110,11 +112,22 @@ const DailyReportTab = (() => {
 
   /* ── Market Intel highlights (absorbed from retired tab, 2026-05-19) ── */
   async function loadIntel() {
-    if (_intel) return;
+    _intelErr = null;
     try {
-      const r = await fetch('js/data/market_intel.json?t=' + Date.now());
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      _intel = await r.json();
+      // Same dual-source strategy as the report: local baked copy + live
+      // GitHub copy, keep whichever is newest. Stops Railway showing the
+      // stale snapshot baked into its image.
+      const settled = await Promise.allSettled([
+        _fetchJSON(LOCAL_INTEL_URL),
+        _fetchJSON(REMOTE_INTEL_URL),
+      ]);
+      const cands = settled.filter(s => s.status === 'fulfilled').map(s => s.value);
+      if (!cands.length) {
+        const firstErr = settled.find(s => s.status === 'rejected');
+        throw new Error(firstErr ? firstErr.reason.message : 'fetch failed');
+      }
+      cands.sort((a, b) => _gen(b) - _gen(a));   // newest `generated` first
+      _intel = cands[0];
     } catch(e) { _intelErr = e.message; }
   }
   function renderIntelStrip(intel) {
@@ -476,7 +489,7 @@ const DailyReportTab = (() => {
 
   return {
     render,
-    _refresh: async () => { _report = null; await loadReport(); render(); },
+    _refresh: async () => { _report = null; _intel = null; await loadReport(); render(); },
     _goToday,
   };
 
