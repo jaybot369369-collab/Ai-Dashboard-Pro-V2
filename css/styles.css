@@ -6784,3 +6784,34 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .bf-howto ol, .bf-howto ul { margin: 4px 0 8px 22px; }
 .bf-howto li { margin-bottom: 4px; }
 .bf-howto code { font-size: 11.5px; }
+
+/* ── Day Trade Scanner tab (iframe + source toggle) ───────── */
+.sd-frame {
+  width: 100%;
+  height: calc(100vh - 150px);
+  min-height: 520px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.sd-src-row {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.sd-src-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  background: var(--bg-card, #fff);
+  color: var(--muted);
+  border: 0;
+  cursor: pointer;
+}
+.sd-src-btn + .sd-src-btn { border-left: 1px solid var(--border); }
+.sd-src-btn.active {
+  background: var(--text, #111);
+  color: var(--bg-card, #fff);
+  font-weight: 700;
+}

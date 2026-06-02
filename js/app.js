@@ -40,6 +40,7 @@ const App = (() => {
     playbook:   () => PlaybookTab.render(),
     rules:      () => RulesTab.render(),
     confluence: () => ConfluenceTab.render(),
+    scanner:    () => ScannerTab.render(),
     catalysts:  () => CatalystTab.render(),
     coach:      () => CoachTab.render(),
     aicoach:    () => AICoachTab.render(),

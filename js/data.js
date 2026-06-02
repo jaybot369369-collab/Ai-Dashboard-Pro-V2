@@ -50,6 +50,7 @@ const DB = (() => {
     { id: 'dailyreport',label: 'Daily Report',     icon: '📰', builtin: true, group: 'TRADING'  },
     { id: 'confluence', label: 'Confluence',       icon: '🎯', builtin: true, group: 'TRADING'  },
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
+    { id: 'scanner',    label: 'Day Trade Scanner',icon: '📡', builtin: true, group: 'TRADING'  },
     { id: 'aicoach',    label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
     { id: 'liquidity',  label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
     { id: 'catalysts',  label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
