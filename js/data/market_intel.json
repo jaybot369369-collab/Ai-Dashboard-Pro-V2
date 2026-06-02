@@ -1,1020 +1,151 @@
 {
-  "generated": "2026-05-31T18:00:23Z",
-  "date": "2026-05-31",
-  "weekday": "Sunday",
+  "generated": "2026-06-02T15:08:37Z",
+  "date": "2026-06-02",
+  "weekday": "Tuesday",
   "regime": {
-    "label": "Risk-On",
-    "confidence": "med",
+    "label": "Indeterminate",
+    "confidence": "low",
     "rationale": {
-      "text": "Tech XLK +20.06% m1 vs SPY +6.31%; VIX 15.32 (-2.67% d1); defensive sectors lag 6\u201311%. F&G 28 adds caution; gold +2.08% suggests hedging bid.",
-      "sources": [
-        {
-          "name": "Yahoo Finance \u00b7 XLK (Technology)",
-          "url": "https://finance.yahoo.com/quote/XLK",
-          "fetched_at": "2026-05-31T18:00:24Z",
-          "value": "+20.06% m1"
-        },
-        {
-          "name": "Yahoo Finance \u00b7 SPY (S&P 500)",
-          "url": "https://finance.yahoo.com/quote/SPY",
-          "fetched_at": "2026-05-31T18:00:23Z",
-          "value": "+6.31% m1"
-        },
-        {
-          "name": "Yahoo Finance \u00b7 ^VIX (CBOE Volatility Index)",
-          "url": "https://finance.yahoo.com/quote/^VIX",
-          "fetched_at": "2026-05-31T18:00:28Z",
-          "value": "15.32 (-2.67% d1)"
-        },
-        {
-          "name": "alternative.me \u00b7 Crypto Fear & Greed",
-          "url": "https://alternative.me/crypto/fear-and-greed-index/",
-          "fetched_at": "2026-05-31T18:00:50Z",
-          "value": "28"
-        }
-      ]
+      "text": "synthesis failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0",
+      "sources": [],
+      "_validator_error": "no sources"
     }
   },
   "sections": {
     "macro": {
-      "claims": [
-        {
-          "text": "SPY +0.25% d1, +1.85% w1, +6.31% m1. Equities in solid multiweek rally with tech driving gains.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 SPY (S&P 500)",
-              "url": "https://finance.yahoo.com/quote/SPY",
-              "fetched_at": "2026-05-31T18:00:23Z",
-              "value": "+6.31% m1"
-            }
-          ]
-        },
-        {
-          "text": "VIX 15.32 (-2.67% d1, -8.26% w1). Volatility compressed; suggests orderly rally, not distress.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 ^VIX (CBOE Volatility Index)",
-              "url": "https://finance.yahoo.com/quote/^VIX",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "15.32"
-            }
-          ]
-        },
-        {
-          "text": "Oil WTI -1.73% d1, -9.33% w1. Energy weakness: demand caution or supply abundance narrative.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 CL=F (WTI Crude)",
-              "url": "https://finance.yahoo.com/quote/CL=F",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "-9.33% w1"
-            }
-          ]
-        },
-        {
-          "text": "Gold $4,593/oz (+2.08% d1, +1.17% w1). Hedging bid amid equity rally signals risk awareness.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 GC=F (Gold)",
-              "url": "https://finance.yahoo.com/quote/GC=F",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "+2.08% d1"
-            }
-          ]
-        }
-      ],
+      "claims": [],
       "unavailable": [
-        "US 10Y/2Y yields: FRED API key not configured",
-        "USD Index (DXY): FRED DTWEXBGS not available",
-        "CPI/PCE/NFP prints: FRED API key not configured",
-        "HY OAS spread: FRED BAMLH0A0HYM2 not available",
-        "Fed Funds Rate: FRED DFF not available"
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "rotation": {
-      "claims": [
-        {
-          "text": "Tech XLK +20.06% m1 (+13.75% vs SPY). Largest outperformer; classic risk-on growth rotation.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 XLK (Technology)",
-              "url": "https://finance.yahoo.com/quote/XLK",
-              "fetched_at": "2026-05-31T18:00:24Z",
-              "value": "+20.06% m1 RS +13.75%"
-            }
-          ]
-        },
-        {
-          "text": "Defensive laggards: Utilities -9.07% RS, Energy -10.95% RS, Staples -6.32% RS m1.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 XLU (Utilities)",
-              "url": "https://finance.yahoo.com/quote/XLU",
-              "fetched_at": "2026-05-31T18:00:26Z",
-              "value": "-9.07% RS m1"
-            },
-            {
-              "name": "Yahoo Finance \u00b7 XLE (Energy)",
-              "url": "https://finance.yahoo.com/quote/XLE",
-              "fetched_at": "2026-05-31T18:00:24Z",
-              "value": "-10.95% RS m1"
-            },
-            {
-              "name": "Yahoo Finance \u00b7 XLP (Consumer Staples)",
-              "url": "https://finance.yahoo.com/quote/XLP",
-              "fetched_at": "2026-05-31T18:00:27Z",
-              "value": "-6.32% RS m1"
-            }
-          ]
-        },
-        {
-          "text": "Financials flat (-0.65% m1, -6.96% RS). No cyclical lift despite equity rally.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 XLF (Financials)",
-              "url": "https://finance.yahoo.com/quote/XLF",
-              "fetched_at": "2026-05-31T18:00:24Z",
-              "value": "-0.65% m1 RS -6.96%"
-            }
-          ]
-        }
-      ],
-      "unavailable": [],
-      "sectors": [
-        {
-          "name": "Technology",
-          "symbol": "XLK",
-          "d1": "+2.23%",
-          "w1": "+6.95%",
-          "m1": "+20.06%",
-          "rs_spy": "+13.75%"
-        },
-        {
-          "name": "Industrials",
-          "symbol": "XLI",
-          "d1": "-0.39%",
-          "w1": "+1.52%",
-          "m1": "+1.88%",
-          "rs_spy": "-4.43%"
-        },
-        {
-          "name": "Health Care",
-          "symbol": "XLV",
-          "d1": "-0.93%",
-          "w1": "+0.89%",
-          "m1": "+4.64%",
-          "rs_spy": "-1.67%"
-        },
-        {
-          "name": "Consumer Discretionary",
-          "symbol": "XLY",
-          "d1": "-0.97%",
-          "w1": "+1.83%",
-          "m1": "+3.45%",
-          "rs_spy": "-2.86%"
-        },
-        {
-          "name": "Consumer Staples",
-          "symbol": "XLP",
-          "d1": "-1.80%",
-          "w1": "-2.07%",
-          "m1": "-0.01%",
-          "rs_spy": "-6.32%"
-        },
-        {
-          "name": "Communication Services",
-          "symbol": "XLC",
-          "d1": "-0.84%",
-          "w1": "-0.35%",
-          "m1": "+0.35%",
-          "rs_spy": "-5.96%"
-        },
-        {
-          "name": "Utilities",
-          "symbol": "XLU",
-          "d1": "-0.47%",
-          "w1": "-1.29%",
-          "m1": "-2.76%",
-          "rs_spy": "-9.07%"
-        },
-        {
-          "name": "Energy",
-          "symbol": "XLE",
-          "d1": "-1.16%",
-          "w1": "-4.80%",
-          "m1": "-4.64%",
-          "rs_spy": "-10.95%"
-        },
-        {
-          "name": "Financials",
-          "symbol": "XLF",
-          "d1": "+0.60%",
-          "w1": "-0.29%",
-          "m1": "-0.65%",
-          "rs_spy": "-6.96%"
-        },
-        {
-          "name": "Materials",
-          "symbol": "XLB",
-          "d1": "-0.41%",
-          "w1": "+2.26%",
-          "m1": "+0.37%",
-          "rs_spy": "-5.94%"
-        },
-        {
-          "name": "Real Estate",
-          "symbol": "XLRE",
-          "d1": "-0.95%",
-          "w1": "-1.15%",
-          "m1": "+0.80%",
-          "rs_spy": "-5.51%"
-        }
+      "claims": [],
+      "unavailable": [
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "cross_asset": {
-      "claims": [
-        {
-          "text": "Gold +2.08% d1 alongside risk-on equity +0.25% SPY d1. Hedging bid present despite bull momentum.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 GC=F (Gold)",
-              "url": "https://finance.yahoo.com/quote/GC=F",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "+2.08% d1"
-            },
-            {
-              "name": "Yahoo Finance \u00b7 SPY (S&P 500)",
-              "url": "https://finance.yahoo.com/quote/SPY",
-              "fetched_at": "2026-05-31T18:00:23Z",
-              "value": "+0.25% d1"
-            }
-          ]
-        },
-        {
-          "text": "Oil -9.33% w1 while equities +1.85% w1. Energy sector decoupling from macro rally.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 CL=F (WTI Crude)",
-              "url": "https://finance.yahoo.com/quote/CL=F",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "-9.33% w1"
-            },
-            {
-              "name": "Yahoo Finance \u00b7 SPY (S&P 500)",
-              "url": "https://finance.yahoo.com/quote/SPY",
-              "fetched_at": "2026-05-31T18:00:23Z",
-              "value": "+1.85% w1"
-            }
-          ]
-        },
-        {
-          "text": "VIX 15.32 + put/call 0.64 = calm orderly structure. No panic, no extreme positioning.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 ^VIX (CBOE Volatility Index)",
-              "url": "https://finance.yahoo.com/quote/^VIX",
-              "fetched_at": "2026-05-31T18:00:28Z",
-              "value": "15.32"
-            },
-            {
-              "name": "CBOE Daily Volume Statistics",
-              "url": "https://www.cboe.com/us/options/market_statistics/daily/",
-              "fetched_at": "2026-05-31T18:01:05Z",
-              "value": "0.64"
-            }
-          ]
-        }
-      ],
+      "claims": [],
       "unavailable": [
-        "US Dollar Index: FRED DTWEXBGS not available",
-        "US 10Y Yield: FRED DGS10 not available",
-        "HY OAS spread: FRED BAMLH0A0HYM2 not available"
-      ],
-      "assets": [
-        {
-          "name": "Gold",
-          "symbol": "GC=F",
-          "last": "$4,593/oz",
-          "d1": "+2.08%",
-          "w1": "+1.17%",
-          "source": "Yahoo Finance"
-        },
-        {
-          "name": "WTI Crude",
-          "symbol": "CL=F",
-          "last": "$87.36/bbl",
-          "d1": "-1.73%",
-          "w1": "-9.33%",
-          "source": "Yahoo Finance"
-        },
-        {
-          "name": "VIX",
-          "symbol": "^VIX",
-          "last": "15.32",
-          "d1": "-2.67%",
-          "w1": "-8.26%",
-          "source": "Yahoo Finance"
-        }
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "crypto": {
-      "claims": [
-        {
-          "text": "BTC dominance 57.29% stable; price -0.44% d1 lags equity rally (+0.25% SPY).",
-          "sources": [
-            {
-              "name": "CoinGecko Global Market Data",
-              "url": "https://www.coingecko.com/en/global-charts",
-              "fetched_at": "2026-05-31T18:00:29Z",
-              "value": "57.29%"
-            },
-            {
-              "name": "CoinGecko Simple Price",
-              "url": "https://www.coingecko.com/en/coins/bitcoin",
-              "fetched_at": "2026-05-31T18:00:29Z",
-              "value": "BTC -0.44% d1"
-            }
-          ]
-        },
-        {
-          "text": "Stablecoin supply $318.9B (USDT $188.1B dominance). Steady, no redemption pressure.",
-          "sources": [
-            {
-              "name": "DefiLlama Stablecoins",
-              "url": "https://defillama.com/stablecoins",
-              "fetched_at": "2026-05-31T18:00:30Z",
-              "value": "318.9B USDT 188.1B"
-            }
-          ]
-        },
-        {
-          "text": "Funding divergence signals positioning: SOL/XRP negative 8h APR (shorts crowded), SUI +10.95% APR (longs loaded).",
-          "sources": [
-            {
-              "name": "Bybit Linear Perpetuals",
-              "url": "https://www.bybit.com/derivatives/usdt-perpetual",
-              "fetched_at": "2026-05-31T18:00:30Z",
-              "value": "SOL -9.88% APR XRP -11.11% APR SUI +10.95% APR"
-            }
-          ]
-        },
-        {
-          "text": "Fear & Greed 28 (extreme) vs bullish COT: BTC +133.7k, ETH +146.0k noncomm long (contrarian long setup).",
-          "sources": [
-            {
-              "name": "alternative.me \u00b7 Crypto Fear & Greed",
-              "url": "https://alternative.me/crypto/fear-and-greed-index/",
-              "fetched_at": "2026-05-31T18:00:50Z",
-              "value": "28"
-            },
-            {
-              "name": "CFTC Commitments of Traders",
-              "url": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/",
-              "fetched_at": "2026-05-31T18:01:03Z",
-              "value": "BTC +133742 ETH +146021 noncomm net"
-            }
-          ]
-        }
-      ],
+      "claims": [],
       "unavailable": [
-        "Crypto L/S ratio (long/short positioning): Coinalyze API key not configured",
-        "BTC/ETH ETF inflows: Farside blocked (403 Forbidden)"
-      ],
-      "metrics": [
-        {
-          "name": "Bitcoin (BTC)",
-          "value": "$73,590",
-          "delta": "-0.44%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "Ethereum (ETH)",
-          "value": "$2,002.90",
-          "delta": "-1.06%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "Solana (SOL)",
-          "value": "$81.73",
-          "delta": "-1.42%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "XRP",
-          "value": "$1.33",
-          "delta": "-1.53%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "Sui (SUI)",
-          "value": "$0.8742",
-          "delta": "-3.78%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "ETH/BTC Ratio",
-          "value": "0.02722",
-          "delta": "-0.62%",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "BTC Dominance",
-          "value": "57.29%",
-          "delta": "stable",
-          "source": "CoinGecko"
-        },
-        {
-          "name": "Stablecoin Supply",
-          "value": "$318.9B",
-          "delta": "steady",
-          "source": "DefiLlama"
-        }
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "sentiment": {
-      "claims": [
-        {
-          "text": "Fear & Greed 28 (extreme fear) diverges from risk-on equity +6.31% m1 rally.",
-          "sources": [
-            {
-              "name": "alternative.me \u00b7 Crypto Fear & Greed",
-              "url": "https://alternative.me/crypto/fear-and-greed-index/",
-              "fetched_at": "2026-05-31T18:00:50Z",
-              "value": "28 Fear"
-            },
-            {
-              "name": "Yahoo Finance \u00b7 SPY (S&P 500)",
-              "url": "https://finance.yahoo.com/quote/SPY",
-              "fetched_at": "2026-05-31T18:00:23Z",
-              "value": "+6.31% m1"
-            }
-          ]
-        },
-        {
-          "text": "Put/call 0.64 (May 29): slightly bullish. Supports risk-on sentiment alignment.",
-          "sources": [
-            {
-              "name": "CBOE Daily Volume Statistics",
-              "url": "https://www.cboe.com/us/options/market_statistics/daily/",
-              "fetched_at": "2026-05-31T18:01:05Z",
-              "value": "0.64"
-            }
-          ]
-        },
-        {
-          "text": "Institutional COT bullish: BTC +133.7k, ETH +146.0k noncomm net (May 26, CME).",
-          "sources": [
-            {
-              "name": "CFTC Commitments of Traders",
-              "url": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/",
-              "fetched_at": "2026-05-31T18:01:03Z",
-              "value": "BTC +133742 ETH +146021 noncomm net"
-            }
-          ]
-        }
-      ],
+      "claims": [],
       "unavailable": [
-        "AAII Sentiment Survey: xlrd dependency missing (XLS parse failed)",
-        "Crypto L/S ratio: Coinalyze API key not configured"
-      ],
-      "gauges": [
-        {
-          "name": "Fear & Greed Index",
-          "value": "28",
-          "extreme": "Fear",
-          "as_of": "2026-05-31"
-        },
-        {
-          "name": "Put/Call Ratio",
-          "value": "0.64",
-          "extreme": null,
-          "as_of": "2026-05-29"
-        },
-        {
-          "name": "VIX",
-          "value": "15.32",
-          "extreme": null,
-          "as_of": "2026-05-31"
-        },
-        {
-          "name": "BTC COT Noncomm Net",
-          "value": "+133,742",
-          "extreme": "Bullish",
-          "as_of": "2026-05-26"
-        },
-        {
-          "name": "ETH COT Noncomm Net",
-          "value": "+146,021",
-          "extreme": "Bullish",
-          "as_of": "2026-05-26"
-        }
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "seasonality": {
-      "claims": [
-        {
-          "text": "SPY week 22: +0.46% mean return, 63.6% positive (n=11, 10-year lookback). Slight tailwind.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 SPY 10y History",
-              "url": "https://finance.yahoo.com/quote/SPY/history",
-              "fetched_at": "2026-05-31T18:01:06Z",
-              "value": "+0.46% mean 63.6% positive"
-            }
-          ]
-        },
-        {
-          "text": "BTC week 22: +0.97% mean, 36.4% positive (n=11, 10y). Historically weak vs SPY strength.",
-          "sources": [
-            {
-              "name": "Yahoo Finance \u00b7 BTC-USD 10y History",
-              "url": "https://finance.yahoo.com/quote/BTC-USD/history",
-              "fetched_at": "2026-05-31T18:01:06Z",
-              "value": "+0.97% mean 36.4% positive"
-            }
-          ]
-        }
+      "claims": [],
+      "unavailable": [
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ],
-      "unavailable": [],
-      "lookback_years": 10,
-      "sample_size": 11
+      "lookback_years": 0,
+      "sample_size": 0
     },
     "narratives": {
-      "claims": [
-        {
-          "text": "AI infrastructure supercycle dominates: NVIDIA earnings, GPU demand, datacenter buildout narratives drive tech +20% m1.",
-          "sources": [
-            {
-              "name": "Google News \u00b7 AI infrastructure",
-              "url": "https://news.google.com/",
-              "fetched_at": "2026-05-31T18:01:07Z",
-              "value": "5 recent headlines on NVIDIA, GPU, infrastructure"
-            }
-          ]
-        },
-        {
-          "text": "RWA tokenization enterprise wave: JPMorgan tokenizes assets, BlackRock onchain fund offerings gaining traction.",
-          "sources": [
-            {
-              "name": "Google News \u00b7 RWA tokenization",
-              "url": "https://news.google.com/",
-              "fetched_at": "2026-05-31T18:01:09Z",
-              "value": "JPMorgan tokenization May 2026, BlackRock onchain offerings"
-            }
-          ]
-        },
-        {
-          "text": "Bitcoin/Ethereum ETF sustained flows: IBIT leads; mixed inflows/outflows; institutional appetite persistent.",
-          "sources": [
-            {
-              "name": "Google News \u00b7 Bitcoin ETF flows",
-              "url": "https://news.google.com/",
-              "fetched_at": "2026-05-31T18:01:12Z",
-              "value": "IBIT $225M+ inflows, FBTC sustained activity"
-            }
-          ]
-        },
-        {
-          "text": "GLP-1 drug race heats: Eli Lilly dominates vs Novo Nordisk in oral formulation, price war brewing.",
-          "sources": [
-            {
-              "name": "Google News \u00b7 GLP-1 / weight-loss drugs",
-              "url": "https://news.google.com/",
-              "fetched_at": "2026-05-31T18:01:15Z",
-              "value": "Eli Lilly vs Novo Nordisk price/market share competition"
-            }
-          ]
-        },
-        {
-          "text": "Nuclear power for AI datacenters: SMR deployment, uranium tailwinds from infrastructure buildout narrative.",
-          "sources": [
-            {
-              "name": "Google News \u00b7 Uranium / nuclear",
-              "url": "https://news.google.com/",
-              "fetched_at": "2026-05-31T18:01:14Z",
-              "value": "nuclear power AI datacenters SMR deployment"
-            }
-          ]
-        }
-      ],
-      "unavailable": [],
-      "items": [
-        {
-          "theme": "AI infrastructure supercycle",
-          "flow_confirms": true,
-          "evidence": "Tech +20.06% m1, AI-focused earnings cluster 6/3\u20136/11"
-        },
-        {
-          "theme": "RWA tokenization enterprise adoption",
-          "flow_confirms": true,
-          "evidence": "DeFi RWA +14.87% 1d (only positive sector), JPMorgan/BlackRock enterprise headlines"
-        },
-        {
-          "theme": "Crypto ETF accumulation (BTC/ETH spot)",
-          "flow_confirms": null,
-          "evidence": "Headlines note inflows; quantitative Farside data blocked (403)"
-        },
-        {
-          "theme": "GLP-1 competitive race (Eli Lilly vs NVO)",
-          "flow_confirms": false,
-          "evidence": "Pure pharma narrative, no crypto/equity rotation signal"
-        },
-        {
-          "theme": "Nuclear+uranium for AI power",
-          "flow_confirms": true,
-          "evidence": "Utilities lag -9.07% RS (grid neglect), alternative energy narrative rising"
-        },
-        {
-          "theme": "Memecoin seasonality (DOGE/PEPE)",
-          "flow_confirms": null,
-          "evidence": "Chatter noted; no quantified volume or dominance data"
-        }
+      "claims": [],
+      "unavailable": [
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "watch_next": {
       "claims": [],
       "unavailable": [
-        "Macro events (FOMC, CPI, NFP): ForexFactory returned empty (no high-impact USD events in next 14d)",
-        "Crypto token unlocks: No dedicated source integrated",
-        "SEC ETF/10b5-1 filings: Edgar available but no crypto-specific filings highlighted"
-      ],
-      "events": [
-        {
-          "when": "2026-06-01",
-          "event": "HPE earnings after-hours",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        },
-        {
-          "when": "2026-06-02",
-          "event": "PANW earnings after-hours",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        },
-        {
-          "when": "2026-06-03",
-          "event": "AVGO, CRWD earnings cluster",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        },
-        {
-          "when": "2026-06-04",
-          "event": "Earnings cluster: MDT, LULU, IOT, COO, RBRK",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        },
-        {
-          "when": "2026-06-10",
-          "event": "ORCL earnings after-hours",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        },
-        {
-          "when": "2026-06-11",
-          "event": "ADBE earnings after-hours",
-          "type": "earnings",
-          "source_name": "Nasdaq Earnings Calendar",
-          "source_url": "https://www.nasdaq.com/market-activity/earnings"
-        }
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     },
     "crypto_rotation": {
-      "claims": [
-        {
-          "text": "RWA ONLY +$7.8M 24h inflow; all DeFi sectors negative. Capital rotating INTO enterprise blockchain assets.",
-          "sources": [
-            {
-              "name": "DefiLlama Categories",
-              "url": "https://defillama.com/categories",
-              "fetched_at": "2026-05-31T18:00:38Z",
-              "value": "RWA +7.8M flow, CEX -555.8M, Lending -89.1M, Liquid Staking -413.2M"
-            }
-          ]
-        },
-        {
-          "text": "CEX hemorrhaging -$555.8M 24h; Liquid Staking -$413.2M. Two largest outflows suggest consolidation pressure.",
-          "sources": [
-            {
-              "name": "DefiLlama Categories",
-              "url": "https://defillama.com/categories",
-              "fetched_at": "2026-05-31T18:00:38Z",
-              "value": "CEX -555.8M Liquid Staking -413.2M flows"
-            }
-          ]
-        },
-        {
-          "text": "ETH TVL +0.67% d1 but -6.61% 30d; dominance 52.54% flat. L1 momentum fading despite Fusaka upgrade hype.",
-          "sources": [
-            {
-              "name": "DefiLlama \u00b7 Top Chains by TVL",
-              "url": "https://defillama.com/chains",
-              "fetched_at": "2026-05-31T18:00:38Z",
-              "value": "ETH 52.54% dominance -6.61% 30d"
-            }
-          ]
-        },
-        {
-          "text": "BSC +5.96% 30d, Hyperliquid +17.48% 30d. Alt-L1s gaining while ETH bleeds in monthly timeframe.",
-          "sources": [
-            {
-              "name": "DefiLlama \u00b7 Top Chains by TVL",
-              "url": "https://defillama.com/chains",
-              "fetched_at": "2026-05-31T18:00:38Z",
-              "value": "BSC +5.96% 30d Hyperliquid +17.48% 30d"
-            }
-          ]
-        },
-        {
-          "text": "Smaller chains bleed: Arbitrum -10.23% 30d, Polygon -8.53% 30d. Ecosystem consolidation toward top 3\u20134 chains.",
-          "sources": [
-            {
-              "name": "DefiLlama \u00b7 Top Chains by TVL",
-              "url": "https://defillama.com/chains",
-              "fetched_at": "2026-05-31T18:00:38Z",
-              "value": "Arbitrum -10.23% 30d Polygon -8.53% 30d"
-            }
-          ]
-        }
-      ],
+      "claims": [],
       "unavailable": [
-        "Whale-level on-chain attribution per chain: Requires Glassnode/Whale Alert paid tier (not available)"
-      ],
-      "sectors": [
-        {
-          "category": "CEX",
-          "tvl_usd_str": "$270.0B",
-          "share_pct": "51.57%",
-          "chg_24h_pct": "-0.26%",
-          "chg_7d_pct": "+1.35%",
-          "flow_24h_str": "-$555.8M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Lending",
-          "tvl_usd_str": "$40.3B",
-          "share_pct": "7.69%",
-          "chg_24h_pct": "-0.62%",
-          "chg_7d_pct": "-0.41%",
-          "flow_24h_str": "-$89.1M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Bridge",
-          "tvl_usd_str": "$39.9B",
-          "share_pct": "7.62%",
-          "chg_24h_pct": "+0.98%",
-          "chg_7d_pct": "-4.30%",
-          "flow_24h_str": "-$70.1M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Liquid Staking",
-          "tvl_usd_str": "$36.9B",
-          "share_pct": "7.05%",
-          "chg_24h_pct": "-2.08%",
-          "chg_7d_pct": "-0.27%",
-          "flow_24h_str": "-$413.2M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "RWA",
-          "tvl_usd_str": "$26.6B",
-          "share_pct": "5.07%",
-          "chg_24h_pct": "+14.87%",
-          "chg_7d_pct": "-1.22%",
-          "flow_24h_str": "+$7.8M",
-          "flow_direction": "in"
-        },
-        {
-          "category": "Staking Pool",
-          "tvl_usd_str": "$16.2B",
-          "share_pct": "3.09%",
-          "chg_24h_pct": "-0.84%",
-          "chg_7d_pct": "-0.50%",
-          "flow_24h_str": "-$118.5M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Dexs",
-          "tvl_usd_str": "$12.9B",
-          "share_pct": "2.47%",
-          "chg_24h_pct": "+20.89%",
-          "chg_7d_pct": "+240.54%",
-          "flow_24h_str": "-$19.8M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Restaking",
-          "tvl_usd_str": "$10.3B",
-          "share_pct": "1.96%",
-          "chg_24h_pct": "-0.09%",
-          "chg_7d_pct": "-2.83%",
-          "flow_24h_str": "-$16.5M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "CDP",
-          "tvl_usd_str": "$9.1B",
-          "share_pct": "1.73%",
-          "chg_24h_pct": "-0.44%",
-          "chg_7d_pct": "+4.13%",
-          "flow_24h_str": "-$23.4M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Canonical Bridge",
-          "tvl_usd_str": "$9.0B",
-          "share_pct": "1.72%",
-          "chg_24h_pct": "+23.95%",
-          "chg_7d_pct": "-0.93%",
-          "flow_24h_str": "-$89.3M",
-          "flow_direction": "out"
-        },
-        {
-          "category": "Onchain Capital Allocator",
-          "tvl_usd_str": "$8.4B",
-          "share_pct": "1.60%",
-          "chg_24h_pct": "-0.13%",
-          "chg_7d_pct": "+569.90%",
-          "flow_24h_str": "-$1.0M",
-          "flow_direction": "flat"
-        },
-        {
-          "category": "Basis Trading",
-          "tvl_usd_str": "$8.2B",
-          "share_pct": "1.57%",
-          "chg_24h_pct": "+0.15%",
-          "chg_7d_pct": "-0.15%",
-          "flow_24h_str": "-$2.6M",
-          "flow_direction": "out"
-        }
-      ],
-      "chains": [
-        {
-          "name": "Ethereum",
-          "tvl_usd_str": "$42.1B",
-          "dominance_pct": "52.54%",
-          "chg_24h_pct": "+0.67%",
-          "chg_7d_pct": "-2.25%",
-          "chg_30d_pct": "-6.61%"
-        },
-        {
-          "name": "BSC",
-          "tvl_usd_str": "$5.8B",
-          "dominance_pct": "7.20%",
-          "chg_24h_pct": "+5.12%",
-          "chg_7d_pct": "+3.63%",
-          "chg_30d_pct": "+5.96%"
-        },
-        {
-          "name": "Solana",
-          "tvl_usd_str": "$5.4B",
-          "dominance_pct": "6.70%",
-          "chg_24h_pct": "+0.26%",
-          "chg_7d_pct": "-2.22%",
-          "chg_30d_pct": "-1.16%"
-        },
-        {
-          "name": "Tron",
-          "tvl_usd_str": "$4.9B",
-          "dominance_pct": "6.07%",
-          "chg_24h_pct": "+0.40%",
-          "chg_7d_pct": "-4.14%",
-          "chg_30d_pct": "-3.74%"
-        },
-        {
-          "name": "Bitcoin",
-          "tvl_usd_str": "$4.8B",
-          "dominance_pct": "6.01%",
-          "chg_24h_pct": "+0.20%",
-          "chg_7d_pct": "-4.92%",
-          "chg_30d_pct": "-5.60%"
-        },
-        {
-          "name": "Base",
-          "tvl_usd_str": "$4.4B",
-          "dominance_pct": "5.47%",
-          "chg_24h_pct": "-0.10%",
-          "chg_7d_pct": "-2.31%",
-          "chg_30d_pct": "-0.21%"
-        },
-        {
-          "name": "Hyperliquid L1",
-          "tvl_usd_str": "$1.7B",
-          "dominance_pct": "2.10%",
-          "chg_24h_pct": "+2.57%",
-          "chg_7d_pct": "+0.99%",
-          "chg_30d_pct": "+17.48%"
-        },
-        {
-          "name": "Provenance",
-          "tvl_usd_str": "$1.5B",
-          "dominance_pct": "1.87%",
-          "chg_24h_pct": "+0.20%",
-          "chg_7d_pct": "+5.48%",
-          "chg_30d_pct": "-8.31%"
-        },
-        {
-          "name": "Arbitrum",
-          "tvl_usd_str": "$1.5B",
-          "dominance_pct": "1.86%",
-          "chg_24h_pct": "-0.08%",
-          "chg_7d_pct": "-0.84%",
-          "chg_30d_pct": "-10.23%"
-        },
-        {
-          "name": "Polygon",
-          "tvl_usd_str": "$1.2B",
-          "dominance_pct": "1.44%",
-          "chg_24h_pct": "-0.20%",
-          "chg_7d_pct": "-1.51%",
-          "chg_30d_pct": "-8.53%"
-        }
+        "claude_synthesis_failed: claude synthesis failed after retries: Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CbeeMdaBGKFYAJzqAv16c'}; last_raw_len=0"
       ]
     }
   },
   "freshness": {
     "fred_DGS10": {
-      "source": "FRED DGS10",
+      "source": "FRED US 10-Year Treasury Yield",
       "source_url": "https://fred.stlouisfed.org/series/DGS10",
-      "fetched_at": "2026-05-31T18:00:23Z",
+      "fetched_at": "2026-06-02T15:08:37Z",
       "age_hours": 0.0,
-      "ok": false,
-      "note": "FRED_API_KEY not set"
+      "ok": true,
+      "note": null
     },
     "fred_DGS2": {
-      "source": "FRED DGS2",
+      "source": "FRED US 2-Year Treasury Yield",
       "source_url": "https://fred.stlouisfed.org/series/DGS2",
-      "fetched_at": "2026-05-31T18:00:23Z",
+      "fetched_at": "2026-06-02T15:08:37Z",
       "age_hours": 0.0,
-      "ok": false,
-      "note": "FRED_API_KEY not set"
+      "ok": true,
+      "note": null
     },
     "fred_DTWEXBGS": {
-      "source": "FRED DTWEXBGS",
+      "source": "FRED USD Index (Trade-Weighted Broad)",
       "source_url": "https://fred.stlouisfed.org/series/DTWEXBGS",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
+      "fetched_at": "2026-06-02T15:08:38Z",
+      "age_hours": -0.0,
       "ok": false,
-      "note": "FRED_API_KEY not set"
+      "note": "429 Client Error: Too Many Requests for url: https://api.stlouisfed.org/fred/series/observations?series_id=DTWEXBGS&api_key=c62a0dad1187151f2c0a7b6301c5fdd4&file_type=json&limit=5&sort_order=desc"
     },
     "fred_CPIAUCSL": {
-      "source": "FRED CPIAUCSL",
+      "source": "FRED US CPI",
       "source_url": "https://fred.stlouisfed.org/series/CPIAUCSL",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
+      "fetched_at": "2026-06-02T15:08:38Z",
+      "age_hours": -0.0,
       "ok": false,
-      "note": "FRED_API_KEY not set"
+      "note": "429 Client Error: Too Many Requests for url: https://api.stlouisfed.org/fred/series/observations?series_id=CPIAUCSL&api_key=c62a0dad1187151f2c0a7b6301c5fdd4&file_type=json&limit=5&sort_order=desc"
     },
     "fred_PCEPI": {
-      "source": "FRED PCEPI",
+      "source": "FRED US PCE Price Index",
       "source_url": "https://fred.stlouisfed.org/series/PCEPI",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
-      "ok": false,
-      "note": "FRED_API_KEY not set"
+      "fetched_at": "2026-06-02T15:08:39Z",
+      "age_hours": -0.0,
+      "ok": true,
+      "note": null
     },
     "fred_PAYEMS": {
-      "source": "FRED PAYEMS",
+      "source": "FRED US Nonfarm Payrolls",
       "source_url": "https://fred.stlouisfed.org/series/PAYEMS",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
-      "ok": false,
-      "note": "FRED_API_KEY not set"
+      "fetched_at": "2026-06-02T15:08:39Z",
+      "age_hours": -0.0,
+      "ok": true,
+      "note": null
     },
     "fred_BAMLH0A0HYM2": {
-      "source": "FRED BAMLH0A0HYM2",
+      "source": "FRED US HY OAS Spread",
       "source_url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
+      "fetched_at": "2026-06-02T15:08:39Z",
+      "age_hours": -0.0,
       "ok": false,
-      "note": "FRED_API_KEY not set"
+      "note": "429 Client Error: Too Many Requests for url: https://api.stlouisfed.org/fred/series/observations?series_id=BAMLH0A0HYM2&api_key=c62a0dad1187151f2c0a7b6301c5fdd4&file_type=json&limit=5&sort_order=desc"
     },
     "fred_DFF": {
-      "source": "FRED DFF",
+      "source": "FRED Fed Funds Effective Rate",
       "source_url": "https://fred.stlouisfed.org/series/DFF",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
-      "ok": false,
-      "note": "FRED_API_KEY not set"
+      "fetched_at": "2026-06-02T15:08:40Z",
+      "age_hours": -0.0,
+      "ok": true,
+      "note": null
     },
     "yf_SPY": {
       "source": "Yahoo Finance \u00b7 SPY (S&P 500 (benchmark))",
       "source_url": "https://finance.yahoo.com/quote/SPY",
-      "fetched_at": "2026-05-31T18:00:23Z",
-      "age_hours": 0.0,
+      "fetched_at": "2026-06-02T15:08:40Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "yf_XLK": {
       "source": "Yahoo Finance \u00b7 XLK (Technology)",
       "source_url": "https://finance.yahoo.com/quote/XLK",
-      "fetched_at": "2026-05-31T18:00:24Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1022,7 +153,7 @@
     "yf_XLF": {
       "source": "Yahoo Finance \u00b7 XLF (Financials)",
       "source_url": "https://finance.yahoo.com/quote/XLF",
-      "fetched_at": "2026-05-31T18:00:24Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1030,7 +161,7 @@
     "yf_XLE": {
       "source": "Yahoo Finance \u00b7 XLE (Energy)",
       "source_url": "https://finance.yahoo.com/quote/XLE",
-      "fetched_at": "2026-05-31T18:00:24Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1038,7 +169,7 @@
     "yf_XLV": {
       "source": "Yahoo Finance \u00b7 XLV (Health Care)",
       "source_url": "https://finance.yahoo.com/quote/XLV",
-      "fetched_at": "2026-05-31T18:00:25Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1046,7 +177,7 @@
     "yf_XLI": {
       "source": "Yahoo Finance \u00b7 XLI (Industrials)",
       "source_url": "https://finance.yahoo.com/quote/XLI",
-      "fetched_at": "2026-05-31T18:00:25Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1054,7 +185,7 @@
     "yf_XLU": {
       "source": "Yahoo Finance \u00b7 XLU (Utilities)",
       "source_url": "https://finance.yahoo.com/quote/XLU",
-      "fetched_at": "2026-05-31T18:00:26Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1062,7 +193,7 @@
     "yf_XLB": {
       "source": "Yahoo Finance \u00b7 XLB (Materials)",
       "source_url": "https://finance.yahoo.com/quote/XLB",
-      "fetched_at": "2026-05-31T18:00:26Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1070,7 +201,7 @@
     "yf_XLY": {
       "source": "Yahoo Finance \u00b7 XLY (Consumer Discretionary)",
       "source_url": "https://finance.yahoo.com/quote/XLY",
-      "fetched_at": "2026-05-31T18:00:26Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1078,7 +209,7 @@
     "yf_XLP": {
       "source": "Yahoo Finance \u00b7 XLP (Consumer Staples)",
       "source_url": "https://finance.yahoo.com/quote/XLP",
-      "fetched_at": "2026-05-31T18:00:27Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1086,7 +217,7 @@
     "yf_XLRE": {
       "source": "Yahoo Finance \u00b7 XLRE (Real Estate)",
       "source_url": "https://finance.yahoo.com/quote/XLRE",
-      "fetched_at": "2026-05-31T18:00:27Z",
+      "fetched_at": "2026-06-02T15:08:41Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1094,7 +225,7 @@
     "yf_XLC": {
       "source": "Yahoo Finance \u00b7 XLC (Communication Services)",
       "source_url": "https://finance.yahoo.com/quote/XLC",
-      "fetched_at": "2026-05-31T18:00:27Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1102,7 +233,7 @@
     "yf_^VIX": {
       "source": "Yahoo Finance \u00b7 ^VIX (CBOE Volatility Index)",
       "source_url": "https://finance.yahoo.com/quote/^VIX",
-      "fetched_at": "2026-05-31T18:00:28Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1110,7 +241,7 @@
     "yf_GC=F": {
       "source": "Yahoo Finance \u00b7 GC=F (Gold (continuous))",
       "source_url": "https://finance.yahoo.com/quote/GC=F",
-      "fetched_at": "2026-05-31T18:00:28Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1118,7 +249,7 @@
     "yf_CL=F": {
       "source": "Yahoo Finance \u00b7 CL=F (WTI Crude (continuous))",
       "source_url": "https://finance.yahoo.com/quote/CL=F",
-      "fetched_at": "2026-05-31T18:00:28Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1126,7 +257,7 @@
     "cg_global": {
       "source": "CoinGecko Global Market Data",
       "source_url": "https://www.coingecko.com/en/global-charts",
-      "fetched_at": "2026-05-31T18:00:29Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1134,23 +265,23 @@
     "cg_prices": {
       "source": "CoinGecko Simple Price",
       "source_url": "https://www.coingecko.com/en/coins/bitcoin",
-      "fetched_at": "2026-05-31T18:00:29Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "bybit_perps": {
-      "source": "Bybit Linear Perpetuals (mark, OI, funding)",
+      "source": "Bybit Perps",
       "source_url": "https://www.bybit.com/derivatives/usdt-perpetual",
-      "fetched_at": "2026-05-31T18:00:30Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
-      "ok": true,
-      "note": null
+      "ok": false,
+      "note": "403 Client Error: Forbidden for url: https://api.bybit.com/v5/market/tickers?category=linear"
     },
     "dl_stables": {
       "source": "DefiLlama Stablecoins",
       "source_url": "https://defillama.com/stablecoins",
-      "fetched_at": "2026-05-31T18:00:30Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1158,15 +289,15 @@
     "coinalyze_ls": {
       "source": "Coinalyze L/S",
       "source_url": "https://coinalyze.net/long-short-ratio/",
-      "fetched_at": "2026-05-31T18:00:30Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": false,
-      "note": "COINALYZE_API_KEY not set"
+      "note": "Invalid leading whitespace, reserved character(s), or return character(s) in header value: 'a9d22afe-8cdc-4dc3-a3d0-2077d0a75543\\n'"
     },
     "farside_btc": {
       "source": "Farside BTC ETF flows",
       "source_url": "https://farside.co.uk/bitcoin-etf-flow-all-data/",
-      "fetched_at": "2026-05-31T18:00:31Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": false,
       "note": "403 Client Error: Forbidden for url: https://farside.co.uk/bitcoin-etf-flow-all-data/"
@@ -1174,7 +305,7 @@
     "farside_eth": {
       "source": "Farside ETH ETF flows",
       "source_url": "https://farside.co.uk/ethereum-etf-flow-all-data/",
-      "fetched_at": "2026-05-31T18:00:31Z",
+      "fetched_at": "2026-06-02T15:08:42Z",
       "age_hours": -0.0,
       "ok": false,
       "note": "403 Client Error: Forbidden for url: https://farside.co.uk/ethereum-etf-flow-all-data/"
@@ -1182,7 +313,7 @@
     "dl_sectors": {
       "source": "DefiLlama Categories (sector rotation)",
       "source_url": "https://defillama.com/categories",
-      "fetched_at": "2026-05-31T18:00:38Z",
+      "fetched_at": "2026-06-02T15:08:43Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1190,7 +321,7 @@
     "dl_chains_top": {
       "source": "DefiLlama \u00b7 Top Chains by TVL",
       "source_url": "https://defillama.com/chains",
-      "fetched_at": "2026-05-31T18:00:38Z",
+      "fetched_at": "2026-06-02T15:08:43Z",
       "age_hours": -0.0,
       "ok": true,
       "note": null
@@ -1198,160 +329,156 @@
     "fng": {
       "source": "alternative.me \u00b7 Crypto Fear & Greed",
       "source_url": "https://alternative.me/crypto/fear-and-greed-index/",
-      "fetched_at": "2026-05-31T18:00:50Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:43Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "aaii": {
-      "source": "AAII Sentiment Survey",
+      "source": "AAII Investor Sentiment Survey",
       "source_url": "https://www.aaii.com/sentimentsurvey/sent_results",
-      "fetched_at": "2026-05-31T18:01:03Z",
-      "age_hours": -0.01,
-      "ok": false,
-      "note": "XLS parse failed: Missing optional dependency 'xlrd'. Install xlrd >= 2.0.1 for xls Excel support Use pip or conda to install xlrd."
+      "fetched_at": "2026-06-02T15:08:44Z",
+      "age_hours": -0.0,
+      "ok": true,
+      "note": null
     },
     "cot_financial": {
       "source": "CFTC Commitments of Traders (Financial Futures, weekly)",
       "source_url": "https://www.cftc.gov/MarketReports/CommitmentsofTraders/",
-      "fetched_at": "2026-05-31T18:01:03Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:44Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "cboe_pc": {
       "source": "CBOE Daily Volume Statistics",
       "source_url": "https://www.cboe.com/us/options/market_statistics/daily/",
-      "fetched_at": "2026-05-31T18:01:05Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:44Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "seasonality_SPY": {
       "source": "Yahoo Finance \u00b7 SPY 10y History (computed)",
       "source_url": "https://finance.yahoo.com/quote/SPY/history",
-      "fetched_at": "2026-05-31T18:01:06Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:44Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "seasonality_BTC-USD": {
       "source": "Yahoo Finance \u00b7 BTC-USD 10y History (computed)",
       "source_url": "https://finance.yahoo.com/quote/BTC-USD/history",
-      "fetched_at": "2026-05-31T18:01:06Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:45Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_ai_infrastructure": {
       "source": "Google News \u00b7 AI infrastructure",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:07Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:45Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_rwa_tokenization": {
       "source": "Google News \u00b7 RWA tokenization",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:09Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:46Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_stablecoin_regulation": {
       "source": "Google News \u00b7 Stablecoin regulation",
-      "source_url": "https://news.google.com",
-      "fetched_at": "2026-05-31T18:01:10Z",
-      "age_hours": -0.01,
-      "ok": false,
-      "note": "no items"
+      "source_url": "https://news.google.com/",
+      "fetched_at": "2026-06-02T15:08:47Z",
+      "age_hours": -0.0,
+      "ok": true,
+      "note": null
     },
     "gnews_bitcoin_etf_flows": {
       "source": "Google News \u00b7 Bitcoin ETF flows",
-      "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:12Z",
-      "age_hours": -0.01,
-      "ok": true,
-      "note": null
+      "source_url": "https://news.google.com",
+      "fetched_at": "2026-06-02T15:08:48Z",
+      "age_hours": -0.0,
+      "ok": false,
+      "note": "no items"
     },
     "gnews_ethereum_upgrade": {
       "source": "Google News \u00b7 Ethereum upgrade",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:12Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:49Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_memecoin_season": {
       "source": "Google News \u00b7 Memecoin season",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:13Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:49Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_uranium___nuclear": {
       "source": "Google News \u00b7 Uranium / nuclear",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:14Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:50Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "gnews_glp-1___weight-loss_drugs": {
       "source": "Google News \u00b7 GLP-1 / weight-loss drugs",
       "source_url": "https://news.google.com/",
-      "fetched_at": "2026-05-31T18:01:15Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:51Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "dl_categories": {
       "source": "DefiLlama TVL by Category",
       "source_url": "https://defillama.com/protocols",
-      "fetched_at": "2026-05-31T18:01:17Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:51Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "ff_calendar": {
       "source": "ForexFactory Macro Calendar (USD high+med impact, 14d)",
       "source_url": "https://www.forexfactory.com/calendar",
-      "fetched_at": "2026-05-31T18:01:17Z",
-      "age_hours": -0.01,
+      "fetched_at": "2026-06-02T15:08:51Z",
+      "age_hours": -0.0,
       "ok": true,
       "note": null
     },
     "nasdaq_earnings": {
       "source": "Nasdaq Earnings Calendar",
       "source_url": "https://www.nasdaq.com/market-activity/earnings",
-      "fetched_at": "2026-05-31T18:01:46Z",
-      "age_hours": -0.02,
+      "fetched_at": "2026-06-02T15:09:23Z",
+      "age_hours": -0.01,
       "ok": true,
       "note": null
     },
     "sec_8k": {
       "source": "SEC EDGAR \u00b7 Recent 8-K Filings",
       "source_url": "https://www.sec.gov/cgi-bin/browse-edgar",
-      "fetched_at": "2026-05-31T18:01:46Z",
-      "age_hours": -0.02,
+      "fetched_at": "2026-06-02T15:09:24Z",
+      "age_hours": -0.01,
       "ok": true,
       "note": null
     },
     "cmc_calendar": {
       "source": "CoinMarketCal Events",
       "source_url": "https://coinmarketcal.com/",
-      "fetched_at": "2026-05-31T18:01:47Z",
-      "age_hours": -0.02,
+      "fetched_at": "2026-06-02T15:09:24Z",
+      "age_hours": -0.01,
       "ok": false,
       "note": "403 Client Error: Forbidden for url: https://coinmarketcal.com/rss/feed.atom"
     }
   },
   "pdf_url": "js/data/market_intel.pdf",
-  "model": {
-    "name": "claude-code-cli:haiku",
-    "input_tokens": 0,
-    "output_tokens": 0
-  }
+  "model": null
 }
