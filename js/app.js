@@ -596,10 +596,30 @@ const App = (() => {
     openTradeModalPrefilled(data);
   }
 
-  function openTradeModalPrefilled(d) {
+  // Normalize a pasted/scanned data-URL screenshot before it is persisted:
+  // upload to R2 if configured, otherwise compress to 1200px webp base64.
+  // Prevents the scan-trade flow from storing a raw multi-MB PNG that would
+  // blow the ~5MB localStorage quota (the root cause of blank trade images).
+  async function _normalizeShotForStore(url) {
+    if (!url || !url.startsWith('data:image')) return url;
+    if (typeof R2 !== 'undefined' && R2.isEnabled()) {
+      try { return (await R2.uploadDataUrl(url)).url; }
+      catch (e) { console.warn('R2 uploadDataUrl failed, compressing:', e.message); }
+    }
+    try {
+      const blob = await R2.compressImage(url);
+      return await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(blob); });
+    } catch (e) {
+      console.warn('compress failed, storing raw scan:', e.message);
+      return url;
+    }
+  }
+
+  async function openTradeModalPrefilled(d) {
     openTradeModal(); // resets state, opens normal modal
     if (d.screenshotUrl) {
-      _pendingScreenshots.push(d.screenshotUrl);
+      const stored = await _normalizeShotForStore(d.screenshotUrl);
+      if (!_pendingScreenshots.includes(stored)) _pendingScreenshots.push(stored);
       renderScreenshotPrev();
     }
     if (d.setupTypes && d.setupTypes.length) {
@@ -1401,6 +1421,20 @@ Please analyse:
       const valid = files.filter(f => f.size <= 8 * 1024 * 1024);
       if (!valid.length) { e.target.value = ''; return; }
 
+      // Base64 fallback — ALWAYS compress first (1200px webp) so a single
+      // raw TradingView PNG (~0.5MB) doesn't blow the ~5MB localStorage quota.
+      // Falls back to the raw file only if canvas encoding is unavailable.
+      const toCompressedDataUrl = async (f) => {
+        let blob = f;
+        try {
+          if (typeof R2 !== 'undefined' && R2.compressImage) blob = await R2.compressImage(f);
+        } catch (err) {
+          console.warn('compressImage failed, storing raw:', f.name, err.message);
+          blob = f;
+        }
+        return await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(blob); });
+      };
+
       const newUrls = [];
       let r2Ok = 0, r2Fail = 0, lastErr = '';
       if (useR2) {
@@ -1412,15 +1446,13 @@ Please analyse:
             r2Ok++;
           } catch (err) {
             r2Fail++; lastErr = err.message || String(err);
-            console.warn('R2 upload failed, falling back to base64:', f.name, lastErr);
-            const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(f); });
-            newUrls.push(dataUrl);
+            console.warn('R2 upload failed, falling back to compressed base64:', f.name, lastErr);
+            newUrls.push(await toCompressedDataUrl(f));
           }
         }
       } else {
         for (const f of valid) {
-          const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(f); });
-          newUrls.push(dataUrl);
+          newUrls.push(await toCompressedDataUrl(f));
         }
       }
 

@@ -30,7 +30,19 @@ const DB = (() => {
     catch { return null; }
   }
   function save(key, val) {
-    localStorage.setItem(key, JSON.stringify(val));
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) {
+      // QuotaExceededError — almost always oversized base64 screenshots in jb_trades.
+      // Surface it instead of failing silently (the old behaviour made trades + images
+      // silently vanish on reload). Server copy via LocalPersist still holds the data.
+      const quota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
+      console.error(`[DB.save] localStorage write failed for "${key}":`, e && e.message);
+      if (quota && typeof window !== 'undefined' && typeof window.toast === 'function') {
+        window.toast('Local storage full — open Pro Tools → Storage to move images to cloud (R2).', 'error');
+      }
+      throw e;
+    }
   }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

@@ -558,7 +558,11 @@ const ProToolsTab = (() => {
     document.getElementById('r2SaveBtn')?.addEventListener('click', () => {
       R2.setWorkerUrl(document.getElementById('r2Url').value.trim());
       R2.setEnabled(document.getElementById('r2Enabled').checked);
-      if (typeof toast === 'function') toast('R2 settings saved', 'success');
+      // Sync R2 config to the server so it propagates to every origin
+      // (localhost + Railway) instead of being stranded in this origin's
+      // localStorage — which is why uploads silently fell back to base64.
+      if (typeof LocalPersist !== 'undefined') LocalPersist.scheduleSave();
+      if (typeof toast === 'function') toast('R2 settings saved (syncing to all devices)', 'success');
       render();
     });
     document.getElementById('r2TestBtn')?.addEventListener('click', async () => {

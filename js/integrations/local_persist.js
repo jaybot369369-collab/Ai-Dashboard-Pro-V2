@@ -49,6 +49,41 @@ const LocalPersist = (() => {
     return _available;
   }
 
+  /* ── Write jb_trades, surviving a localStorage quota overflow. ──
+     If the full write throws QuotaExceededError (oversized base64 screenshots),
+     retry with inline data:image screenshots stripped so the trades + their R2
+     (http) images still hydrate instead of the whole write aborting. The full
+     copy is always safe on the server; the user can migrate base64 → R2. */
+  function _setTradesSafe(trades) {
+    try {
+      localStorage.setItem('jb_trades', JSON.stringify(trades));
+      return `loaded-from-fund (${trades.length})`;
+    } catch (e) {
+      const quota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
+      if (!quota) throw e;
+      let stripped = 0;
+      const lean = trades.map(t => {
+        const urls = t.screenshotUrls;
+        if (!Array.isArray(urls)) return t;
+        const kept = urls.filter(u => !(typeof u === 'string' && u.startsWith('data:image')));
+        if (kept.length === urls.length) return t;
+        stripped += urls.length - kept.length;
+        return { ...t, screenshotUrls: kept, _hadInlineImages: true };
+      });
+      try {
+        localStorage.setItem('jb_trades', JSON.stringify(lean));
+        console.warn(`[LocalPersist] quota hit — hydrated with ${stripped} inline base64 image(s) stripped. Migrate to R2 in Pro Tools → Storage.`);
+        if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+          window.toast('Storage full — some inline screenshots hidden. Open Pro Tools → Storage to move images to cloud.', 'error');
+        }
+        return `loaded-from-fund-lean (${lean.length}, -${stripped} imgs)`;
+      } catch (e2) {
+        console.error('[LocalPersist] quota retry failed:', e2 && e2.message);
+        return 'quota-failed';
+      }
+    }
+  }
+
   /* ── Pull from disk → localStorage. Called once on page load. ── */
   async function loadFromFund() {
     if (!(await isAvailable())) return { ok: false, reason: 'fund-api-down' };
@@ -67,8 +102,7 @@ const LocalPersist = (() => {
       let tradesAction = 'kept-local';
       if (fundTrades.length >= localTrades.length) {
         // Fund has more (or equal) — fund wins
-        localStorage.setItem('jb_trades', JSON.stringify(fundTrades));
-        tradesAction = `loaded-from-fund (${fundTrades.length})`;
+        tradesAction = _setTradesSafe(fundTrades);
       } else if (fundTrades.length === 0 && localTrades.length > 0) {
         // Fund empty, local has data — push local UP to fund instead
         scheduleSave();
@@ -93,6 +127,16 @@ const LocalPersist = (() => {
         modelAction = 'loaded-from-fund';
       }
 
+      // R2 image-storage config — per-origin localStorage means it was lost on
+      // every new origin (localhost vs Railway), so uploads silently fell back to
+      // base64. Sync it like the AI key so enabling R2 once propagates everywhere.
+      if (j.r2_worker && typeof j.r2_worker === 'string') {
+        localStorage.setItem('jb_r2_worker', j.r2_worker);
+      }
+      if (typeof j.r2_enabled === 'string' && (j.r2_enabled === '1' || j.r2_enabled === '0')) {
+        localStorage.setItem('jb_r2_enabled', j.r2_enabled);
+      }
+
       console.log(`[LocalPersist] hydrated  trades=${tradesAction}  key=${keyAction}  model=${modelAction}  saved_at=${j.saved_at || '(never)'}`);
       return { ok: true, trades: tradesAction, key: keyAction, model: modelAction };
     } catch (e) {
@@ -115,9 +159,11 @@ const LocalPersist = (() => {
       return { ok: false };
     }
     const body = {
-      trades:   JSON.parse(localStorage.getItem('jb_trades') || '[]'),
-      ai_key:   localStorage.getItem('jb_ai_key')   || '',
-      ai_model: localStorage.getItem('jb_ai_model') || '',
+      trades:     JSON.parse(localStorage.getItem('jb_trades') || '[]'),
+      ai_key:     localStorage.getItem('jb_ai_key')   || '',
+      ai_model:   localStorage.getItem('jb_ai_model') || '',
+      r2_worker:  localStorage.getItem('jb_r2_worker')  || '',
+      r2_enabled: localStorage.getItem('jb_r2_enabled') || '',
     };
     try {
       const r = await fetch(FUND_LOCAL_URL, {
