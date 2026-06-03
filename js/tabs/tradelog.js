@@ -11,13 +11,23 @@ const TradeLogTab = (() => {
   let groupBy = localStorage.getItem('jb_tradelog_groupby') || 'none';
   const collapsedGroups = new Set(); // group keys that are collapsed
 
+  // Pagination (flat "None" view only) — 15 trades per page
+  let page = 1;
+  const PAGE_SIZE = 15;
+
+  // Complete ledger source: every manually-logged trade, decoupled from the
+  // topbar date dropdown AND the data-mode toggle. DB.getTradesRaw is the
+  // un-patched original set (assigned in app.js init); fall back to getTrades.
+  function tradesForLog() {
+    const raw = (typeof DB.getTradesRaw === 'function') ? DB.getTradesRaw() : DB.getTrades();
+    return DB.filterByMode(raw, 'new');   // 'new' => !source || source === 'manual'
+  }
+
   function render() {
     // Reset to latest-first on every fresh tab render (unless user manually sorted)
     if (!_userSorted) { sortCol = 'date'; sortDir = 'desc'; }
     const content = document.getElementById('content');
-    const { range, from, to } = App.getDateFilter();
-    const allTrades = DB.getTrades();
-    const trades = DB.filterByRange(allTrades, range, from, to);
+    const trades = tradesForLog();   // all manual trades, no date-range filter
     const setups = DB.getSetupNames();
 
     content.innerHTML = `
@@ -139,7 +149,15 @@ const TradeLogTab = (() => {
     const tbody = document.getElementById('tlTbody');
 
     if (groupBy === 'none') {
-      filtered.forEach(t => appendTradeRow(tbody, t));
+      // Paginate the flat ledger — 15 per page
+      const total = filtered.length;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (page > totalPages) page = totalPages;
+      if (page < 1) page = 1;
+      const startIdx = (page - 1) * PAGE_SIZE;
+      const pageRows = filtered.slice(startIdx, startIdx + PAGE_SIZE);
+      pageRows.forEach(t => appendTradeRow(tbody, t));
+      renderPager(wrap, total, totalPages, startIdx, pageRows.length);
       return;
     }
 
@@ -201,6 +219,22 @@ const TradeLogTab = (() => {
     }
   }
 
+  // Pager for the flat ledger view. Appended below the table inside the wrap.
+  function renderPager(wrap, total, totalPages, startIdx, shown) {
+    if (total <= PAGE_SIZE) return;  // single page — no controls needed
+    const from = total ? startIdx + 1 : 0;
+    const to   = startIdx + shown;
+    const pager = document.createElement('div');
+    pager.className = 'tl-pager';
+    pager.innerHTML = `
+      <button class="tl-pager-btn" ${page <= 1 ? 'disabled' : ''}
+              onclick="TradeLogTab._setPage(${page - 1})">‹ Prev</button>
+      <span class="tl-pager-info">Page ${page} of ${totalPages} · Showing ${from}–${to} of ${total}</span>
+      <button class="tl-pager-btn" ${page >= totalPages ? 'disabled' : ''}
+              onclick="TradeLogTab._setPage(${page + 1})">Next ›</button>`;
+    wrap.appendChild(pager);
+  }
+
   function appendTradeRow(tbody, t) {
     const pl = t.result !== '' && t.result !== undefined ? parseFloat(t.result) : null;
     const isExpanded = expandedId === t.id;
@@ -231,8 +265,7 @@ const TradeLogTab = (() => {
     row.addEventListener('click', e => {
       if (e.target.tagName === 'BUTTON') return;
       expandedId = expandedId === t.id ? null : t.id;
-      const { range, from, to } = App.getDateFilter();
-      renderTable(DB.filterByRange(DB.getTrades(), range, from, to));
+      renderTable(tradesForLog());   // keep current page; expand toggles in place
     });
     tbody.appendChild(row);
 
@@ -459,34 +492,37 @@ const TradeLogTab = (() => {
       _userSorted = true;
       if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
       else { sortCol = col; sortDir = 'desc'; }
-      const { range, from, to } = App.getDateFilter();
-      const trades = DB.filterByRange(DB.getTrades(), range, from, to);
-      renderTable(trades);
+      page = 1;
+      renderTable(tradesForLog());
     },
     _filter: () => {
       filterSymbol    = document.getElementById('tlSearch')?.value || '';
       filterSession   = document.getElementById('tlSession')?.value || '';
       filterDirection = document.getElementById('tlDirection')?.value || '';
       filterSetup     = document.getElementById('tlSetup')?.value || '';
-      const { range, from, to } = App.getDateFilter();
-      const trades = DB.filterByRange(DB.getTrades(), range, from, to);
-      renderTable(trades);
+      page = 1;
+      renderTable(tradesForLog());
     },
     _clearFilters: () => {
       filterSymbol = filterSession = filterDirection = filterSetup = '';
+      page = 1;
       render();
     },
     _setGroupBy: g => {
       groupBy = g;
       localStorage.setItem('jb_tradelog_groupby', g);
       collapsedGroups.clear();
+      page = 1;
       render();
+    },
+    _setPage: n => {
+      page = n;
+      renderTable(tradesForLog());
     },
     _toggleGroup: key => {
       if (collapsedGroups.has(key)) collapsedGroups.delete(key);
       else collapsedGroups.add(key);
-      const { range, from, to } = App.getDateFilter();
-      renderTable(DB.filterByRange(DB.getTrades(), range, from, to));
+      renderTable(tradesForLog());
     },
     _edit: (id, e) => { e.stopPropagation(); App.openTradeModal(id); },
     _del: (id, e) => {

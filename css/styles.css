@@ -6815,3 +6815,36 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
   color: var(--bg-card, #fff);
   font-weight: 700;
 }
+
+/* ── Trade Log pager (flat ledger view) ── */
+.tl-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 14px 0 4px;
+  flex-wrap: wrap;
+}
+.tl-pager-btn {
+  background: var(--surface, var(--bg-card));
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.tl-pager-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.tl-pager-btn:disabled {
+  opacity: .4;
+  cursor: default;
+}
+.tl-pager-info {
+  font-size: .78rem;
+  color: var(--text-secondary, var(--muted));
+}
