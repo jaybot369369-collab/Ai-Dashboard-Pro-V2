@@ -3,6 +3,14 @@
 ════════════════════════════════════════════════════════════ */
 const DashboardTab = (() => {
 
+  // Account inception — the date of the first manual trade. Balance, equity
+  // curve and the P&L calendar are all anchored here so imported/backtest
+  // trades dated before this (notion/binance history back to 2022) never bleed
+  // into the live account figures. Matches DB.filterByRange('alltime').
+  const START_DATE = '2026-04-27';
+  const sinceStart = (trades) =>
+    (trades || []).filter(t => (t.date || '').slice(0, 10) >= START_DATE);
+
   let calMonth, calYear;
   let dragStart = null;
   let dragEnd   = null;
@@ -91,10 +99,13 @@ const DashboardTab = (() => {
 
   /* ── DERIVED METRICS ────────────────────────────────── */
   function accountBalance(trades) {
-    // Balance starts at 0 on the date of the first trade (27 Apr) and is the
-    // pure running sum of every closed trade's $ P&L from there on.
+    // Balance starts at 0 on the inception date (27 Apr) and is the pure
+    // running sum of every closed trade's $ P&L FROM THERE ON. Trades dated
+    // before inception (imported notion/binance history) are excluded so the
+    // figure reflects the live account only.
     const start = 0;
-    const closed = trades.filter(t => t.result !== '' && t.result !== undefined);
+    const closed = sinceStart(trades)
+      .filter(t => t.result !== '' && t.result !== undefined && t.result !== null);
     return closed.reduce((s, t) => s + (parseFloat(t.result) || 0), 0) + start;
   }
   function periodSeries(allTrades, days) {
@@ -215,7 +226,7 @@ const DashboardTab = (() => {
               <div class="card-sub">Account balance over time</div>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
-              <span class="badge accent">${DB.equityCurve(allTrades).length} trades</span>
+              <span class="badge accent">${DB.equityCurve(sinceStart(allTrades)).length} trades</span>
               <div class="pill-select"><span>All time</span><span class="chev">▾</span></div>
             </div>
           </div>
@@ -275,13 +286,13 @@ const DashboardTab = (() => {
     drawSpark('spark-3', rollingWinRate(pnlTrades), winRate>=50 ? good : bad);
     drawSpark('spark-4', rollingAvgR(pnlTrades),    avgR>=0 ? good : bad);
 
-    // Equity curve
-    drawEquity('equityCanvas', equitySeries(allTrades), accent, accent2);
+    // Equity curve — anchored to inception so it matches the account balance
+    drawEquity('equityCanvas', equitySeries(sinceStart(allTrades)), accent, accent2);
 
     // Top-setups donut
     drawSetupDonut('setupCanvas', _setupLast);
 
-    renderCalendar(DB.dailyPLMap(allTrades));
+    renderCalendar(DB.dailyPLMap(sinceStart(allTrades)));
   }
 
   function kpiCard(idx, icon, value, label, deltaHtml) {
