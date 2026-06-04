@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-04T17:59:44.674946+00:00",
+  "generated": "2026-06-04T20:12:40.157524+00:00",
   "config": {
     "tf": "5m",
     "symbols": [
@@ -18,8 +18,8 @@
   "symbols": {
     "BTCUSDT": {
       "display": "BTC/USDT",
-      "price": 63559.9,
-      "latest_bar_ny": "2026-06-04 13:50",
+      "price": 63317.0,
+      "latest_bar_ny": "2026-06-04 16:05",
       "amd": {
         "date": "2026-06-04",
         "dist_direction": null,
@@ -27,21 +27,33 @@
         "profile": "no_sweep"
       },
       "next_window": {
-        "name": "SB_NY_PM",
-        "minutes_until": 1
+        "name": null,
+        "minutes_until": null
       },
       "active_setups": [],
       "killzone": {
-        "current": "NY_PM",
-        "latest_bar_ny": "2026-06-04 13:50"
+        "current": null,
+        "latest_bar_ny": "2026-06-04 16:05"
       },
       "sweeps": {
         "recent_bsl": [
           {
+            "level": 64099.9,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 15:25"
+          },
+          {
+            "level": 63617.0,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:25"
+          },
+          {
             "level": 63909.4,
             "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 12:45"
+            "reclaimed": true,
+            "ts": "2026-06-04 14:35"
           },
           {
             "level": 64207.6,
@@ -52,29 +64,29 @@
           {
             "level": 63963.25,
             "kind": "cluster",
-            "reclaimed": false,
-            "ts": "2026-06-04 11:55"
+            "reclaimed": true,
+            "ts": "2026-06-04 14:35"
           },
           {
             "level": 62807.0,
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 08:20"
-          },
-          {
-            "level": 62669.0,
-            "kind": "cluster",
-            "reclaimed": true,
-            "ts": "2026-06-04 08:15"
-          },
-          {
-            "level": 63224.8,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 08:20"
           }
         ],
         "recent_ssl": [
+          {
+            "level": 63616.1,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 15:50"
+          },
+          {
+            "level": 62966.4,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 13:45"
+          },
           {
             "level": 63845.1,
             "kind": "single",
@@ -98,70 +110,58 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 07:10"
-          },
-          {
-            "level": 62445.6,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 06:45"
-          },
-          {
-            "level": 62738.1,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 06:25"
           }
         ]
       },
       "pd_arrays": {
         "active_fvgs": [
           {
-            "grade": "B",
+            "grade": "OPEN",
             "dir": "bear",
-            "top": 63054.7,
-            "mid": 63038.05,
-            "bot": 63021.4,
-            "rebalanced": true
-          },
-          {
-            "grade": "B",
-            "dir": "bear",
-            "top": 63531.3,
-            "mid": 63427.6,
-            "bot": 63323.9,
+            "top": 63540.0,
+            "mid": 63468.15,
+            "bot": 63396.3,
             "rebalanced": false
           },
           {
-            "grade": "A",
-            "dir": "bear",
-            "top": 63691.5,
-            "mid": 63624.55,
-            "bot": 63557.6,
-            "rebalanced": false
-          },
-          {
-            "grade": "A",
-            "dir": "bear",
-            "top": 63734.4,
-            "mid": 63689.35,
-            "bot": 63644.3,
+            "grade": "B",
+            "dir": "bull",
+            "top": 63907.6,
+            "mid": 63803.8,
+            "bot": 63700.0,
             "rebalanced": false
           },
           {
             "grade": "B",
             "dir": "bear",
-            "top": 63688.5,
-            "mid": 63666.6,
-            "bot": 63644.7,
+            "top": 63827.1,
+            "mid": 63763.55,
+            "bot": 63700.0,
             "rebalanced": true
           },
           {
-            "grade": "A",
+            "grade": "B",
             "dir": "bear",
-            "top": 64096.8,
-            "mid": 64076.45,
-            "bot": 64056.1,
-            "rebalanced": true
+            "top": 63934.8,
+            "mid": 63875.2,
+            "bot": 63815.6,
+            "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bull",
+            "top": 63754.5,
+            "mid": 63679.75,
+            "bot": 63605.0,
+            "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bull",
+            "top": 63525.8,
+            "mid": 63470.1,
+            "bot": 63414.4,
+            "rebalanced": false
           }
         ],
         "active_obs": []
@@ -169,7 +169,7 @@
       "structure": {
         "dealing_range": {
           "high": 64500.0,
-          "low": 62217.8
+          "low": 62446.3
         },
         "premium_discount": "equilibrium",
         "last_msb": {}
@@ -177,8 +177,8 @@
     },
     "ETHUSDT": {
       "display": "ETH/USDT",
-      "price": 1770.95,
-      "latest_bar_ny": "2026-06-04 13:50",
+      "price": 1766.54,
+      "latest_bar_ny": "2026-06-04 16:05",
       "amd": {
         "date": "2026-06-04",
         "dist_direction": null,
@@ -186,27 +186,39 @@
         "profile": "no_sweep"
       },
       "next_window": {
-        "name": "SB_NY_PM",
-        "minutes_until": 1
+        "name": null,
+        "minutes_until": null
       },
       "active_setups": [],
       "killzone": {
-        "current": "NY_PM",
-        "latest_bar_ny": "2026-06-04 13:50"
+        "current": null,
+        "latest_bar_ny": "2026-06-04 16:05"
       },
       "sweeps": {
         "recent_bsl": [
           {
-            "level": 1773.77,
+            "level": 1781.08,
             "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 13:10"
+            "reclaimed": true,
+            "ts": "2026-06-04 15:15"
           },
           {
-            "level": 1779.48,
+            "level": 1771.72,
             "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:20"
+          },
+          {
+            "level": 1773.77,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:25"
+          },
+          {
+            "level": 1779.565,
+            "kind": "cluster",
             "reclaimed": false,
-            "ts": "2026-06-04 11:55"
+            "ts": "2026-06-04 15:55"
           },
           {
             "level": 1789.77,
@@ -219,21 +231,21 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 08:20"
-          },
-          {
-            "level": 1753.87,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 08:00"
-          },
-          {
-            "level": 1762.71,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 08:20"
           }
         ],
         "recent_ssl": [
+          {
+            "level": 1771.26,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 16:00"
+          },
+          {
+            "level": 1761.39,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 14:10"
+          },
           {
             "level": 1755.0,
             "kind": "single",
@@ -257,69 +269,57 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 10:35"
-          },
-          {
-            "level": 1756.63,
-            "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 09:25"
-          },
-          {
-            "level": 1772.155,
-            "kind": "cluster",
-            "reclaimed": true,
-            "ts": "2026-06-04 12:25"
           }
         ]
       },
       "pd_arrays": {
         "active_fvgs": [
           {
-            "grade": "B",
+            "grade": "OPEN",
             "dir": "bear",
-            "top": 1759.05,
-            "mid": 1758.245,
-            "bot": 1757.44,
-            "rebalanced": true
-          },
-          {
-            "grade": "B",
-            "dir": "bear",
-            "top": 1765.56,
-            "mid": 1763.17,
-            "bot": 1760.78,
-            "rebalanced": false
-          },
-          {
-            "grade": "B",
-            "dir": "bull",
-            "top": 1775.48,
-            "mid": 1772.305,
-            "bot": 1769.13,
+            "top": 1774.67,
+            "mid": 1772.63,
+            "bot": 1770.59,
             "rebalanced": false
           },
           {
             "grade": "B",
             "dir": "bear",
-            "top": 1773.11,
-            "mid": 1771.12,
-            "bot": 1769.13,
+            "top": 1773.83,
+            "mid": 1772.545,
+            "bot": 1771.26,
             "rebalanced": true
           },
           {
-            "grade": "A",
+            "grade": "B",
             "dir": "bear",
-            "top": 1786.23,
-            "mid": 1783.13,
-            "bot": 1780.03,
+            "top": 1776.69,
+            "mid": 1775.525,
+            "bot": 1774.36,
+            "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bear",
+            "top": 1777.29,
+            "mid": 1776.735,
+            "bot": 1776.18,
+            "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bear",
+            "top": 1764.12,
+            "mid": 1763.62,
+            "bot": 1763.12,
             "rebalanced": true
           },
           {
             "grade": "B",
             "dir": "bull",
-            "top": 1786.23,
-            "mid": 1781.25,
-            "bot": 1776.27,
+            "top": 1765.95,
+            "mid": 1762.93,
+            "bot": 1759.91,
             "rebalanced": true
           }
         ],
@@ -328,7 +328,7 @@
       "structure": {
         "dealing_range": {
           "high": 1793.55,
-          "low": 1731.0
+          "low": 1745.6
         },
         "premium_discount": "equilibrium",
         "last_msb": {}
@@ -336,8 +336,8 @@
     },
     "XRPUSDT": {
       "display": "XRP/USDT",
-      "price": 1.17162,
-      "latest_bar_ny": "2026-06-04 13:50",
+      "price": 1.16921,
+      "latest_bar_ny": "2026-06-04 16:05",
       "amd": {
         "date": "2026-06-04",
         "dist_direction": null,
@@ -345,16 +345,28 @@
         "profile": "no_sweep"
       },
       "next_window": {
-        "name": "SB_NY_PM",
-        "minutes_until": 1
+        "name": null,
+        "minutes_until": null
       },
       "active_setups": [],
       "killzone": {
-        "current": "NY_PM",
-        "latest_bar_ny": "2026-06-04 13:50"
+        "current": null,
+        "latest_bar_ny": "2026-06-04 16:05"
       },
       "sweeps": {
         "recent_bsl": [
+          {
+            "level": 1.18418,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 15:25"
+          },
+          {
+            "level": 1.17193,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:20"
+          },
           {
             "level": 1.1731,
             "kind": "single",
@@ -370,29 +382,29 @@
           {
             "level": 1.175355,
             "kind": "cluster",
-            "reclaimed": false,
-            "ts": "2026-06-04 13:10"
+            "reclaimed": true,
+            "ts": "2026-06-04 14:25"
           },
           {
-            "level": 1.18317,
-            "kind": "cluster",
-            "reclaimed": false,
-            "ts": "2026-06-04 11:10"
-          },
-          {
-            "level": 1.181705,
+            "level": 1.183113,
             "kind": "cluster",
             "reclaimed": true,
-            "ts": "2026-06-04 11:05"
-          },
-          {
-            "level": 1.16046,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 08:20"
+            "ts": "2026-06-04 15:25"
           }
         ],
         "recent_ssl": [
+          {
+            "level": 1.17686,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 15:50"
+          },
+          {
+            "level": 1.17471,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 16:00"
+          },
           {
             "level": 1.16044,
             "kind": "single",
@@ -416,69 +428,57 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 12:25"
-          },
-          {
-            "level": 1.15069,
-            "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 08:10"
-          },
-          {
-            "level": 1.14194,
-            "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 07:15"
           }
         ]
       },
       "pd_arrays": {
         "active_fvgs": [
           {
-            "grade": "B",
+            "grade": "OPEN",
             "dir": "bear",
-            "top": 1.16475,
-            "mid": 1.16315,
-            "bot": 1.16155,
-            "rebalanced": true
+            "top": 1.17357,
+            "mid": 1.172275,
+            "bot": 1.17098,
+            "rebalanced": false
           },
           {
-            "grade": "B",
+            "grade": "A",
             "dir": "bear",
-            "top": 1.1725,
-            "mid": 1.17056,
-            "bot": 1.16862,
+            "top": 1.17737,
+            "mid": 1.17649,
+            "bot": 1.17561,
             "rebalanced": true
           },
           {
-            "grade": "B",
-            "dir": "bull",
-            "top": 1.17082,
-            "mid": 1.169915,
-            "bot": 1.16901,
-            "rebalanced": true
-          },
-          {
-            "grade": "B",
-            "dir": "bull",
-            "top": 1.16819,
-            "mid": 1.16625,
-            "bot": 1.16431,
+            "grade": "OPEN",
+            "dir": "bear",
+            "top": 1.18297,
+            "mid": 1.181345,
+            "bot": 1.17972,
             "rebalanced": false
           },
           {
             "grade": "B",
-            "dir": "bear",
-            "top": 1.16948,
-            "mid": 1.1691,
-            "bot": 1.16872,
+            "dir": "bull",
+            "top": 1.18297,
+            "mid": 1.18256,
+            "bot": 1.18215,
             "rebalanced": true
           },
           {
             "grade": "B",
-            "dir": "bear",
-            "top": 1.17481,
-            "mid": 1.17361,
-            "bot": 1.17241,
+            "dir": "bull",
+            "top": 1.17983,
+            "mid": 1.17786,
+            "bot": 1.17589,
+            "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bull",
+            "top": 1.17775,
+            "mid": 1.17734,
+            "bot": 1.17693,
             "rebalanced": false
           }
         ],
@@ -486,17 +486,17 @@
       },
       "structure": {
         "dealing_range": {
-          "high": 1.18339,
-          "low": 1.14194
+          "high": 1.18418,
+          "low": 1.15069
         },
-        "premium_discount": "premium",
+        "premium_discount": "equilibrium",
         "last_msb": {}
       }
     },
     "SOLUSDT": {
       "display": "SOL/USDT",
-      "price": 69.51,
-      "latest_bar_ny": "2026-06-04 13:50",
+      "price": 68.57,
+      "latest_bar_ny": "2026-06-04 16:05",
       "amd": {
         "date": "2026-06-04",
         "dist_direction": null,
@@ -504,13 +504,13 @@
         "profile": "no_sweep"
       },
       "next_window": {
-        "name": "SB_NY_PM",
-        "minutes_until": 1
+        "name": null,
+        "minutes_until": null
       },
       "active_setups": [],
       "killzone": {
-        "current": "NY_PM",
-        "latest_bar_ny": "2026-06-04 13:50"
+        "current": null,
+        "latest_bar_ny": "2026-06-04 16:05"
       },
       "sweeps": {
         "recent_bsl": [
@@ -522,21 +522,21 @@
           },
           {
             "level": 69.7,
-            "kind": "single",
+            "kind": "cluster",
             "reclaimed": false,
-            "ts": "2026-06-04 13:10"
+            "ts": "2026-06-04 15:25"
           },
           {
-            "level": 69.54,
-            "kind": "single",
+            "level": 69.535,
+            "kind": "cluster",
             "reclaimed": true,
-            "ts": "2026-06-04 13:10"
+            "ts": "2026-06-04 14:25"
           },
           {
-            "level": 69.85,
-            "kind": "single",
+            "level": 69.846667,
+            "kind": "cluster",
             "reclaimed": false,
-            "ts": "2026-06-04 11:55"
+            "ts": "2026-06-04 14:55"
           },
           {
             "level": 70.49,
@@ -552,6 +552,18 @@
           }
         ],
         "recent_ssl": [
+          {
+            "level": 68.66,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 16:05"
+          },
+          {
+            "level": 68.51,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 13:45"
+          },
           {
             "level": 69.07,
             "kind": "single",
@@ -575,38 +587,50 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 12:00"
-          },
-          {
-            "level": 69.69,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 10:50"
-          },
-          {
-            "level": 69.11,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 13:15"
           }
         ]
       },
       "pd_arrays": {
         "active_fvgs": [
           {
-            "grade": "B",
+            "grade": "OPEN",
             "dir": "bear",
-            "top": 68.89,
-            "mid": 68.755,
-            "bot": 68.62,
+            "top": 69.06,
+            "mid": 68.92,
+            "bot": 68.78,
+            "rebalanced": false
+          },
+          {
+            "grade": "A",
+            "dir": "bear",
+            "top": 69.27,
+            "mid": 69.235,
+            "bot": 69.2,
             "rebalanced": true
           },
           {
             "grade": "B",
             "dir": "bear",
-            "top": 69.14,
-            "mid": 69.02,
-            "bot": 68.9,
+            "top": 69.54,
+            "mid": 69.43,
+            "bot": 69.32,
+            "rebalanced": true
+          },
+          {
+            "grade": "B",
+            "dir": "bear",
+            "top": 69.71,
+            "mid": 69.585,
+            "bot": 69.46,
             "rebalanced": false
+          },
+          {
+            "grade": "B",
+            "dir": "bull",
+            "top": 69.19,
+            "mid": 68.945,
+            "bot": 68.7,
+            "rebalanced": true
           },
           {
             "grade": "B",
@@ -615,30 +639,6 @@
             "mid": 69.325,
             "bot": 69.22,
             "rebalanced": true
-          },
-          {
-            "grade": "B",
-            "dir": "bull",
-            "top": 69.39,
-            "mid": 69.275,
-            "bot": 69.16,
-            "rebalanced": false
-          },
-          {
-            "grade": "A",
-            "dir": "bear",
-            "top": 70.19,
-            "mid": 70.055,
-            "bot": 69.92,
-            "rebalanced": false
-          },
-          {
-            "grade": "B",
-            "dir": "bull",
-            "top": 70.19,
-            "mid": 70.005,
-            "bot": 69.82,
-            "rebalanced": true
           }
         ],
         "active_obs": []
@@ -646,16 +646,16 @@
       "structure": {
         "dealing_range": {
           "high": 70.63,
-          "low": 67.43
+          "low": 68.37
         },
-        "premium_discount": "equilibrium",
+        "premium_discount": "discount",
         "last_msb": {}
       }
     },
     "FETUSDT": {
       "display": "FET/USDT",
-      "price": 0.2245,
-      "latest_bar_ny": "2026-06-04 13:50",
+      "price": 0.2216,
+      "latest_bar_ny": "2026-06-04 16:05",
       "amd": {
         "date": "2026-06-04",
         "dist_direction": "bullish",
@@ -663,8 +663,8 @@
         "profile": "bull_amd"
       },
       "next_window": {
-        "name": "SB_NY_PM",
-        "minutes_until": 1
+        "name": null,
+        "minutes_until": null
       },
       "active_setups": [
         {
@@ -672,14 +672,14 @@
           "tier": "TRIGGER",
           "window": "iFVG",
           "direction": "bull",
-          "entry": 0.2261,
-          "stop": 0.225774,
-          "tp1": 0.226752,
+          "entry": 0.22335,
+          "stop": 0.223077,
+          "tp1": 0.223897,
           "rr": 2.0,
           "score": 3,
           "fvg_grade": null,
           "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "11:05",
+          "b2_ts_ny": "11:10",
           "b2_date": "2026-06-04"
         },
         {
@@ -687,29 +687,14 @@
           "tier": "TRIGGER",
           "window": "iFVG",
           "direction": "bull",
-          "entry": 0.2263,
-          "stop": 0.225874,
-          "tp1": 0.227152,
+          "entry": 0.2243,
+          "stop": 0.223876,
+          "tp1": 0.225148,
           "rr": 2.0,
           "score": 3,
           "fvg_grade": null,
           "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "11:00",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "ARMED",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.22215,
-          "stop": 0.221778,
-          "tp1": 0.222894,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "12:35",
+          "b2_ts_ny": "10:40",
           "b2_date": "2026-06-04"
         },
         {
@@ -717,98 +702,41 @@
           "tier": "TRIGGER",
           "window": "iFVG",
           "direction": "bull",
-          "entry": 0.22415,
-          "stop": 0.223576,
-          "tp1": 0.225298,
+          "entry": 0.2213,
+          "stop": 0.220979,
+          "tp1": 0.221942,
           "rr": 2.0,
           "score": 3,
           "fvg_grade": null,
           "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "11:45",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "TRIGGER",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.22365,
-          "stop": 0.223277,
-          "tp1": 0.224397,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "12:05",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "TRIGGER",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.2232,
-          "stop": 0.222377,
-          "tp1": 0.224845,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "12:10",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "ARMED",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.223,
-          "stop": 0.222677,
-          "tp1": 0.223646,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "12:15",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "ARMED",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.22285,
-          "stop": 0.222577,
-          "tp1": 0.223396,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "13:05",
-          "b2_date": "2026-06-04"
-        },
-        {
-          "strategy": "ifvg",
-          "tier": "TRIGGER",
-          "window": "iFVG",
-          "direction": "bull",
-          "entry": 0.22515,
-          "stop": 0.224575,
-          "tp1": 0.2263,
-          "rr": 2.0,
-          "score": 3,
-          "fvg_grade": null,
-          "stop_anchor": "ifvg_zone",
-          "b2_ts_ny": "11:40",
+          "b2_ts_ny": "15:40",
           "b2_date": "2026-06-04"
         }
       ],
       "killzone": {
-        "current": "NY_PM",
-        "latest_bar_ny": "2026-06-04 13:50"
+        "current": null,
+        "latest_bar_ny": "2026-06-04 16:05"
       },
       "sweeps": {
         "recent_bsl": [
+          {
+            "level": 0.227,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 15:25"
+          },
+          {
+            "level": 0.2275,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 14:50"
+          },
+          {
+            "level": 0.2262,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:35"
+          },
           {
             "level": 0.2313,
             "kind": "single",
@@ -826,27 +754,27 @@
             "kind": "single",
             "reclaimed": false,
             "ts": "2026-06-04 11:25"
-          },
-          {
-            "level": 0.2285,
-            "kind": "cluster",
-            "reclaimed": true,
-            "ts": "2026-06-04 11:05"
-          },
-          {
-            "level": 0.2264,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 10:10"
-          },
-          {
-            "level": 0.2257,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 10:05"
           }
         ],
         "recent_ssl": [
+          {
+            "level": 0.2232,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 15:50"
+          },
+          {
+            "level": 0.2206,
+            "kind": "single",
+            "reclaimed": false,
+            "ts": "2026-06-04 14:10"
+          },
+          {
+            "level": 0.2219,
+            "kind": "single",
+            "reclaimed": true,
+            "ts": "2026-06-04 14:10"
+          },
           {
             "level": 0.2277,
             "kind": "single",
@@ -864,24 +792,6 @@
             "kind": "single",
             "reclaimed": true,
             "ts": "2026-06-04 11:45"
-          },
-          {
-            "level": 0.2262,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 13:30"
-          },
-          {
-            "level": 0.2223,
-            "kind": "single",
-            "reclaimed": true,
-            "ts": "2026-06-04 13:40"
-          },
-          {
-            "level": 0.2166,
-            "kind": "single",
-            "reclaimed": false,
-            "ts": "2026-06-04 08:15"
           }
         ]
       },
@@ -889,50 +799,50 @@
         "active_fvgs": [
           {
             "grade": "OPEN",
-            "dir": "bull",
-            "top": 0.2236,
-            "mid": 0.22345,
-            "bot": 0.2233,
+            "dir": "bear",
+            "top": 0.2225,
+            "mid": 0.22215,
+            "bot": 0.2218,
             "rebalanced": false
           },
           {
-            "grade": "B",
+            "grade": "OPEN",
             "dir": "bear",
-            "top": 0.2237,
-            "mid": 0.2235,
-            "bot": 0.2233,
+            "top": 0.2235,
+            "mid": 0.22325,
+            "bot": 0.223,
+            "rebalanced": false
+          },
+          {
+            "grade": "OPEN",
+            "dir": "bear",
+            "top": 0.2255,
+            "mid": 0.2254,
+            "bot": 0.2253,
             "rebalanced": false
           },
           {
             "grade": "A",
             "dir": "bear",
             "top": 0.226,
-            "mid": 0.22505,
-            "bot": 0.2241,
-            "rebalanced": false
-          },
-          {
-            "grade": "A",
-            "dir": "bear",
-            "top": 0.2275,
-            "mid": 0.2272,
-            "bot": 0.2269,
+            "mid": 0.22565,
+            "bot": 0.2253,
             "rebalanced": true
           },
           {
-            "grade": "OPEN",
-            "dir": "bear",
-            "top": 0.2288,
-            "mid": 0.2283,
-            "bot": 0.2278,
+            "grade": "B",
+            "dir": "bull",
+            "top": 0.2253,
+            "mid": 0.22465,
+            "bot": 0.224,
             "rebalanced": false
           },
           {
             "grade": "B",
             "dir": "bear",
-            "top": 0.229,
-            "mid": 0.2289,
-            "bot": 0.2288,
+            "top": 0.225,
+            "mid": 0.2245,
+            "bot": 0.224,
             "rebalanced": true
           }
         ],
@@ -943,7 +853,7 @@
           "high": 0.2321,
           "low": 0.2166
         },
-        "premium_discount": "equilibrium",
+        "premium_discount": "discount",
         "last_msb": {}
       }
     }
