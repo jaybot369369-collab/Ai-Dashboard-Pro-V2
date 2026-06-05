@@ -657,6 +657,8 @@ Traders on different exchanges are positioned completely differently. This means
 
       ${_liqZonesShell()}
 
+      ${_oiBarsShell(scores)}
+
       ${_kpiStrip(scores, sorted)}
 
       ${_alertStrip(scores, sorted)}
@@ -715,6 +717,41 @@ Traders on different exchanges are positioned completely differently. This means
     const a = Math.abs(p);
     const dec = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
     return '$' + Number(p).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  /* Compact cross-asset Open Interest bar strip (under the liq panel).
+     Built inline from the scores payload's per-asset meta.oi_usd — no extra
+     fetch, re-renders with every render + 30s refresh. */
+  function _oiBarsShell(scores) {
+    const rows = Object.keys(scores || {})
+      .map(a => [a, (scores[a] && scores[a].meta && scores[a].meta.oi_usd) || 0])
+      .filter(r => r[1] > 0)
+      .sort((x, y) => y[1] - x[1]);
+    const head = `
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div>
+          <h2 style="font-size:14px;font-weight:700;margin:0;color:var(--text)">Open Interest <span style="font-weight:400;font-size:12px;color:var(--muted)">(live, by asset)</span></h2>
+          <p style="font-size:11px;color:var(--muted);margin:3px 0 0;max-width:560px;line-height:1.5">Live perp open interest in USD across the universe — longest bar = most leveraged capital parked.</p>
+        </div>
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">TF ${esc(_activeTf)}</span>
+      </div>`;
+    let body;
+    if (!rows.length) {
+      body = `<div style="font-size:12px;color:var(--muted);padding:8px 0">Waiting for live open-interest data…</div>`;
+    } else {
+      const max = rows[0][1] || 1;
+      body = `<div style="display:flex;flex-direction:column;gap:6px">` + rows.map(([a, oi]) => {
+        const w = Math.max(1.5, (oi / max) * 100);
+        return `<div style="display:grid;grid-template-columns:52px 1fr 74px;align-items:center;gap:10px">
+          <span style="font-size:12px;font-weight:700;color:var(--text)">${esc(a)}</span>
+          <div style="height:12px;background:var(--bg,#f0f0f0);border-radius:3px;overflow:hidden">
+            <div style="height:100%;border-radius:3px;min-width:2px;width:${w.toFixed(1)}%;background:linear-gradient(90deg,#22c55e,#eab308)"></div>
+          </div>
+          <span style="font-size:12px;font-weight:600;color:var(--text);text-align:right;font-variant-numeric:tabular-nums">${_fmtM(oi)}</span>
+        </div>`;
+      }).join('') + `</div>`;
+    }
+    return `<section class="card" style="padding:14px 18px;margin-bottom:18px">${head}${body}</section>`;
   }
 
   function _liqZonesShell() {
