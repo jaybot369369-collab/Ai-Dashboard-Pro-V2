@@ -16,6 +16,7 @@ const LiquidityWatcherTab = (() => {
   let _activeTf = 'D';
   let _refreshTimer = null;
   let _lastScores = null;
+  let _liqAsset = null;   // selected ticker for the Top Liquidation Levels panel
 
   function esc(s) {
     if (s === undefined || s === null) return '';
@@ -654,6 +655,8 @@ Traders on different exchanges are positioned completely differently. This means
         ${warmingNote}
       </div>
 
+      ${_liqZonesShell()}
+
       ${_kpiStrip(scores, sorted)}
 
       ${_alertStrip(scores, sorted)}
@@ -698,6 +701,140 @@ Traders on different exchanges are positioned completely differently. This means
       </p>
 
       ${_guideHTML()}`;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     TOP LIQUIDATION LEVELS panel — native render of the LW
+     /api/asset/{asset}/liquidations endpoint. Same data + look as
+     the standalone /lw page, styled with V2 theme tokens. Uses the
+     shared `API` base, so it resolves to localhost:8766 locally and
+     same-origin /lw on Railway with no extra wiring.
+  ════════════════════════════════════════════════════════════ */
+  function _fmtPx(p) {
+    if (p == null || isNaN(p)) return '—';
+    const a = Math.abs(p);
+    const dec = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
+    return '$' + Number(p).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function _liqZonesShell() {
+    const h3 = 'font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin:0 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border)';
+    return `
+      <section id="lwLiqZones" class="card" style="padding:16px 18px;margin-bottom:18px">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div>
+            <h2 style="font-size:15px;font-weight:700;margin:0;color:var(--text)">Top Liquidation Levels (Biggest Zones)</h2>
+            <p style="font-size:12px;color:var(--muted);margin:4px 0 0;max-width:560px;line-height:1.5">Biggest liquidation clusters <b>above</b> price (squeeze zones) and <b>below</b> it (flush zones), for the selected ticker.</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <select id="lwLiqTicker" style="background:var(--bg-card,#fff);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer"></select>
+            <span id="lwLiqSource" style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;white-space:nowrap"></span>
+          </div>
+        </div>
+        <div id="lwLiqAnchor" style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin:12px 0 14px;font-size:13px;color:var(--muted)"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <div>
+            <h3 style="${h3};color:#22c55e">Above price · squeeze zones</h3>
+            <div id="lwLiqAbove"></div>
+            <div id="lwLiqTotAbove" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
+          </div>
+          <div>
+            <h3 style="${h3};color:#ef4444">Below price · flush zones</h3>
+            <div id="lwLiqBelow"></div>
+            <div id="lwLiqTotBelow" style="font-size:11px;color:var(--muted);margin-top:8px"></div>
+          </div>
+        </div>
+        <p id="lwLiqNote" style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;font-style:italic"></p>
+      </section>`;
+  }
+
+  function _liqRow(r, side, maxUsd) {
+    const w = maxUsd > 0 ? Math.max(2, (r.liq_usd / maxUsd) * 100) : 2;
+    const pct = (r.pct_from >= 0 ? '+' : '') + Number(r.pct_from).toFixed(1) + '%';
+    const pctColor = side === 'above' ? '#22c55e' : '#ef4444';
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:7px 9px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+        <span style="font-weight:700;font-size:13px;color:var(--text)">${_fmtPx(r.price)}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text)">${_fmtM(r.liq_usd)}</span>
+      </div>
+      <div style="height:12px;background:var(--bg,#f0f0f0);border-radius:3px;overflow:hidden;margin:5px 0">
+        <div style="height:100%;border-radius:3px;width:${w.toFixed(1)}%;background:linear-gradient(90deg,#22c55e,#eab308);min-width:2px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px">
+        <span style="color:var(--muted)">From price</span>
+        <span style="font-weight:600;color:${pctColor}">${pct}</span>
+      </div>
+    </div>`;
+  }
+
+  function _paintLiq(data) {
+    const src    = document.getElementById('lwLiqSource');
+    const anchor = document.getElementById('lwLiqAnchor');
+    const above  = document.getElementById('lwLiqAbove');
+    const below  = document.getElementById('lwLiqBelow');
+    const totA   = document.getElementById('lwLiqTotAbove');
+    const totB   = document.getElementById('lwLiqTotBelow');
+    const note   = document.getElementById('lwLiqNote');
+    if (!above || !below || !data) return;
+
+    const live = data.source === 'coinglass';
+    if (src) {
+      src.textContent = live ? 'live' : 'estimated';
+      src.style.background = live ? 'rgba(34,197,94,.16)' : 'rgba(234,179,8,.16)';
+      src.style.color      = live ? '#22c55e' : '#b8860b';
+      src.style.border     = '1px solid ' + (live ? 'rgba(34,197,94,.4)' : 'rgba(234,179,8,.45)');
+    }
+    if (anchor) anchor.innerHTML =
+      `<span style="font-weight:700;color:var(--text)">${esc(data.asset || _liqAsset || '')}</span>` +
+      `<span>live price</span><span style="font-weight:700;color:var(--text)">${_fmtPx(data.current_price)}</span>` +
+      `<span>· TF ${esc(data.tf || _activeTf)}</span>`;
+
+    const A = data.above || [], B = data.below || [];
+    const maxUsd = Math.max(...A.map(r => r.liq_usd), ...B.map(r => r.liq_usd), 0);
+    if (A.length === 0 && B.length === 0) {
+      above.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:10px 0">Warming up — not enough price history yet for ${esc(data.asset || '')}. Zones appear within ~1 min.</div>`;
+      below.innerHTML = '';
+    } else {
+      above.innerHTML = A.map(r => _liqRow(r, 'above', maxUsd)).join('') ||
+        '<div style="font-size:12px;color:var(--muted);padding:10px 0">No clusters above price.</div>';
+      below.innerHTML = B.map(r => _liqRow(r, 'below', maxUsd)).join('') ||
+        '<div style="font-size:12px;color:var(--muted);padding:10px 0">No clusters below price.</div>';
+    }
+    if (totA) totA.innerHTML = 'Total: <b style="color:var(--text)">' + _fmtM(data.total_above || 0) + '</b>';
+    if (totB) totB.innerHTML = 'Total: <b style="color:var(--text)">' + _fmtM(data.total_below || 0) + '</b>';
+    if (note) note.textContent = data.note || '';
+  }
+
+  async function _loadLiq(asset, tf) {
+    if (!asset) return;
+    try {
+      const r = await fetch(`${API}/api/asset/${asset}/liquidations?tf=${tf}`, {
+        mode: 'cors', cache: 'no-store',
+        signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
+      });
+      _paintLiq(await r.json());
+    } catch (e) {
+      const note = document.getElementById('lwLiqNote');
+      if (note) note.textContent = 'Could not load liquidation zones (' + e.message + ').';
+    }
+  }
+
+  function _wireLiqZones(content, assets) {
+    const sel = content.querySelector('#lwLiqTicker');
+    if (!sel) return;
+    const list = (assets || []).slice().sort();
+    if (!list.length) return;
+    if (!_liqAsset || !list.includes(_liqAsset)) {
+      const saved = localStorage.getItem('lw_liq_ticker');
+      _liqAsset = (saved && list.includes(saved)) ? saved : list[0];
+    }
+    sel.innerHTML = list.map(a => `<option value="${esc(a)}"${a === _liqAsset ? ' selected' : ''}>${esc(a)}</option>`).join('');
+    sel.addEventListener('change', () => {
+      _liqAsset = sel.value;
+      localStorage.setItem('lw_liq_ticker', _liqAsset);
+      _loadLiq(_liqAsset, _activeTf);
+    });
+    _loadLiq(_liqAsset, _activeTf);
   }
 
   function _offlineHTML() {
@@ -801,6 +938,7 @@ Traders on different exchanges are positioned completely differently. This means
     content.innerHTML = _liveHTML(health, scoresData);
     _updateTimestamp();
     _wireUniverseControls(content);
+    _wireLiqZones(content, Object.keys((scoresData && scoresData.scores) || {}));
 
     /* TF buttons */
     content.querySelectorAll('.lw-tf-btn').forEach(btn => {
@@ -831,6 +969,7 @@ Traders on different exchanges are positioned completely differently. This means
           content.innerHTML = _liveHTML(h || health, fresh);
           _updateTimestamp();
           _wireUniverseControls(content);
+          _wireLiqZones(content, Object.keys((fresh && fresh.scores) || {}));
           content.querySelectorAll('.lw-tf-btn').forEach(b => {
             b.addEventListener('click', () => { _activeTf = b.dataset.tf; clearInterval(_refreshTimer); _refreshTimer = null; render(); });
           });
