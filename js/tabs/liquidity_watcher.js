@@ -945,11 +945,9 @@ Traders on different exchanges are positioned completely differently. This means
       if (Math.abs(y - cy) < 14) continue;
       if (!yFree(y)) continue;
       usedY.add(y);
-      const pctStr = (r.pct_from >= 0 ? '+' : '') + r.pct_from.toFixed(1) + '%';
       const lblColor = r.price > current ? 'rgba(110,230,150,0.95)' : 'rgba(248,120,100,0.95)';
       s += `<text x="${PL-6}" y="${(y+4).toFixed(1)}" fill="rgba(190,200,220,0.9)" font-size="11" text-anchor="end" font-family="monospace">${_fmtPx(r.price)}</text>`;
-      s += `<text x="${PL+cW+6}" y="${(y+1).toFixed(1)}" fill="${lblColor}" font-size="12" font-weight="600" font-family="monospace">${pctStr}</text>`;
-      s += `<text x="${PL+cW+6}" y="${(y+14).toFixed(1)}" fill="rgba(140,155,175,0.8)" font-size="10" font-family="monospace">${_fmtM(r.liq_usd)}</text>`;
+      s += `<text x="${PL+cW+6}" y="${(y+5).toFixed(1)}" fill="${lblColor}" font-size="13" font-weight="700" font-family="monospace">${_fmtM(r.liq_usd)}</text>`;
     }
     s += `<text x="${PL+cW+6}" y="${(cy+5).toFixed(1)}" fill="#ffffff" font-size="13" font-weight="bold" font-family="monospace">${_fmtPx(current)}</text>`;
     s += `</svg>`;
