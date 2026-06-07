@@ -814,7 +814,8 @@ Traders on different exchanges are positioned completely differently. This means
     const note   = document.getElementById('lwLiqNote');
     if (!above || !below || !data) return;
 
-    const live = data.source === 'coinglass';
+    const _src = data.source || 'estimated';
+    const live = _src === 'coinglass';
     if (src) {
       src.textContent = live ? 'live' : 'estimated';
       src.style.background = live ? 'rgba(34,197,94,.16)' : 'rgba(234,179,8,.16)';
