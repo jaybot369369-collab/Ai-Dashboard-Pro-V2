@@ -117,6 +117,7 @@ const LiquidityWatcherTab = (() => {
     '7d':  { interval: '240', limit: 42,  okxBar: '4H'  },
     '14d': { interval: '240', limit: 84,  okxBar: '4H'  },
     '30d': { interval: 'D',   limit: 30,  okxBar: '1D'  },
+    '90d': { interval: 'D',   limit: 90,  okxBar: '1D'  },
   };
 
   async function _fetchKlinesLiq(asset, win) {
@@ -820,6 +821,7 @@ Traders on different exchanges are positioned completely differently. This means
               <button ${winBtnStyle('7d')}>7D</button>
               <button ${winBtnStyle('14d')}>14D</button>
               <button ${winBtnStyle('30d')}>1M</button>
+              <button ${winBtnStyle('90d')}>3M</button>
             </div>
             <select id="lwLiqTicker" style="background:var(--bg-card,#1a1a2e);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600;cursor:pointer"></select>
             <span id="lwLiqSource" style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;white-space:nowrap"></span>
@@ -946,7 +948,7 @@ Traders on different exchanges are positioned completely differently. This means
       if (!yFree(y)) continue;
       usedY.add(y);
       const lblColor = r.price > current ? 'rgba(110,230,150,0.95)' : 'rgba(248,120,100,0.95)';
-      s += `<text x="${PL-6}" y="${(y+4).toFixed(1)}" fill="rgba(190,200,220,0.9)" font-size="11" text-anchor="end" font-family="monospace">${_fmtPx(r.price)}</text>`;
+      // left price label removed per user request
       s += `<text x="${PL+cW+6}" y="${(y+5).toFixed(1)}" fill="${lblColor}" font-size="13" font-weight="700" font-family="monospace">${_fmtM(r.liq_usd)}</text>`;
     }
     s += `<text x="${PL+cW+6}" y="${(cy+5).toFixed(1)}" fill="#ffffff" font-size="13" font-weight="bold" font-family="monospace">${_fmtPx(current)}</text>`;
