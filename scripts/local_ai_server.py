@@ -139,12 +139,33 @@ class Handler(BaseHTTPRequestHandler):
         if not os.path.isfile(os.path.join(SCANNER_DIR, "server.py")):
             self._send(500, {"ok": False, "error": f"server.py not found in {SCANNER_DIR}"}); return
         try:
-            logf = open("/tmp/signal_deck.log", "ab")
+            # TCC wall: subprocess.Popen loses FDA for ~/Documents (launchd child).
+            # `do shell script` in osascript also lacks FDA from launchd.
+            # `tell application Terminal to do script` requires Automation TCC
+            # (kTCCServiceAppleEvents), which hangs if not pre-granted.
+            #
+            # Clean fix: write a .command launcher to /tmp (no TCC restriction),
+            # then use `open -g` (Launch Services, no TCC needed).
+            # Terminal opens the .command file, inherits Terminal's FDA, and
+            # python3 within that shell can read ~/Documents. -g keeps it in
+            # background so it doesn't steal focus. The "Process completed" window
+            # can be closed manually by the user (Cmd+W) if it bother them.
+            import stat as _stat
+            cmd_file = '/tmp/launch_signal_deck.command'
+            with open(cmd_file, 'w') as _f:
+                _f.write('#!/bin/bash\n')
+                _f.write(f"cd '{SCANNER_DIR}'\n")
+                _f.write('nohup python3 server.py >> /tmp/signal_deck.log 2>&1 &\n')
+                _f.write('exit 0\n')
+            os.chmod(cmd_file,
+                     _stat.S_IRWXU | _stat.S_IRGRP | _stat.S_IXGRP |
+                     _stat.S_IROTH | _stat.S_IXOTH)   # 0o755
             subprocess.Popen(
-                [PYTHON_BIN, "server.py"], cwd=SCANNER_DIR,
-                stdout=logf, stderr=subprocess.STDOUT, start_new_session=True,
+                ['open', '-g', cmd_file],   # -g = background, no focus steal
+                start_new_session=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
-            logf.close()
         except Exception as e:
             self._send(500, {"ok": False, "error": f"spawn failed: {e}"}); return
         deadline = time.time() + 12
