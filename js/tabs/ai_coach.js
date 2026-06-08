@@ -1205,19 +1205,20 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
     _openSettings:  () => { _settingsOpen = true;  render(); },
     _closeSettings: () => { _settingsOpen = false; render(); },
     _launchTrainer: () => {
-      // ICT TV Replay Trainer lives in its own Node bridge (HUD on :8800).
-      // Open the tab synchronously (so popup blockers allow it), then ask the
-      // local helper (:8770) to boot the bridge if it isn't already running.
+      // ICT TV Replay Trainer runs in its own Node bridge (HUD on :8800), kept
+      // alive by a launchd agent (com.claudebot.ict-tv-trainer) so it's always up.
+      // Open the tab synchronously (popup-safe). The :8770 helper fetch is only a
+      // best-effort cold-start for localhost:8768 users — from the Railway HTTPS
+      // dashboard it's PNA-blocked, which is fine: the bridge is already running,
+      // so the opened tab loads regardless. A blocked/failed fetch stays silent.
       const url = 'http://localhost:8800';
       const w = window.open(url, 'ict_trainer');
       const toast = (m) => { if (typeof App !== 'undefined' && App.toast) App.toast(m); };
+      toast('🥋 Opening ICT Trainer…');
       fetch('http://127.0.0.1:8770/launch-trainer', { method: 'POST', mode: 'cors', cache: 'no-store' })
         .then(r => r.json())
-        .then(j => {
-          toast(j.already ? '🥋 Trainer already running' : j.ok ? '🥋 Trainer started' : '⚠️ Could not auto-start — see /tmp/ict_tv_trainer.log');
-          if (w && j.ok) { try { w.location = url; } catch (_) {} }   // reload the tab once the bridge is up
-        })
-        .catch(() => toast('⚠️ Local helper offline — open the dashboard at localhost:8768 to auto-start the trainer'));
+        .then(j => { if (w && j && j.ok) { try { w.location = url; } catch (_) {} } })  // reload once the bridge confirms up
+        .catch(() => {});   // PNA-blocked on Railway / helper offline — tab already opened, stay silent
     },
     _dismiss: (i) => {
       // Look up the title at dismiss time (insights array rebuilt each render)
