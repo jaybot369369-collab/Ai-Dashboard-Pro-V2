@@ -913,14 +913,30 @@ Traders on different exchanges are positioned completely differently. This means
       s += `<line x1="${PL}" y1="${gy.toFixed(1)}" x2="${PL + cW}" y2="${gy.toFixed(1)}" stroke="#16161e" stroke-width="1"/>`;
     }
 
+    // Coinglass-style: each band starts where price LAST visited that level
+    const nk = klines && klines.length ? klines.length : 0;
+    const candleUnitW = nk > 0 ? cW / nk : cW;
+
     for (const r of all) {
       const y = pyBand(r);
       const t = r.liq_usd / maxUsd;
-      if (t > 0.12) s += `<rect x="${PL}" y="${(y-GLOW/2).toFixed(1)}" width="${cW}" height="${GLOW}" fill="${_heatRgba(t,0.18)}" rx="3"/>`;
-      if (t > 0.30) s += `<rect x="${PL}" y="${(y-BH*1.5).toFixed(1)}" width="${cW}" height="${(BH*3).toFixed(1)}" fill="${_heatRgba(t,0.30)}" rx="1"/>`;
+
+      let startX = PL;
+      if (nk > 0) {
+        for (let i = nk - 1; i >= 0; i--) {
+          if (klines[i].l <= r.price && r.price <= klines[i].h) {
+            startX = PL + i * candleUnitW;
+            break;
+          }
+        }
+      }
+      const bw = PL + cW - startX;
+
+      if (t > 0.12) s += `<rect x="${startX.toFixed(1)}" y="${(y-GLOW/2).toFixed(1)}" width="${bw.toFixed(1)}" height="${GLOW}" fill="${_heatRgba(t,0.18)}" rx="3"/>`;
+      if (t > 0.30) s += `<rect x="${startX.toFixed(1)}" y="${(y-BH*1.5).toFixed(1)}" width="${bw.toFixed(1)}" height="${(BH*3).toFixed(1)}" fill="${_heatRgba(t,0.30)}" rx="1"/>`;
       const bh = BH + t * 3;
-      s += `<rect x="${PL}" y="${(y-bh/2).toFixed(1)}" width="${cW}" height="${bh.toFixed(1)}" fill="${_heatRgba(t,1)}" rx="1"/>`;
-      if (t > 0.50) s += `<rect x="${PL}" y="${(y-0.5).toFixed(1)}" width="${cW}" height="1.5" fill="rgba(255,250,100,0.75)" rx="1"/>`;
+      s += `<rect x="${startX.toFixed(1)}" y="${(y-bh/2).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${_heatRgba(t,1)}" rx="1"/>`;
+      if (t > 0.50) s += `<rect x="${startX.toFixed(1)}" y="${(y-0.5).toFixed(1)}" width="${bw.toFixed(1)}" height="1.5" fill="rgba(255,250,100,0.75)" rx="1"/>`;
     }
 
     if (klines && klines.length) {
