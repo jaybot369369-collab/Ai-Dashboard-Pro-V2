@@ -39,6 +39,13 @@ TRAINER_DIR  = "/Users/claudebot-1/Documents/Claude/Q2_2026/ICT_Methodology/skil
 TRAINER_PORT = 8800
 NODE_BIN     = "/usr/local/bin/node"
 
+# ── Day Trade Scanner — "start on click" target ───────────────────────
+# The Scanner tab's 📡 Day Trade Scanner button POSTs /launch-scanner here;
+# we boot Signal Deck's Python server (serves the UI on :8771) if not up.
+SCANNER_DIR  = "/Users/claudebot-1/Documents/Claude/Q2_2026/_CLAUDE PROJECTS/Signal Deck"
+SCANNER_PORT = 8771
+PYTHON_BIN   = "/usr/bin/python3"
+
 
 def _port_alive(port: int, timeout: float = 0.5) -> bool:
     """True if something is LISTENing on 127.0.0.1:port. Raw TCP check —
@@ -120,9 +127,39 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send(404, {"error": "not found"})
 
+    def _launch_scanner(self):
+        """Boot Signal Deck (python3 server.py -> :8771) on demand.
+        Idempotent: if :8771 is already up, just report that. Detached so
+        it outlives the request and the shim server."""
+        if not self._auth_ok():
+            self._send(403, {"error": "bad or missing X-Shim-Token"}); return
+        url = f"http://localhost:{SCANNER_PORT}"
+        if _port_alive(SCANNER_PORT):
+            self._send(200, {"ok": True, "already": True, "url": url}); return
+        if not os.path.isfile(os.path.join(SCANNER_DIR, "server.py")):
+            self._send(500, {"ok": False, "error": f"server.py not found in {SCANNER_DIR}"}); return
+        try:
+            logf = open("/tmp/signal_deck.log", "ab")
+            subprocess.Popen(
+                [PYTHON_BIN, "server.py"], cwd=SCANNER_DIR,
+                stdout=logf, stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            logf.close()
+        except Exception as e:
+            self._send(500, {"ok": False, "error": f"spawn failed: {e}"}); return
+        deadline = time.time() + 12
+        while time.time() < deadline:
+            if _port_alive(SCANNER_PORT):
+                self._send(200, {"ok": True, "started": True, "url": url}); return
+            time.sleep(0.5)
+        self._send(500, {"ok": False,
+                         "error": "server spawned but :8771 never came up — see /tmp/signal_deck.log"}); return
+
     def do_POST(self):
         if self.path.startswith("/launch-trainer"):
             return self._launch_trainer()
+        if self.path.startswith("/launch-scanner"):
+            return self._launch_scanner()
         if not self.path.startswith("/chat"):
             self._send(404, {"error": "not found"}); return
         if not self._auth_ok():

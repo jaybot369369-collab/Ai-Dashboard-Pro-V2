@@ -47,6 +47,22 @@ const ScannerTab = (() => {
     return `<div class="sd-src-row">${seg('local', 'Local')}${seg('api', 'Railway API')}</div>`;
   }
 
+  function _launchScanner() {
+    const url = 'http://localhost:8771';
+    window.open(url, 'signal_deck');
+    fetch('http://127.0.0.1:8770/launch-scanner', { method: 'POST', mode: 'cors', cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => {
+        if (j && j.ok) {
+          const msg = j.already ? '📡 Scanner already running' : '📡 Day Trade Scanner started';
+          if (typeof App !== 'undefined' && App.toast) App.toast(msg);
+          // Retry the health probe after a short delay so the iframe loads
+          setTimeout(() => render(), 1500);
+        }
+      })
+      .catch(() => {});  // PNA-blocked on Railway / helper offline — stay silent
+  }
+
   function _headHTML() {
     return `
       <div class="page-head">
@@ -56,6 +72,7 @@ const ScannerTab = (() => {
         </div>
         <div class="page-head-right" style="display:flex;gap:8px;align-items:center">
           ${_toggleHTML()}
+          <button class="btn-ghost" id="sdLaunchBtn" title="Start Signal Deck locally and open in new tab">📡 Launch Scanner</button>
           <a class="btn-ghost" href="${base()}" target="_blank" rel="noopener">↗ Pop out</a>
         </div>
       </div>`;
@@ -85,7 +102,7 @@ const ScannerTab = (() => {
       </div>`;
   }
 
-  /* Toggle clicks live in BOTH the live and offline views. */
+  /* Toggle + launch button — wired in both live and offline views. */
   function _wireToggle() {
     document.querySelectorAll('.sd-src-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -96,6 +113,7 @@ const ScannerTab = (() => {
         render();
       });
     });
+    document.getElementById('sdLaunchBtn')?.addEventListener('click', _launchScanner);
   }
 
   async function render() {
