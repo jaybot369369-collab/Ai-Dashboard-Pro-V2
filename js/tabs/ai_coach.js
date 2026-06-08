@@ -968,7 +968,10 @@ ${JSON.stringify(trades.map(t => ({
           <h1>AI Coach${insightBadge}</h1>
           <div class="page-head-sub">Personalized insights from your trade history</div>
         </div>
-        <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙️ Settings</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-ghost btn-sm" onclick="AICoachTab._launchTrainer()" title="Open the ICT TradingView Replay Trainer (auto-starts it if it isn't running)">🥋 ICT Trainer</button>
+          <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙️ Settings</button>
+        </div>
       </div>
 
       <div style="background:linear-gradient(135deg,rgba(124,92,255,.12),rgba(124,92,255,.04));border:1px solid rgba(124,92,255,.22);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:20px">
@@ -1201,6 +1204,21 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
     _askCoach,
     _openSettings:  () => { _settingsOpen = true;  render(); },
     _closeSettings: () => { _settingsOpen = false; render(); },
+    _launchTrainer: () => {
+      // ICT TV Replay Trainer lives in its own Node bridge (HUD on :8800).
+      // Open the tab synchronously (so popup blockers allow it), then ask the
+      // local helper (:8770) to boot the bridge if it isn't already running.
+      const url = 'http://localhost:8800';
+      const w = window.open(url, 'ict_trainer');
+      const toast = (m) => { if (typeof App !== 'undefined' && App.toast) App.toast(m); };
+      fetch('http://127.0.0.1:8770/launch-trainer', { method: 'POST', mode: 'cors', cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          toast(j.already ? '🥋 Trainer already running' : j.ok ? '🥋 Trainer started' : '⚠️ Could not auto-start — see /tmp/ict_tv_trainer.log');
+          if (w && j.ok) { try { w.location = url; } catch (_) {} }   // reload the tab once the bridge is up
+        })
+        .catch(() => toast('⚠️ Local helper offline — open the dashboard at localhost:8768 to auto-start the trainer'));
+    },
     _dismiss: (i) => {
       // Look up the title at dismiss time (insights array rebuilt each render)
       try {

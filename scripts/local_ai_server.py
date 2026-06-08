@@ -25,12 +25,30 @@ Safety:
     The shim is effectively a pure Q&A surface — model thinking + text,
     no file access, no shell, no network from the model side.
 """
-import os, subprocess, json, sys, base64, hmac
+import os, subprocess, json, sys, base64, hmac, socket, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 CLAUDE_CLI = "/Users/claudebot-1/.local/bin/claude"
 PORT = 8770
 SHIM_TOKEN = os.environ.get("LOCAL_SHIM_TOKEN", "").strip()
+
+# ── ICT TV Replay Trainer — "start on click" target ──────────────────
+# The AI Coach "ICT Trainer" button POSTs /launch-trainer here; we boot the
+# trainer's Node bridge (serves the HUD on :8800) if it isn't already up.
+TRAINER_DIR  = "/Users/claudebot-1/Documents/Claude/Q2_2026/ICT_Methodology/skill/trainers/ict_tv_replay_trainer"
+TRAINER_PORT = 8800
+NODE_BIN     = "/usr/local/bin/node"
+
+
+def _port_alive(port: int, timeout: float = 0.5) -> bool:
+    """True if something is LISTENing on 127.0.0.1:port. Raw TCP check —
+    the trainer's own /health stalls while TradingView CDP is down, so we
+    never HTTP-probe it for readiness."""
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -62,6 +80,34 @@ class Handler(BaseHTTPRequestHandler):
         supplied = (self.headers.get("X-Shim-Token", "") or "").strip()
         return hmac.compare_digest(SHIM_TOKEN, supplied)
 
+    def _launch_trainer(self):
+        """Boot the ICT TV Replay Trainer bridge (node bridge.js -> :8800) on
+        demand. Idempotent: if :8800 is already up we just report that. The
+        spawned process is detached so it outlives this request and server."""
+        if not self._auth_ok():
+            self._send(403, {"error": "bad or missing X-Shim-Token"}); return
+        url = f"http://localhost:{TRAINER_PORT}"
+        if _port_alive(TRAINER_PORT):
+            self._send(200, {"ok": True, "already": True, "url": url}); return
+        if not os.path.isfile(os.path.join(TRAINER_DIR, "bridge.js")):
+            self._send(500, {"ok": False, "error": f"bridge.js not found in {TRAINER_DIR}"}); return
+        try:
+            logf = open("/tmp/ict_tv_trainer.log", "ab")
+            subprocess.Popen(
+                [NODE_BIN, "bridge.js"], cwd=TRAINER_DIR,
+                stdout=logf, stderr=subprocess.STDOUT, start_new_session=True,
+            )
+            logf.close()
+        except Exception as e:
+            self._send(500, {"ok": False, "error": f"spawn failed: {e}"}); return
+        deadline = time.time() + 12
+        while time.time() < deadline:
+            if _port_alive(TRAINER_PORT):
+                self._send(200, {"ok": True, "started": True, "url": url}); return
+            time.sleep(0.5)
+        self._send(500, {"ok": False,
+                         "error": "bridge spawned but :8800 never came up — see /tmp/ict_tv_trainer.log"}); return
+
     def do_GET(self):
         if self.path.startswith("/health"):
             # /health is intentionally unauth so dashboards can probe it
@@ -75,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if self.path.startswith("/launch-trainer"):
+            return self._launch_trainer()
         if not self.path.startswith("/chat"):
             self._send(404, {"error": "not found"}); return
         if not self._auth_ok():
