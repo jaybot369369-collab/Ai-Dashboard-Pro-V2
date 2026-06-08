@@ -825,6 +825,7 @@ Traders on different exchanges are positioned completely differently. This means
             </div>
             <select id="lwLiqTicker" style="background:var(--bg-card,#1a1a2e);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600;cursor:pointer"></select>
             <span id="lwLiqSource" style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;white-space:nowrap"></span>
+            <button id="lwLiqMin" title="Minimize / expand" style="padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text-sub);font-size:11px;cursor:pointer">▼</button>
           </div>
         </div>
         <div id="lwLiqAnchor" style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:10px;font-size:13px;color:var(--muted)"></div>
@@ -952,8 +953,6 @@ Traders on different exchanges are positioned completely differently. This means
 
     s += `<line x1="${PL-8}" y1="${cy.toFixed(1)}" x2="${PL+cW}" y2="${cy.toFixed(1)}" stroke="rgba(255,255,255,0.85)" stroke-width="1.5" stroke-dasharray="6,4"/>`;
     s += `<circle cx="${PL-2}" cy="${cy.toFixed(1)}" r="3.5" fill="#fff" opacity="0.9"/>`;
-    s += `<text x="${PL+cW-8}" y="${PT+17}" fill="rgba(52,211,153,0.85)" font-size="12" font-weight="bold" text-anchor="end" font-family="system-ui,sans-serif" letter-spacing="1.4">SQUEEZE ZONES ▲</text>`;
-    s += `<text x="${PL+cW-8}" y="${PT+cH-8}" fill="rgba(248,113,113,0.85)" font-size="12" font-weight="bold" text-anchor="end" font-family="system-ui,sans-serif" letter-spacing="1.4">▼ FLUSH ZONES</text>`;
 
     const usedY = new Set();
     function yFree(y) { for (const uy of usedY) if (Math.abs(uy-y) < 20) return false; return true; }
@@ -1026,6 +1025,30 @@ Traders on different exchanges are positioned completely differently. This means
         _loadLiq(_liqAsset, _activeTf);
       });
     });
+
+    // Minimize / expand toggle
+    const minBtn = content.querySelector('#lwLiqMin');
+    const liqBody = content.querySelectorAll('#lwLiqAnchor, #lwLiqChart, #lwLiqTotAbove, #lwLiqTotBelow, #lwLiqNote, .lw-liq-stats');
+    let liqMin = localStorage.getItem('lw_liq_min_v2') === '1';
+    function applyLiqMin() {
+      const zone = content.querySelector('#lwLiqZones');
+      const hideEls = [
+        content.querySelector('#lwLiqAnchor'),
+        content.querySelector('#lwLiqChart'),
+        content.querySelector('#lwLiqNote'),
+        ...content.querySelectorAll('[id^="lwLiqTot"]'),
+      ];
+      hideEls.forEach(el => { if (el) el.style.display = liqMin ? 'none' : ''; });
+      if (minBtn) minBtn.textContent = liqMin ? '▲' : '▼';
+    }
+    applyLiqMin();
+    if (minBtn) {
+      minBtn.addEventListener('click', () => {
+        liqMin = !liqMin;
+        localStorage.setItem('lw_liq_min_v2', liqMin ? '1' : '0');
+        applyLiqMin();
+      });
+    }
 
     _loadLiq(_liqAsset, _activeTf);
   }
