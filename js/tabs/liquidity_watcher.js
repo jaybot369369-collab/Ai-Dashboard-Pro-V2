@@ -964,7 +964,8 @@ Traders on different exchanges are positioned completely differently. This means
       if (!yFree(y)) continue;
       usedY.add(y);
       const lblColor = r.price > current ? 'rgba(110,230,150,0.95)' : 'rgba(248,120,100,0.95)';
-      // left price label removed per user request
+      // left: price
+      s += `<text x="${PL-6}" y="${(y+4).toFixed(1)}" fill="rgba(190,200,220,0.85)" font-size="11" font-weight="600" text-anchor="end" font-family="monospace">${_fmtPx(r.price)}</text>`;
       s += `<text x="${PL+cW+6}" y="${(y+5).toFixed(1)}" fill="${lblColor}" font-size="13" font-weight="700" font-family="monospace">${_fmtM(r.liq_usd)}</text>`;
     }
     s += `<text x="${PL+cW+6}" y="${(cy+5).toFixed(1)}" fill="#ffffff" font-size="13" font-weight="bold" font-family="monospace">${_fmtPx(current)}</text>`;
