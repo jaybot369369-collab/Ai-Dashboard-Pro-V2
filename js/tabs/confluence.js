@@ -71,6 +71,7 @@ const ConfluenceTab = (() => {
     sweep_mtf:  1.5,
     cisd:       1.0,
     bos:        1.0,
+    amd:        1.3,   // Power of 3 daily profile — the filter that made SMR pass Phase 4d
     near_level: 1.3,
     lw_align:   1.2,
     lw_funding: 1.0,
@@ -84,6 +85,7 @@ const ConfluenceTab = (() => {
     sweep_ltf:'sweep', sweep_mtf:'sweep',
     cisd:'cisd',
     bos:'continuation',
+    amd:'power of 3',
   };
 
   // Anchor → 3-TF set (LTF / MTF / HTF). User picks anchor via TF selector.
@@ -338,6 +340,11 @@ const ConfluenceTab = (() => {
     run(`sweep_${mtf}`,   'sweep_mtf', () => ICTDetect.detectSweep(kMTF));
     run(`cisd_${ltf}`,    'cisd',      () => ICTDetect.detectCISD(kLTF));
     run(`bos_${mtf}`,     'bos',       () => ICTDetect.detectBOS(kMTF));
+    // AMD / Power of 3 — intraday daily profile, only meaningful on
+    // intraday anchors (needs Asia-session bars inside the LTF window)
+    if (ltf === '15m' || ltf === '1h') {
+      run('amd', 'amd', () => ICTDetect.detectAMD(kLTF));
+    }
 
     // near_level (Daily Report)
     const levels = _levelsFromDaily(daily, sym);
