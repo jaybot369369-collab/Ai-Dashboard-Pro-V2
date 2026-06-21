@@ -193,27 +193,30 @@ class Handler(BaseHTTPRequestHandler):
         img_b64   = body.get("image_b64", "")
         img_mime  = body.get("image_media_type", "image/png")
 
-        # Build the full message for claude --print
-        full_prompt = f"[SYSTEM]\n{system}\n\n[USER]\n{prompt}" if system else prompt
-
+        # The system prompt MUST be delivered via the --append-system-prompt
+        # flag. Passing it as a stream-json {"type":"system"} line does NOT
+        # work — the CLI ignores it, so the model never sees the instructions
+        # and just replies conversationally ("what would you like me to do
+        # with these trades?"). Text-prefixing ([SYSTEM]...[USER]...) is also
+        # wrong — Claude treats it as an injected user turn. The flag is the
+        # only correct path.
         try:
             if img_b64:
-                # Vision path: use stream-json to pass image content block
+                # Vision path: stream-json input is required to carry the
+                # image content block; system still goes via the flag.
                 user_content = [
                     {"type": "image", "source": {"type": "base64",
                                                   "media_type": img_mime,
                                                   "data": img_b64}},
                     {"type": "text", "text": prompt},
                 ]
-                lines = []
-                if system:
-                    lines.append(json.dumps({"type": "system", "system": system}))
-                lines.append(json.dumps({"type": "user", "message":
-                                          {"role": "user", "content": user_content}}))
-                stdin_data = "\n".join(lines)
+                stdin_data = json.dumps({"type": "user", "message":
+                                         {"role": "user", "content": user_content}})
                 cmd = [CLAUDE_CLI, "--print", "--verbose",
-                       "--allowedTools", "",   # pure Q&A — no file/bash tools
+                       "--tools", "",   # pure Q&A — disable ALL file/bash tools
                        "--input-format=stream-json", "--output-format=stream-json"]
+                if system:
+                    cmd += ["--append-system-prompt", system]
                 result = subprocess.run(cmd, input=stdin_data,
                                         capture_output=True, text=True, timeout=180)
                 if result.returncode != 0:
@@ -235,39 +238,18 @@ class Handler(BaseHTTPRequestHandler):
                         pass
                 self._send(200, {"text": "".join(text_parts)})
             else:
-                # Text-only path — use stream-json so the system prompt
-                # is delivered as a proper system message instead of being
-                # text-prefixed (which Claude correctly rejects as prompt
-                # injection). Same --allowedTools "" lockdown.
-                lines = []
+                # Text-only path — plain --print with the user prompt on stdin
+                # and the system prompt via --append-system-prompt. Plain text
+                # output (no stream-json), so no parsing needed.
+                cmd = [CLAUDE_CLI, "--print", "--tools", ""]
                 if system:
-                    lines.append(json.dumps({"type": "system", "system": system}))
-                lines.append(json.dumps({"type": "user", "message":
-                                          {"role": "user", "content": prompt}}))
-                stdin_data = "\n".join(lines)
-                cmd = [CLAUDE_CLI, "--print", "--verbose",
-                       "--allowedTools", "",
-                       "--input-format=stream-json", "--output-format=stream-json"]
-                result = subprocess.run(cmd, input=stdin_data,
+                    cmd += ["--append-system-prompt", system]
+                result = subprocess.run(cmd, input=prompt,
                                         capture_output=True, text=True, timeout=120)
                 if result.returncode != 0:
                     err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
                     self._send(500, {"error": err}); return
-                # Extract text from stream-json output lines
-                text_parts = []
-                for line in result.stdout.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                        if obj.get("type") == "assistant":
-                            for block in obj.get("message", {}).get("content", []):
-                                if block.get("type") == "text":
-                                    text_parts.append(block["text"])
-                    except json.JSONDecodeError:
-                        pass
-                self._send(200, {"text": "".join(text_parts)})
+                self._send(200, {"text": result.stdout.strip()})
         except FileNotFoundError:
             self._send(500, {"error": f"Claude CLI not found at {CLAUDE_CLI}. Install Claude Code first."})
         except subprocess.TimeoutExpired:
