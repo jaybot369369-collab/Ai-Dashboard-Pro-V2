@@ -176,7 +176,16 @@ const AICoachTab = (() => {
     let j;
     try { j = await r.json(); }
     catch { throw new Error(`Local AI returned non-JSON (HTTP ${r.status}). Tunnel may be misconfigured.`); }
-    if (!r.ok) throw new Error(j.error || `Local AI ${r.status}`);
+    if (!r.ok) {
+      const errMsg = j.error || `Local AI ${r.status}`;
+      // CLI execution failures (exit code, not found, timed out, auth) mean the
+      // local shim can't produce output — treat as unreachable so callClaude()
+      // can fall back to the Railway server proxy automatically.
+      if (/CLI exited|not found at|timed out|authentication/i.test(errMsg)) {
+        throw new LocalUnreachableError(errMsg);
+      }
+      throw new Error(errMsg);
+    }
     return { text: j.text, usage: { input_tokens: 0, output_tokens: 0 } };
   }
 
