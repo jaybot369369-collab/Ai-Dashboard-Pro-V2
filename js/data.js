@@ -22,6 +22,7 @@ const DB = (() => {
     settings: 'jb_settings',
     rules:    'jb_rules',
     checklist:'jb_checklist',
+    reviews:  'jb_ai_reviews',
   };
 
   /* ── Core helpers ────────────────────────────────────── */
