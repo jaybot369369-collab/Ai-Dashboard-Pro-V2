@@ -517,52 +517,125 @@ ${JSON.stringify(trades.map(t => ({
   /* ══════════════════════════════════════════════════════
      FEATURE 3 — WEEKLY AUTO-REVIEW
   ══════════════════════════════════════════════════════ */
-  function weekRange() {
-    const now = new Date();
-    const monday = new Date(now);
-    const day = monday.getUTCDay() || 7;
-    monday.setUTCDate(monday.getUTCDate() - day + 1 - 7); // last week's Monday
-    const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
-    return { from: monday.toISOString().slice(0,10), to: sunday.toISOString().slice(0,10) };
+  /* Rolling last-7-days window ending today (inclusive). The old weekRange()
+     had a -7 that pushed it back an extra week, so on a Sunday it reviewed the
+     week-before-last and missed the most recent trades. */
+  function reviewRange() {
+    const to = new Date();
+    const from = new Date(to); from.setUTCDate(to.getUTCDate() - 6);
+    return { from: from.toISOString().slice(0,10), to: to.toISOString().slice(0,10) };
+  }
+  // Back-compat alias (older callers referenced weekRange()).
+  function weekRange() { return reviewRange(); }
+
+  /* Human label like "Jun 16 – Jun 22" for the UI. */
+  function _fmtRange(from, to) {
+    const f = d => new Date(d + 'T00:00:00Z').toLocaleDateString(undefined,
+      { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return `${f(from)} – ${f(to)}`;
+  }
+
+  /* Map a trade's ruleChecks against the user's rule text so the model can
+     judge adherence. Only emit a rule set that has ≥1 checked box (the set the
+     trade belongs to) — avoids falsely reporting "broke every swing rule" on a
+     scalp where that set is simply untouched. */
+  function _ruleAdherence(t) {
+    const checks = t && t.ruleChecks;
+    if (!checks || typeof checks !== 'object') return null;
+    let rules = {};
+    try { rules = (typeof DB !== 'undefined' && DB.getRules) ? DB.getRules() : {}; }
+    catch (_) { rules = {}; }
+    const out = {};
+    Object.keys(checks).forEach(style => {
+      const flags = checks[style];
+      if (!Array.isArray(flags) || !flags.some(Boolean)) return; // untouched set
+      const set = Array.isArray(rules[style]) ? rules[style] : [];
+      const followed = [], notFollowed = [];
+      flags.forEach((on, i) => {
+        const txt = set[i] && set[i].text ? set[i].text : `rule ${i + 1}`;
+        (on ? followed : notFollowed).push(txt);
+      });
+      out[style] = { followed, notFollowed };
+    });
+    return Object.keys(out).length ? out : null;
+  }
+
+  /* The user's playbook of rules / recurring mistakes / strengths — sent once
+     as account context so the model can cite specific rules and flag repeats. */
+  function _accountContext() {
+    const safe = (fn, d) => { try { return fn(); } catch (_) { return d; } };
+    const rules = safe(() => DB.getRules(), {});
+    const rulesByStyle = {};
+    Object.keys(rules || {}).forEach(style => {
+      const arr = Array.isArray(rules[style]) ? rules[style] : [];
+      const on = arr.filter(r => r && r.enabled !== false).map(r => r.text);
+      if (on.length) rulesByStyle[style] = on;
+    });
+    const mistakes = safe(() => DB.getMistakes(), [])
+      .map(m => ({ name: m.name || m.title || m.text, seen: m.seenCount || 1 }));
+    const strengths = safe(() => DB.getStrengths(), [])
+      .map(s => ({ name: s.name || s.title || s.text, seen: s.seenCount || 1 }));
+    return { rulesByStyle, recurringMistakes: mistakes, strengths };
   }
 
   async function generateWeeklyReview() {
-    const { from, to } = weekRange();
-    const trades = (typeof DB !== 'undefined' && DB.getTrades)
-      ? DB.getTrades().filter(t => t.date >= from && t.date <= to)
-      : [];
+    const { from, to } = reviewRange();
+    const manual = (typeof DB !== 'undefined' && DB.filterByMode && DB.getTrades)
+      ? DB.filterByMode(DB.getTrades(), 'new')
+      : (typeof DB !== 'undefined' && DB.getTrades ? DB.getTrades() : []);
+    const trades = manual.filter(t => t.date >= from && t.date <= to);
 
-    if (!trades.length) throw new Error(`No trades found in ${from} → ${to}`);
+    if (!trades.length) {
+      throw new Error(`No manual trades found for ${_fmtRange(from, to)} (${from} → ${to}). Log some trades in that window, or check the date range.`);
+    }
 
-    const system = `You are a structured trading coach. Generate a weekly performance review in MARKDOWN ONLY — no HTML tags, no big monolithic tables. The goal is a light, staggered, easy-to-scan report with breathing room.
+    const system = `You are a sharp, honest trading coach reviewing a discretionary ICT trader's week. Be specific and evidence-based — cite individual trades by DATE + SYMBOL. Substance over praise: name real mistakes plainly, but also give genuine credit where the data earns it. Read the trader's own notes for psychology (tilt, revenge trades, FOMO, fixation on outcome, moving stops) and call those patterns out by name.
 
-Use these EXACT section headers in this order, each on its own line, separated by a blank line:
+Output MARKDOWN ONLY (no HTML). Use these EXACT section headers in this order, each on its own line:
 
 ## 📊 Snapshot
-## 📅 Day by day
-## ✅ What worked
-## ⚠️ What hurt
-## 🎯 3 focus areas for next week
+## 📅 Trade-by-trade
+## ✅ What you did right
+## ❌ What went wrong
+## 📏 Rule adherence
+## 🧠 Psychology & discipline
+## 🎯 What you missed
+## 📈 Getting better at
+## 🗓️ Next week — 3 focus areas
 
-Rules for each section:
-- 📊 Snapshot: 4–6 short bullets in "- **Label:** value" form (Trades, Win rate, Net P&L, Best day, Worst day). Bullets only — do NOT use a table.
-- 📅 Day by day: one short bullet per trading day, e.g. "- **May 21:** +4.2R, 3 trades, clean execution".
-- ✅ What worked / ⚠️ What hurt: short one-line bullets. Lead each bullet with a relevant emoji and bold the key label.
-- 🎯 3 focus areas: a numbered list (1. 2. 3.) — one concrete action each.
+Section guidance:
+- 📊 Snapshot: bullets — trades, win rate, net R, net $, best & worst trade, avg win vs avg loss. Bullets, not a table.
+- 📅 Trade-by-trade: one bullet per trade — "**Jun 17 XLM Long** — +2.76R (A) — clean OTE+sweep entry, let it run". Include the grade.
+- ✅ / ❌: specific trades and the exact behaviour that was right or wrong. Quote the trade.
+- 📏 Rule adherence: using each trade's ruleAdherence data + the trader's rule list, state which rules were followed vs broken. Cite the rule text and the trade. **Explicitly flag any rule broken more than once this week.**
+- 🧠 Psychology & discipline: read the notes. Name tilt / revenge / fixation / over-trading patterns and which trades show them.
+- 🎯 What you missed: setups skipped, partials not taken, runners cut early, management errors.
+- 📈 Getting better at: improvements vs the recurringMistakes/strengths history — what's trending the right way.
+- 🗓️ Next week: numbered 1. 2. 3., each a single concrete, testable action.
 
-Keep every bullet to a single punchy line. Separate major sections with a blank line. Use **bold** for labels and emojis to make it pop. No paragraphs of prose.`;
+Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short sentence or two where the insight needs it — depth over brevity here.`;
 
-    const user = `Trades from ${from} to ${to}:
-${JSON.stringify(trades.map(t => ({
-  date: t.date, symbol: t.symbol, dir: t.direction,
-  setup: (t.setupTypes||[t.setupType]).join('/'),
-  session: t.session, htf: t.htfBias,
-  pre: t.preGrade, post: t.postGrade, r: t.rMultiple, result: t.result,
-})), null, 2)}`;
+    const payload = {
+      window: { from, to, label: _fmtRange(from, to) },
+      account: _accountContext(),
+      trades: trades.map(t => ({
+        date: t.date, symbol: t.symbol, direction: t.direction,
+        session: t.session, htfBias: t.htfBias,
+        setups: (t.setupTypes && t.setupTypes.length ? t.setupTypes : [t.setupType]).filter(Boolean),
+        entry: t.entry, sl: t.sl, exit: t.exitPrice,
+        result_usd: t.result, rMultiple: t.rMultiple,
+        preGrade: t.preGrade, postGrade: t.postGrade,
+        preGradeNotes: t.preGradeNotes, postGradeNotes: t.postGradeNotes,
+        notes: t.notes,
+        ruleAdherence: _ruleAdherence(t),
+      })),
+    };
 
-    const { text } = await callClaude({ system, user, maxTokens: 2000 });
+    const user = `Here is the trader's week (${_fmtRange(from, to)}). "account" holds their rule book, recurring mistakes, and strengths. Each trade has "ruleAdherence" (rules they followed vs broke) and free-text "notes". Write the full review.\n\n${JSON.stringify(payload, null, 2)}`;
+
+    const { text } = await callClaude({ system, user, maxTokens: 6000 });
     const all = getJ(KEYS.reviews, []);
-    all.unshift({ weekOf: from, html: text, generated: Date.now() });
+    all.unshift({ weekOf: from, rangeTo: to, rangeLabel: _fmtRange(from, to), html: text, generated: Date.now() });
     setJ(KEYS.reviews, all.slice(0, 12));
     return { html: text, weekOf: from };
   }
@@ -818,13 +891,16 @@ ${JSON.stringify(trades.map(t => ({
   function renderWeeklyReview() {
     const all = getJ(KEYS.reviews, []);
     const latest = all[0];
+    const { from, to } = reviewRange();
+    const upcoming = _fmtRange(from, to);
+    const lbl = r => r && r.rangeLabel ? r.rangeLabel : `Week of ${r ? r.weekOf : ''}`;
     return `<div class="ai-section">
       <h3 class="ai-section-hdr">📅 Weekly Review</h3>
-      <button class="btn-primary" id="aiWeeklyBtn">🧠 Generate review for last week</button>
+      <button class="btn-primary" id="aiWeeklyBtn">🧠 Generate review — last 7 days (${esc(upcoming)})</button>
       <span id="aiWeeklyStatus" class="text-dim" style="font-size:.8rem;margin-left:10px"></span>
       ${latest ? `
         <div class="ai-review" style="margin-top:14px">
-          <div class="text-sub" style="font-size:.78rem;margin-bottom:8px">Week of ${esc(latest.weekOf)} · generated ${new Date(latest.generated).toLocaleString()}</div>
+          <div class="text-sub" style="font-size:.78rem;margin-bottom:8px">${esc(lbl(latest))} · generated ${new Date(latest.generated).toLocaleString()}</div>
           <div class="ai-review-body">${_reviewMd(latest.html)}</div>
         </div>
       ` : ''}
@@ -833,7 +909,7 @@ ${JSON.stringify(trades.map(t => ({
           const safeWeek = /^\d{4}-\d{2}-\d{2}$/.test(r.weekOf) ? r.weekOf : '';
           return `
           <div class="ai-hist-row" onclick="AICoachTab._showReview('${safeWeek}')" style="cursor:pointer">
-            <span class="text-sub">📅 Week of ${esc(r.weekOf)}</span>
+            <span class="text-sub">📅 ${esc(lbl(r))}</span>
             <span class="text-dim" style="font-size:.7rem;margin-left:auto">${new Date(r.generated).toLocaleDateString()}</span>
           </div>`;
         }).join('')}</div>

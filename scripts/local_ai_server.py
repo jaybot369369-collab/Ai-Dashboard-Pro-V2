@@ -218,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
                 if system:
                     cmd += ["--append-system-prompt", system]
                 result = subprocess.run(cmd, input=stdin_data,
-                                        capture_output=True, text=True, timeout=180)
+                                        capture_output=True, text=True, timeout=420)
                 if result.returncode != 0:
                     err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
                     self._send(500, {"error": err}); return
@@ -244,8 +244,10 @@ class Handler(BaseHTTPRequestHandler):
                 cmd = [CLAUDE_CLI, "--print", "--tools", ""]
                 if system:
                     cmd += ["--append-system-prompt", system]
+                # Long timeout: a full weekly review with many trades can take
+                # 2-3 min of model time. 420s leaves headroom.
                 result = subprocess.run(cmd, input=prompt,
-                                        capture_output=True, text=True, timeout=120)
+                                        capture_output=True, text=True, timeout=420)
                 if result.returncode != 0:
                     err = result.stderr.strip() or f"Claude CLI exited {result.returncode}"
                     self._send(500, {"error": err}); return
@@ -253,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
         except FileNotFoundError:
             self._send(500, {"error": f"Claude CLI not found at {CLAUDE_CLI}. Install Claude Code first."})
         except subprocess.TimeoutExpired:
-            self._send(500, {"error": "Claude CLI timed out (180s). Large image? Try a smaller crop."})
+            self._send(500, {"error": "Claude CLI timed out (420s). Try fewer trades in the window, or retry."})
         except Exception as e:
             self._send(500, {"error": str(e)})
 
