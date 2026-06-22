@@ -276,12 +276,9 @@ const AICoachTab = (() => {
         const msg = (e && e.message) || '';
         if (/credit balance|insufficient|quota|too low|billing/i.test(msg)) {
           throw new Error(
-            'Anthropic credits exhausted. To keep using the free Claude Code path from this Railway tab:\n' +
-            '  1. On your Mac, start the shim: python3 ~/.local/bin/local_ai_server.py\n' +
-            '  2. Tunnel it publicly: ./bin/cloudflared tunnel --url http://localhost:8770\n' +
-            '  3. Copy the https://*.trycloudflare.com URL it prints\n' +
-            '  4. AI Coach → ⚙ Settings → paste into "Local AI URL" → toggle Local mode ON → Save\n' +
-            '  5. Retry Scan Trade'
+            'No API credits. Quickest fix: generate the review on your local dashboard ' +
+            '(localhost:8768) → click Export → Import the file here. Reviews travel with your export.\n\n' +
+            'To enable live generation on Railway: add credits at console.anthropic.com.'
           );
         }
         throw e;
@@ -320,7 +317,17 @@ const AICoachTab = (() => {
     });
 
     const json = await res.json();
-    if (!res.ok) throw new Error(json.error?.message || `API ${res.status}`);
+    if (!res.ok) {
+      const msg = json.error?.message || `API ${res.status}`;
+      if (res.status === 402 || /credit balance|insufficient|quota|too low|billing/i.test(msg)) {
+        throw new Error(
+          'No API credits. Quickest fix: generate the review on your local dashboard ' +
+          '(localhost:8768) → click Export → Import the file here. Reviews travel with your export.\n\n' +
+          'To enable live generation on Railway: add credits at console.anthropic.com.'
+        );
+      }
+      throw new Error(msg);
+    }
 
     const text = json.content?.map(b => b.type === 'text' ? b.text : '').join('') || '';
     const usage = json.usage || { input_tokens: 0, output_tokens: 0 };
