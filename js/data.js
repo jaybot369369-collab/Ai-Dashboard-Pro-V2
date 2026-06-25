@@ -65,9 +65,12 @@ const DB = (() => {
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
     { id: 'scanner',    label: 'Day Trade Scanner',icon: '📡', builtin: true, group: 'TRADING'  },
     { id: 'aicoach',    label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
+    { id: 'orderbook',  label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
     { id: 'liquidity',  label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
     { id: 'catalysts',  label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
+    { id: 'fcpscan',    label: 'FCP Scanner',       icon: '🔬', builtin: true, group: 'MARKETS'  },
+    { id: 'lowcap',     label: 'Low-Cap Finder',   icon: '💎', builtin: true, group: 'MARKETS'  },
     { id: 'fund',       label: 'Bot Farm',         icon: '🏦', builtin: true, group: 'MARKETS'  },
     { id: 'protools',   label: 'Pro Tools',        icon: '🛠', builtin: true, group: 'TOOLS'    },
   ];
