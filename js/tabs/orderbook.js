@@ -520,7 +520,7 @@ const OrderBookTab = (() => {
     const el = document.getElementById('ob-cvd'); if (!el) return;
     const bkts = _cvdBuckets.slice(-CVD_BARS);
     if (bkts.length < 3) {
-      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-cvd-label">CVD — ${esc(_tf)} candles</span> <span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Building… ${bkts.length}/${CVD_BARS} ${_tf} bars collected</div>`;
+      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Building… ${bkts.length}/${CVD_BARS} ${esc(_tf)} bars collected</div>`;
       _paintStatus(); return;
     }
     const deltas  = bkts.map(b => b.buy - b.sell);
@@ -543,9 +543,8 @@ const OrderBookTab = (() => {
     const col = total >= 0 ? 'var(--good)' : 'var(--bad)';
     el.innerHTML = `
       <div class="ob-cvd-head">
-        <span class="ob-cvd-label">CVD — ${esc(_tf)} candles</span>
         <strong style="color:${col}">${total >= 0 ? '+' : ''}${_fmtUsd(Math.abs(total))}</strong>
-        <span class="ob-cvd-hint">${total >= 0 ? 'net buying' : 'net selling'} · ${bkts.length} bars</span>
+        <span class="ob-cvd-hint">${total >= 0 ? 'net buying' : 'net selling'} · ${bkts.length} ${esc(_tf)} bars</span>
         <span class="ob-ws-dot" id="ob-ws-status"></span>
       </div>
       <svg viewBox="0 0 ${W} ${H}" class="ob-cvd-svg" preserveAspectRatio="none">
@@ -598,6 +597,7 @@ const OrderBookTab = (() => {
             🌡️ Liquidation Heatmap
             <span id="ob-liq-src" class="ob-liq-badge"></span>
             <span class="ob-sub">estimated positions at risk · yellow = largest cluster · not exchange-confirmed</span>
+            <button class="ob-howto-btn" data-howto="liq">ℹ️ How to read</button>
           </div>
           <div class="ob-liq-totals">
             <span class="ob-liq-tot-label">☝ Squeeze above</span><span id="ob-liq-above" class="ob-liq-tot-above">—</span>
@@ -605,29 +605,35 @@ const OrderBookTab = (() => {
             <span class="ob-liq-tot-label">👇 Flush below</span><span id="ob-liq-below" class="ob-liq-tot-below">—</span>
           </div>
           <div id="ob-liq-chart" class="ob-liq-chart"></div>
+          ${_matrixHTML('liq')}
         </div>
 
         <!-- 2. FUNDING + OI — two columns -->
         <div class="ob-two-col">
           <div class="ob-card">
-            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">Bybit 8h · longs pay = positive</span></div>
+            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">Bybit 8h · longs pay = positive</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
             <div id="ob-fund" class="ob-fund-panel"></div>
+            ${_matrixHTML('funding')}
           </div>
           <div class="ob-card">
-            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">Bybit perp · rising = new positions</span></div>
+            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">Bybit perp · rising = new positions</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
             <div id="ob-oi" class="ob-fund-panel"></div>
+            ${_matrixHTML('oi')}
           </div>
         </div>
 
         <!-- 3. CVD BARS -->
         <div class="ob-card">
+          <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-sub">Binance taker flow · binned by TF candle</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
           <div id="ob-cvd" class="ob-cvd-wrap"></div>
+          ${_matrixHTML('cvd')}
         </div>
 
         <!-- 4. PERSISTENT WALLS -->
         <div class="ob-card">
-          <div class="ob-card-h">🧱 Persistent Walls <span class="ob-sub">resting ≥10 min · 30s REST snapshots · Binance spot</span></div>
+          <div class="ob-card-h">🧱 Persistent Walls <span class="ob-sub">resting ≥10 min · 30s REST snapshots · Binance spot</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
           <div id="ob-walls"></div>
+          ${_matrixHTML('walls')}
         </div>
 
         <!-- GUIDE (collapsed by default) -->
@@ -694,6 +700,15 @@ const OrderBookTab = (() => {
     document.querySelectorAll('#ob-root .ob-tf-pill').forEach(b => b.addEventListener('click', () => _setTF(b.dataset.tf)));
     document.querySelectorAll('#ob-root .ob-win-pill').forEach(b => b.addEventListener('click', () => _setWin(b.dataset.win)));
     document.querySelectorAll('#ob-root .ob-guide-h').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
+    document.querySelectorAll('#ob-root .ob-howto-btn').forEach(b => b.addEventListener('click', () => _toggleHowto(b.dataset.howto)));
+  }
+  function _toggleHowto(key) {
+    const m = document.getElementById('ob-matrix-' + key);
+    const btn = document.querySelector(`#ob-root .ob-howto-btn[data-howto="${key}"]`);
+    if (!m) return;
+    const opening = m.hasAttribute('hidden');
+    if (opening) { m.removeAttribute('hidden'); btn && btn.classList.add('on'); }
+    else { m.setAttribute('hidden', ''); btn && btn.classList.remove('on'); }
   }
   function _setSym(s) {
     if (!s || s === _sym) return;
@@ -725,6 +740,70 @@ const OrderBookTab = (() => {
     if ([f, o].every(r => !r.ok)) { _cgState = 'error'; return; }
     _cg = { funding: f.body, oi: o.body }; _cgState = 'ok';
     // Field overlay into funding/OI panels will be added once live response shape is confirmed (Rule #2)
+  }
+
+  /* ══════════════════════════════════════════════════════
+     PER-PANEL "HOW TO READ" MATRICES
+     Inline cheat-sheet attached to each data point. Arrow-grid
+     style like the classic Price/Volume/OI interpretation table.
+  ══════════════════════════════════════════════════════ */
+  const _UP   = '<span class="ob-m-up">▲ Rising</span>';
+  const _DN   = '<span class="ob-m-dn">▼ Falling</span>';
+  const _BULL = t => `<span class="ob-m-bull">${t}</span>`;
+  const _BEAR = t => `<span class="ob-m-bear">${t}</span>`;
+  const _WARN = t => `<span class="ob-m-warn">${t}</span>`;
+
+  function _mtable(cols, rows) {
+    const head = cols.map(c => `<th>${c}</th>`).join('');
+    const body = rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('');
+    return `<table class="ob-mtable"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  function _matrixHTML(key) {
+    let title = '', tbl = '';
+    if (key === 'funding') {
+      title = '💰 Reading the funding rate (who is paying whom)';
+      tbl = _mtable(['Reading', 'What the crowd is doing', 'What it means for you'], [
+        [_BULL('🟢🟢 ≤ −0.02%'), 'Shorts paying hard — heavily short',  _BULL('🚀 Squeeze fuel UP — any bounce forces shorts to cover')],
+        [_BULL('🟢 −0.005 to −0.02%'), 'Shorts paying — net short',       'Mild upside lean'],
+        ['⚪ −0.005 to +0.005%', 'Balanced — no crowd',                   'Organic move, no squeeze either way'],
+        [_BEAR('🔴 +0.005 to +0.02%'), 'Longs paying — net long',         'Flush risk — mild downside lean'],
+        [_BEAR('🔴🔴 ≥ +0.02%'), 'Longs paying hard — heavily long',      _BEAR('💥 Flush fuel DOWN — the crowd gets liquidated')],
+      ]);
+    } else if (key === 'oi') {
+      title = '📦 Reading OI = Price + Open Interest together';
+      tbl = _mtable(['Price', 'OI', 'What it means', 'Scenario'], [
+        [_UP, _UP, 'New longs entering',     _BULL('🟢 Bullish — real conviction, trend has fuel')],
+        [_UP, _DN, 'Short covering only',    _WARN('⚠️ Weak rally — up-move losing steam')],
+        [_DN, _UP, 'New shorts entering',    _BEAR('🔴 Bearish — real conviction selling')],
+        [_DN, _DN, 'Longs bailing out',      _WARN('⚠️ Weak selloff — downtrend exhausting')],
+      ]);
+    } else if (key === 'cvd') {
+      title = '📈 Reading CVD = Price + taker flow together';
+      tbl = _mtable(['Price', 'CVD bars', 'What it means', 'Scenario'], [
+        [_UP, _BULL('🟢 Green'), 'Buyers driving the move',          _BULL('🟢 Bullish — confirmed buying')],
+        [_UP, _BEAR('🔴 Red'),   'Sellers hitting, price still up',  _WARN('⚠️ Bull trap — divergence, fade it')],
+        [_DN, _BEAR('🔴 Red'),   'Sellers driving the move',         _BEAR('🔴 Bearish — confirmed selling')],
+        [_DN, _BULL('🟢 Green'), 'Buyers absorbing the dump',        _BULL('🟢 Absorption — reversal UP brewing')],
+      ]);
+    } else if (key === 'liq') {
+      title = '🌡️ Reading the heatmap (clusters are price magnets)';
+      tbl = _mtable(['Where the big cluster sits', 'What it means', 'Scenario'], [
+        [_BEAR('🔴 Big cluster BELOW price'), 'Long stops stacked under price', _BULL('👇 Magnet down — expect a sweep then bounce. LONG the sweep, not before')],
+        [_BULL('🟢 Big cluster ABOVE price'), 'Short stops stacked over price',  _BEAR('☝️ Magnet up — expect a sweep then reject. SHORT the sweep, not before')],
+        ['⚖️ Equal both sides', 'No clear magnet',                              'Range — wait until one side gets swept'],
+        [_WARN('🟡 Cluster on YOUR stop'), 'Your stop is the target',           _WARN('⚠️ Move it — high odds it gets hunted')],
+      ]);
+    } else if (key === 'walls') {
+      title = '🧱 Reading persistent walls (real resting orders)';
+      tbl = _mtable(['Wall', 'What it means', 'Scenario'], [
+        [_BULL('🟢 Bid wall below price'), 'Real buyer defending the level', 'Support floor — long bias holds while it sits there'],
+        [_BEAR('🔴 Ask wall above price'), 'Real seller capping the move',   'Resistance ceiling — short bias / take-profit zone'],
+        [_BULL('🟢 Bid wall at your stop'), 'Genuine support behind your SL', _BULL('✅ Safer long — your stop has backing')],
+        [_BEAR('🔴 Ask wall at your target'), 'Overhead supply at your TP',   _WARN('⚠️ Bank profit just before it')],
+      ]);
+    } else return '';
+    return `<div class="ob-matrix" id="ob-matrix-${key}" hidden><div class="ob-matrix-title">${title}</div>${tbl}</div>`;
   }
 
   /* ══════════════════════════════════════════════════════

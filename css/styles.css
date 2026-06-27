@@ -7020,6 +7020,23 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .ob-wall-usd { color:var(--muted); margin-left:auto; font-size:.74rem; font-family:'JetBrains Mono',monospace; }
 .ob-wall-age { font-size:.7rem; color:var(--muted); }
 
+/* Per-panel "How to read" matrices */
+.ob-howto-btn { margin-left:auto; flex:none; font-size:.72rem; padding:3px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface,var(--bg-card)); color:var(--accent,#6c63ff); font-weight:600; cursor:pointer; transition:all .12s; }
+.ob-howto-btn:hover { border-color:var(--accent); }
+.ob-howto-btn.on { background:var(--accent,#6c63ff); border-color:var(--accent,#6c63ff); color:#fff; }
+.ob-matrix { margin-top:14px; border-top:1px dashed var(--border); padding-top:12px; overflow-x:auto; }
+.ob-matrix-title { font-size:.82rem; font-weight:700; color:var(--text); margin-bottom:8px; }
+.ob-mtable { width:100%; border-collapse:collapse; font-size:.77rem; }
+.ob-mtable th { text-align:left; font-size:.64rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); padding:6px 9px; border-bottom:1px solid var(--border); font-weight:700; white-space:nowrap; }
+.ob-mtable td { padding:7px 9px; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.45; color:var(--text); }
+.ob-mtable tr:last-child td { border-bottom:none; }
+.ob-mtable tbody tr:hover { background:rgba(127,127,127,.05); }
+.ob-m-up   { color:#22c55e; font-weight:700; white-space:nowrap; }
+.ob-m-dn   { color:#ef4444; font-weight:700; white-space:nowrap; }
+.ob-m-bull { color:#22c55e; font-weight:700; }
+.ob-m-bear { color:#ef4444; font-weight:700; }
+.ob-m-warn { color:#d97706; font-weight:700; }
+
 /* Guide — collapsible */
 .ob-guide-h { font-size:.92rem; font-weight:700; color:var(--text); cursor:pointer; display:flex; gap:8px; align-items:center; margin-bottom:0; }
 .ob-guide.collapsed .ob-guide-body { display:none; }
