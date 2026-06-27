@@ -6975,13 +6975,11 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .ob-pill:hover { border-color:var(--accent); }
 .ob-pill.active { background:var(--text,#111); border-color:var(--text,#111); color:var(--bg-card,#fff); }
 
-/* TF / window selectors */
-.ob-selector-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.ob-sel-lbl { font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600; }
-.ob-sel-sep { color:var(--border); margin:0 2px; }
-.ob-tf-pill, .ob-win-pill { padding:4px 10px; border-radius:8px; border:1px solid var(--border); background:var(--surface,var(--bg-card)); color:var(--muted); font-size:.76rem; font-weight:600; cursor:pointer; transition:all .12s; }
-.ob-tf-pill:hover, .ob-win-pill:hover { border-color:var(--accent); color:var(--text); }
-.ob-tf-pill.active, .ob-win-pill.active { background:var(--accent,#6c63ff); border-color:var(--accent,#6c63ff); color:#fff; }
+/* Per-panel window pills (7D / 30D / 60D / 90D) */
+.ob-winrow { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px; }
+.ob-win-pill { padding:4px 12px; border-radius:8px; border:1px solid var(--border); background:var(--surface,var(--bg-card)); color:var(--muted); font-size:.75rem; font-weight:700; cursor:pointer; transition:all .12s; }
+.ob-win-pill:hover { border-color:var(--accent); color:var(--text); }
+.ob-win-pill.active { background:var(--accent,#6c63ff); border-color:var(--accent,#6c63ff); color:#fff; }
 
 /* Liquidation heatmap */
 .ob-liq-badge { font-size:.68rem; font-weight:700; padding:2px 8px; border-radius:10px; letter-spacing:.04em; text-transform:uppercase; }

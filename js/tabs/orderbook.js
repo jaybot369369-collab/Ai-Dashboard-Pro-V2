@@ -24,14 +24,25 @@ const OrderBookTab = (() => {
   const SYMBOLS  = ['BTC', 'ETH', 'XRP', 'SOL', 'SUI'];
   const pairOf   = s => s.toUpperCase() + 'USDT';
 
-  /* ── TF + Window config ───────────────────────────────── */
-  const TF_LIST    = ['15m', '1h', '4h', 'D'];
-  const TF_MS      = { '15m': 900000, '1h': 3600000, '4h': 14400000, 'D': 86400000 };
-  const WIN_LIST   = ['7d', '14d', '30d', '90d'];
-  const WIN_LABELS = { '7d': '7D', '14d': '14D', '30d': '1M', '90d': '3M' };
+  /* ── Per-panel window config ──────────────────────────────
+     Each chart panel (liq / funding / oi / cvd) has its own
+     clickable 7D / 30D / 60D / 90D window.
+  ──────────────────────────────────────────────────────────*/
+  const WIN_LIST   = ['7d', '30d', '60d', '90d'];
+  const WIN_LABELS = { '7d': '7D', '30d': '30D', '60d': '60D', '90d': '90D' };
+  // candle granularity + bar count per window (OI / CVD / price overlay / liq)
+  //   kIv  = Bybit kline interval   oiIv = Bybit open-interest intervalTime
+  //   binIv = Binance kline interval  okx = OKX bar
+  const WIN_CFG = {
+    '7d':  { kIv: '240', oiIv: '4h', binIv: '4h', okx: '4H', count: 42, ms: 14400000 },
+    '30d': { kIv: 'D',   oiIv: '1d', binIv: '1d', okx: '1D', count: 30, ms: 86400000 },
+    '60d': { kIv: 'D',   oiIv: '1d', binIv: '1d', okx: '1D', count: 60, ms: 86400000 },
+    '90d': { kIv: 'D',   oiIv: '1d', binIv: '1d', okx: '1D', count: 90, ms: 86400000 },
+  };
+  // funding cadence is 8h (3/day) → points needed per window
+  const FUND_PTS = { '7d': 21, '30d': 90, '60d': 180, '90d': 270 };
 
   /* ── Tunables ─────────────────────────────────────────── */
-  const CVD_BARS     = 24;        // candle bars kept
   const SNAP_INT_MS  = 30000;     // wall REST snapshot interval
   const WALL_MIN_MS  = 600000;    // wall must be present ≥10 min
   const WALL_SHARE   = 0.06;      // ≥6% of ±2% side depth = wall
@@ -46,13 +57,16 @@ const OrderBookTab = (() => {
 
   /* ── Persistence keys ─────────────────────────────────── */
   const LS_SYM = 'jb_ob_symbol';
-  const LS_TF  = 'ob_tf';
-  const LS_WIN = 'ob_win';
 
   /* ── State ────────────────────────────────────────────── */
   let _sym = (localStorage.getItem(LS_SYM) || 'BTC').toUpperCase();
-  let _tf  = localStorage.getItem(LS_TF)  || '1h';
-  let _win = localStorage.getItem(LS_WIN) || '30d';
+  // Per-panel windows (each independently clickable + persisted)
+  let _pwin = {
+    liq:     localStorage.getItem('ob_w_liq')     || '30d',
+    funding: localStorage.getItem('ob_w_funding') || '30d',
+    oi:      localStorage.getItem('ob_w_oi')      || '30d',
+    cvd:     localStorage.getItem('ob_w_cvd')     || '30d',
+  };
 
   // WebSocket (aggTrade — CVD only)
   let _ws         = null;
@@ -63,7 +77,8 @@ const OrderBookTab = (() => {
 
   // CVD bucketing
   let _cvdBuckets   = [];     // [{t, buy, sell}] oldest first
-  let _cvdBucketMs  = TF_MS[_tf] || 3600000;
+  let _cvdBucketMs  = (WIN_CFG[_pwin.cvd] || WIN_CFG['30d']).ms;
+  let _cvdMax       = (WIN_CFG[_pwin.cvd] || WIN_CFG['30d']).count;
 
   // Persistent walls (REST snapshots)
   let _wallTracker = new Map(); // key → {firstSeen, lastSeen, usd, side, price}
@@ -230,7 +245,7 @@ const OrderBookTab = (() => {
     if (!b || b.t !== t) {
       b = { t, buy: 0, sell: 0 };
       _cvdBuckets.push(b);
-      if (_cvdBuckets.length > CVD_BARS + 2) _cvdBuckets.shift();
+      if (_cvdBuckets.length > _cvdMax + 2) _cvdBuckets.shift();
     }
     if (takerIsSeller) b.sell += usd; else b.buy += usd;
   }
@@ -349,33 +364,50 @@ const OrderBookTab = (() => {
   }
 
   /* ══════════════════════════════════════════════════════
-     30-DAY HISTORY — funding (8h) + OI (1d) + price (1d)
-     All from Bybit REST, fetched in the browser (not geo-blocked)
+     FUNDING HISTORY — Bybit 8h, paginated to the panel's window
+     (limit caps at 200/call, so 60d/90d need a 2nd page back)
   ══════════════════════════════════════════════════════ */
-  async function _loadHistory() {
+  async function _loadFunding() {
     if (!_alive()) return;
-    const sym = _sym, pair = pairOf(sym);
-    _histKey = sym;
-
-    // Funding history — 8h cadence → ~90 points = 30 days
+    const sym = _sym, pair = pairOf(sym), need = FUND_PTS[_pwin.funding] || 90;
+    let all = [], endTime;
     try {
-      const r = await fetch(`https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${pair}&limit=90`, { signal: _sig(8000) });
-      const j = await r.json();
-      const list = (j && j.result && j.result.list) || [];
-      _fundHist = list.map(x => ({ t: +x.fundingRateTimestamp, rate: +x.fundingRate })).reverse();
+      for (let page = 0; all.length < need && page < 3; page++) {
+        let url = `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${pair}&limit=200`;
+        if (endTime) url += `&endTime=${endTime}`;
+        const r = await fetch(url, { signal: _sig(8000) });
+        const j = await r.json();
+        const list = (j && j.result && j.result.list) || [];
+        if (!list.length) break;
+        all = all.concat(list);
+        const oldest = Math.min(...list.map(x => +x.fundingRateTimestamp));
+        endTime = oldest - 1;
+        if (list.length < 200) break;
+      }
+      const hist = all.map(x => ({ t: +x.fundingRateTimestamp, rate: +x.fundingRate }))
+        .sort((a, b) => a.t - b.t).slice(-need);
+      if (sym === _sym && _alive()) { _fundHist = hist; _paintFunding(); }
     } catch(e) { _fundHist = null; }
+  }
 
-    // Price daily — for OI USD scaling + divergence overlay
+  /* ══════════════════════════════════════════════════════
+     OI HISTORY — Bybit OI (base coin) × price → USD, per window
+  ══════════════════════════════════════════════════════ */
+  async function _loadOIData() {
+    if (!_alive()) return;
+    const sym = _sym, pair = pairOf(sym), cfg = WIN_CFG[_pwin.oi] || WIN_CFG['30d'];
+
+    // Price klines — for OI USD scaling + divergence overlay
     try {
-      const r = await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${pair}&interval=D&limit=30`, { signal: _sig(8000) });
+      const r = await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${pair}&interval=${cfg.kIv}&limit=${cfg.count}`, { signal: _sig(8000) });
       const j = await r.json();
       const list = (j && j.result && j.result.list) || [];
       _oiPxHist = list.map(c => ({ t: +c[0], close: +c[4] })).reverse();
     } catch(e) { _oiPxHist = null; }
 
-    // OI history — daily, last 30 (base-coin units → ×price = USD)
+    // OI history (base-coin units → ×price = USD)
     try {
-      const r = await fetch(`https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${pair}&intervalTime=1d&limit=30`, { signal: _sig(8000) });
+      const r = await fetch(`https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${pair}&intervalTime=${cfg.oiIv}&limit=${cfg.count}`, { signal: _sig(8000) });
       const j = await r.json();
       const list = (j && j.result && j.result.list) || [];
       const pxAt = ts => {
@@ -383,10 +415,9 @@ const OrderBookTab = (() => {
         let best = _oiPxHist[0]; for (const p of _oiPxHist) if (Math.abs(p.t - ts) < Math.abs(best.t - ts)) best = p;
         return best.close;
       };
-      _oiHist = list.map(x => ({ t: +x.timestamp, oiUsd: +x.openInterest * pxAt(+x.timestamp) })).reverse();
+      const hist = list.map(x => ({ t: +x.timestamp, oiUsd: +x.openInterest * pxAt(+x.timestamp) })).reverse();
+      if (sym === _sym && _alive()) { _oiHist = hist; _paintOI(); }
     } catch(e) { _oiHist = null; }
-
-    if (sym === _sym && _alive()) { _paintFunding(); _paintOI(); }
   }
 
   /* ══════════════════════════════════════════════════════
@@ -396,9 +427,10 @@ const OrderBookTab = (() => {
   ══════════════════════════════════════════════════════ */
   async function _seedCVD() {
     if (!_alive()) return;
-    const pair = pairOf(_sym), iv = { '15m':'15m','1h':'1h','4h':'4h','D':'1d' }[_tf] || '1h';
+    const pair = pairOf(_sym), cfg = WIN_CFG[_pwin.cvd] || WIN_CFG['30d'];
+    _cvdBucketMs = cfg.ms; _cvdMax = cfg.count;
     try {
-      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${iv}&limit=${CVD_BARS}`, { signal: _sig(8000) });
+      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${cfg.binIv}&limit=${cfg.count}`, { signal: _sig(8000) });
       const kl = await r.json();
       if (Array.isArray(kl) && kl.length) {
         // [openTime, o,h,l,c, vol, closeTime, quoteVol, trades, takerBuyBase, takerBuyQuote, ...]
@@ -417,8 +449,8 @@ const OrderBookTab = (() => {
   ══════════════════════════════════════════════════════ */
   const _LIQ_WIN_CFG = {
     '7d':  { interval: '240', limit: 42,  okxBar: '4H' },
-    '14d': { interval: '240', limit: 84,  okxBar: '4H' },
     '30d': { interval: 'D',   limit: 30,  okxBar: '1D' },
+    '60d': { interval: 'D',   limit: 60,  okxBar: '1D' },
     '90d': { interval: 'D',   limit: 90,  okxBar: '1D' },
   };
 
@@ -449,7 +481,7 @@ const OrderBookTab = (() => {
   async function _loadLiq() {
     if (_liqInFlight) return;
     _liqInFlight = true;
-    const asset = _sym, win = _win;
+    const asset = _sym, win = _pwin.liq;
 
     // 1 — try Coinglass proxy (when key is set)
     if (!_cgNoKey) {
@@ -466,7 +498,7 @@ const OrderBookTab = (() => {
 
     // 2 — try LW estimated model
     try {
-      const tf = { '15m':'15m', '1h':'1h', '4h':'4h', 'D':'D' }[_tf] || '1h';
+      const tf = win === '7d' ? '4h' : 'D';
       const r = await fetch(`${_lwBase()}/api/asset/${asset}/liquidations?tf=${tf}&window=${win}`,
         { mode: 'cors', cache: 'no-store', signal: _sig(8000) });
       if (r.ok) {
@@ -629,18 +661,19 @@ const OrderBookTab = (() => {
     else if (rate <= -0.00005) { tone='bull'; lbl='Leaning short'; sub='mild short bias'; }
     else                       { tone='flat'; lbl='Neutral';       sub='no positioning bias'; }
 
-    let chart = `<div class="ob-fund-loading">Loading 30-day history…</div>`, stat = '';
+    const wl = WIN_LABELS[_pwin.funding] || '30D';
+    let chart = `<div class="ob-fund-loading">Loading ${wl} history…</div>`, stat = '';
     if (_fundHist && _fundHist.length) {
       const vals   = _fundHist.map(x => x.rate);
       chart        = _svgSignedBars(vals, C_BEAR, C_BULL, vals.length - 1);
       const posPct = Math.round(vals.filter(v => v > 0).length / vals.length * 100);
       const avg    = vals.reduce((a, b) => a + b, 0) / vals.length;
-      stat = `<div class="ob-vstat"><span>now <b style="color:${rate>=0?C_BEAR:C_BULL}">${rate>=0?'+':''}${(rate*100).toFixed(4)}%</b></span><span>30d avg ${(avg*100).toFixed(4)}%</span><span>${posPct}% of time longs paid</span></div>`;
+      stat = `<div class="ob-vstat"><span>now <b style="color:${rate>=0?C_BEAR:C_BULL}">${rate>=0?'+':''}${(rate*100).toFixed(4)}%</b></span><span>${wl} avg ${(avg*100).toFixed(4)}%</span><span>${posPct}% of time longs paid</span></div>`;
     }
     el.innerHTML = `
       ${_verdict(tone, lbl, sub)}
       <div class="ob-vchart">${chart}</div>
-      <div class="ob-vaxis"><span style="color:${C_BEAR}">▲ longs pay</span><span>← 30 days →</span><span style="color:${C_BULL}">▼ shorts pay</span></div>
+      <div class="ob-vaxis"><span style="color:${C_BEAR}">▲ longs pay</span><span>← ${wl} →</span><span style="color:${C_BULL}">▼ shorts pay</span></div>
       ${stat}`;
   }
 
@@ -660,27 +693,29 @@ const OrderBookTab = (() => {
       else if (oiDn)          { tone='warn'; lbl='Longs bailing';  sub='OI↓ price↓ — selloff exhausting'; }
     }
 
-    let chart = `<div class="ob-fund-loading">Loading 30-day history…</div>`, stat = '';
+    const wl = WIN_LABELS[_pwin.oi] || '30D';
+    let chart = `<div class="ob-fund-loading">Loading ${wl} history…</div>`, stat = '';
     if (_oiHist && _oiHist.length) {
       const vals = _oiHist.map(x => x.oiUsd);
       const px   = (_oiPxHist && _oiPxHist.length === vals.length) ? _oiPxHist.map(x => x.close) : null;
       chart      = _svgArea(vals, '#6c63ff', px);
       const cur  = _fundingData ? _fundingData.oi : vals[vals.length - 1];
       const chg  = (vals[vals.length - 1] - vals[0]) / (vals[0] || 1) * 100;
-      stat = `<div class="ob-vstat"><span>now <b>${_fmtUsd(cur)}</b></span><span>30d ${chg>=0?'+':''}${chg.toFixed(1)}%</span><span>━ OI · ┄ price</span></div>`;
+      stat = `<div class="ob-vstat"><span>now <b>${_fmtUsd(cur)}</b></span><span>${wl} ${chg>=0?'+':''}${chg.toFixed(1)}%</span><span>━ OI · ┄ price</span></div>`;
     }
     el.innerHTML = `
       ${_verdict(tone, lbl, sub)}
       <div class="ob-vchart">${chart}</div>
-      <div class="ob-vaxis"><span>open interest (USD)</span><span>← 30 days →</span></div>
+      <div class="ob-vaxis"><span>open interest (USD)</span><span>← ${wl} →</span></div>
       ${stat}`;
   }
 
   function _paintCVDBars() {
     const el = document.getElementById('ob-cvd'); if (!el) return;
-    const bkts = _cvdBuckets.slice(-CVD_BARS);
+    const barLbl = _pwin.cvd === '7d' ? '4h' : 'daily';
+    const bkts = _cvdBuckets.slice(-_cvdMax);
     if (bkts.length < 3) {
-      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Loading ${esc(_tf)} taker flow…</div>`;
+      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Loading ${esc(barLbl)} taker flow…</div>`;
       _paintStatus(); return;
     }
     const deltas  = bkts.map(b => b.buy - b.sell);
@@ -712,7 +747,7 @@ const OrderBookTab = (() => {
       ${_verdict(tone, lbl, sub)}
       <div class="ob-cvd-head">
         <strong style="color:${total >= 0 ? C_BULL : C_BEAR}">${total >= 0 ? '+' : ''}${_fmtUsd(Math.abs(total))}</strong>
-        <span class="ob-cvd-hint">${bkts.length} ${esc(_tf)} bars · 🟩 buy / 🟥 sell · line = running total</span>
+        <span class="ob-cvd-hint">${bkts.length} ${esc(barLbl)} bars · 🟩 buy / 🟥 sell · line = running total</span>
         <span class="ob-ws-dot" id="ob-ws-status"></span>
       </div>
       <svg viewBox="0 0 ${W} ${H}" class="ob-cvd-svg" preserveAspectRatio="none">
@@ -779,6 +814,7 @@ const OrderBookTab = (() => {
             <span class="ob-sub">estimated positions at risk · yellow = largest cluster · not exchange-confirmed</span>
             <button class="ob-howto-btn" data-howto="liq">ℹ️ How to read</button>
           </div>
+          ${_winPills('liq')}
           <div class="ob-liq-totals">
             <span class="ob-liq-tot-label">☝ Squeeze above</span><span id="ob-liq-above" class="ob-liq-tot-above">—</span>
             <span class="ob-liq-sep">·</span>
@@ -791,12 +827,14 @@ const OrderBookTab = (() => {
         <!-- 2. FUNDING + OI — two columns -->
         <div class="ob-two-col">
           <div class="ob-card">
-            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">30-day history · Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
+            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
+            ${_winPills('funding')}
             <div id="ob-fund" class="ob-fund-panel"></div>
             ${_matrixHTML('funding')}
           </div>
           <div class="ob-card">
-            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">30-day history · Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
+            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
+            ${_winPills('oi')}
             <div id="ob-oi" class="ob-fund-panel"></div>
             ${_matrixHTML('oi')}
           </div>
@@ -804,7 +842,8 @@ const OrderBookTab = (() => {
 
         <!-- 3. CVD BARS -->
         <div class="ob-card">
-          <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-sub">Binance taker flow · binned by TF candle</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
+          <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-sub">Binance taker flow</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
+          ${_winPills('cvd')}
           <div id="ob-cvd" class="ob-cvd-wrap"></div>
           ${_matrixHTML('cvd')}
         </div>
@@ -832,12 +871,13 @@ const OrderBookTab = (() => {
     _seedCVD();
     _snapBook();
     _pollFunding();
-    _loadHistory();
+    _loadFunding();
+    _loadOIData();
     _loadLiq();
     _paintAll();
     _snapTimer    = setInterval(_snapBook,    SNAP_INT_MS);
     _fundingTimer = setInterval(_pollFunding, FUND_INT_MS);
-    _histTimer    = setInterval(_loadHistory, 600000);   // refresh history every 10 min
+    _histTimer    = setInterval(() => { _loadFunding(); _loadOIData(); }, 600000);  // refresh history every 10 min
     _paintTimer   = setInterval(_paintAll,    PAINT_MS);
     _cgTimer      = setInterval(_cgPoll,      60000);
   }
@@ -853,36 +893,36 @@ const OrderBookTab = (() => {
     _liqData = null; _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false;
     _fundingData = null;
     _fundHist = null; _oiHist = null; _oiPxHist = null; _histKey = null;
-    _cvdBucketMs = TF_MS[_tf] || 3600000;
+    const cc = WIN_CFG[_pwin.cvd] || WIN_CFG['30d'];
+    _cvdBucketMs = cc.ms; _cvdMax = cc.count;
     _status = 'idle'; _lastMsg = 0; _reconDelay = 1000;
     _cgNoKey = false; _cgState = 'idle'; _cg = {};
   }
 
+  // Per-panel window pill row (7D / 30D / 60D / 90D)
+  function _winPills(panel) {
+    return `<div class="ob-winrow">` + WIN_LIST.map(w =>
+      `<button class="ob-win-pill${w === _pwin[panel] ? ' active' : ''}" data-panel="${panel}" data-win="${w}">${WIN_LABELS[w]}</button>`
+    ).join('') + `</div>`;
+  }
+
   function _headHTML() {
     const sym = SYMBOLS.map(s => `<button class="ob-pill${s === _sym ? ' active' : ''}" data-sym="${s}">${s}</button>`).join('');
-    const tf  = TF_LIST.map(t => `<button class="ob-tf-pill${t === _tf ? ' active' : ''}" data-tf="${t}">${t}</button>`).join('');
-    const win = WIN_LIST.map(w => `<button class="ob-win-pill${w === _win ? ' active' : ''}" data-win="${w}">${WIN_LABELS[w]}</button>`).join('');
     return `
       <div class="ob-head">
         <div>
           <div class="ob-title">📖 Level 2 — Swing Context</div>
-          <div class="ob-tagline">Liquidation clusters · Funding · OI · CVD · Persistent walls — built for 15m–4h setups</div>
+          <div class="ob-tagline">Liquidation clusters · Funding · OI · CVD · Walls — pick a timeframe per panel</div>
         </div>
         <div class="ob-head-right">
           <div class="ob-pills">${sym}</div>
-          <div class="ob-selector-row">
-            <span class="ob-sel-lbl">TF</span>${tf}
-            <span class="ob-sel-sep">·</span>
-            <span class="ob-sel-lbl">Window</span>${win}
-          </div>
         </div>
       </div>`;
   }
 
   function _wireEvents() {
     document.querySelectorAll('#ob-root .ob-pill').forEach(b => b.addEventListener('click', () => _setSym(b.dataset.sym)));
-    document.querySelectorAll('#ob-root .ob-tf-pill').forEach(b => b.addEventListener('click', () => _setTF(b.dataset.tf)));
-    document.querySelectorAll('#ob-root .ob-win-pill').forEach(b => b.addEventListener('click', () => _setWin(b.dataset.win)));
+    document.querySelectorAll('#ob-root .ob-win-pill').forEach(b => b.addEventListener('click', () => _setWin(b.dataset.panel, b.dataset.win)));
     document.querySelectorAll('#ob-root .ob-guide-h').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
     document.querySelectorAll('#ob-root .ob-howto-btn').forEach(b => b.addEventListener('click', () => _toggleHowto(b.dataset.howto)));
   }
@@ -900,18 +940,15 @@ const OrderBookTab = (() => {
     document.querySelectorAll('#ob-root .ob-pill').forEach(b => b.classList.toggle('active', b.dataset.sym === _sym));
     _cleanup(); _startAll();
   }
-  function _setTF(tf) {
-    if (!tf || tf === _tf) return;
-    _tf = tf; localStorage.setItem(LS_TF, _tf); _cvdBucketMs = TF_MS[_tf] || 3600000;
-    document.querySelectorAll('#ob-root .ob-tf-pill').forEach(b => b.classList.toggle('active', b.dataset.tf === _tf));
-    _cvdBuckets = []; _seedCVD();
-    _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false; _loadLiq();
-  }
-  function _setWin(w) {
-    if (!w || w === _win) return;
-    _win = w; localStorage.setItem(LS_WIN, _win);
-    document.querySelectorAll('#ob-root .ob-win-pill').forEach(b => b.classList.toggle('active', b.dataset.win === _win));
-    _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false; _loadLiq();
+  function _setWin(panel, w) {
+    if (!panel || !w || _pwin[panel] === w) return;
+    _pwin[panel] = w; localStorage.setItem('ob_w_' + panel, w);
+    document.querySelectorAll(`#ob-root .ob-win-pill[data-panel="${panel}"]`).forEach(b =>
+      b.classList.toggle('active', b.dataset.win === w));
+    if      (panel === 'funding') _loadFunding();
+    else if (panel === 'oi')      _loadOIData();
+    else if (panel === 'cvd')   { _cvdBuckets = []; _seedCVD(); }
+    else if (panel === 'liq')   { _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false; _loadLiq(); }
   }
 
   /* ── Coinglass 60s poll ────────────────────────────────── */
