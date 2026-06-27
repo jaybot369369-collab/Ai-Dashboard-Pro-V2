@@ -68,6 +68,7 @@ const OrderBookTab = (() => {
   // Persistent walls (REST snapshots)
   let _wallTracker = new Map(); // key → {firstSeen, lastSeen, usd, side, price}
   let _lastSnapMid = null;
+  let _depthLevels = null;      // {bids:[{price,usd,age}], asks:[...], mid}
   let _snapTimer   = null;
 
   // Liq heatmap (same data shape as liquidity_watcher.js)
@@ -76,12 +77,16 @@ const OrderBookTab = (() => {
   let _liqKlinesKey = null;
   let _liqInFlight  = false;
 
-  // Funding / OI
+  // Funding / OI (live current values)
   let _fundingData = null;    // {rate, oi, price}
-  let _prevOI      = null;
-  let _prevOI2     = null;
-  let _prevPrice   = null;
   let _fundingTimer = null;
+
+  // 30-day history (for the charts)
+  let _fundHist = null;       // [{t, rate}] oldest first
+  let _oiHist   = null;       // [{t, oiUsd}] oldest first
+  let _oiPxHist = null;       // [{t, close}] oldest first
+  let _histKey  = null;       // symbol the history was fetched for
+  let _histTimer = null;
 
   // Timers
   let _paintTimer = null;
@@ -127,6 +132,57 @@ const OrderBookTab = (() => {
     if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
     if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
     return '$' + v.toFixed(0);
+  }
+
+  /* ── Visual helpers — small inline SVG charts ──────────── */
+  const C_BULL = '#22c55e', C_BEAR = '#ef4444', C_WARN = '#d97706', C_FLAT = '#9aa0aa';
+
+  // Verdict chip: big colored pill that says bull/bear/chop at a glance
+  function _verdict(tone, label, sub) {
+    const c = { bull: C_BULL, bear: C_BEAR, warn: C_WARN, flat: C_FLAT }[tone] || C_FLAT;
+    const bg = { bull: 'rgba(34,197,94,.12)', bear: 'rgba(239,68,68,.12)', warn: 'rgba(217,119,6,.12)', flat: 'rgba(154,160,170,.12)' }[tone];
+    return `<div class="ob-verdict" style="background:${bg};border-color:${c}">
+      <span class="ob-verdict-dot" style="background:${c}"></span>
+      <span class="ob-verdict-lbl" style="color:${c}">${label}</span>
+      ${sub ? `<span class="ob-verdict-sub">${sub}</span>` : ''}
+    </div>`;
+  }
+
+  // Signed bar chart with a zero line (funding). pos→red, neg→green.
+  function _svgSignedBars(vals, posCol, negCol, hiIdx) {
+    const W = 600, H = 90, n = vals.length || 1, slot = W / n, bw = Math.max(slot * 0.66, 1);
+    const max = Math.max(...vals.map(v => Math.abs(v)), 1e-12), zeroY = H / 2;
+    let s = `<svg viewBox="0 0 ${W} ${H}" class="ob-vsvg" preserveAspectRatio="none">`;
+    s += `<line x1="0" y1="${zeroY}" x2="${W}" y2="${zeroY}" stroke="rgba(127,127,127,.35)" stroke-width="1"/>`;
+    vals.forEach((v, i) => {
+      const bh = Math.abs(v) / max * (H / 2 - 5), x = i * slot + (slot - bw) / 2;
+      const y = v >= 0 ? zeroY - bh : zeroY;
+      const col = v >= 0 ? posCol : negCol, op = (hiIdx != null && i === hiIdx) ? 1 : 0.62;
+      s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(bh, 0.6).toFixed(1)}" fill="${col}" opacity="${op}" rx="1"/>`;
+      if (hiIdx != null && i === hiIdx) s += `<rect x="${x.toFixed(1)}" y="${(v>=0?y-2:zeroY-2).toFixed(1)}" width="${bw.toFixed(1)}" height="2" fill="${col}"/>`;
+    });
+    s += `</svg>`;
+    return s;
+  }
+
+  // Area + line chart (OI), optional normalized overlay line (price).
+  function _svgArea(vals, col, overlay) {
+    const W = 600, H = 90, PB = 6, PT = 6;
+    const min = Math.min(...vals), max = Math.max(...vals), rng = (max - min) || 1;
+    const n = vals.length, dx = n > 1 ? W / (n - 1) : W;
+    const y = v => PT + (1 - (v - min) / rng) * (H - PT - PB);
+    const pts = vals.map((v, i) => `${(i * dx).toFixed(1)},${y(v).toFixed(1)}`);
+    let s = `<svg viewBox="0 0 ${W} ${H}" class="ob-vsvg" preserveAspectRatio="none">`;
+    s += `<path d="M0,${H} L${pts.join(' L')} L${W},${H} Z" fill="${col}" opacity="0.13"/>`;
+    s += `<path d="M${pts.join(' L')}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    if (overlay && overlay.length === n) {
+      const omin = Math.min(...overlay), omax = Math.max(...overlay), org = (omax - omin) || 1;
+      const oy = v => PT + (1 - (v - omin) / org) * (H - PT - PB);
+      const op = overlay.map((v, i) => `${(i * dx).toFixed(1)},${oy(v).toFixed(1)}`);
+      s += `<path d="M${op.join(' L')}" fill="none" stroke="rgba(127,127,127,.55)" stroke-width="1.3" stroke-dasharray="4,3"/>`;
+    }
+    s += `</svg>`;
+    return s;
   }
 
   /* ── Heatmap palette (verbatim from liquidity_watcher.js) ─ */
@@ -250,6 +306,29 @@ const OrderBookTab = (() => {
       const staleMs = SNAP_INT_MS * 3;
       for (const [key, w] of _wallTracker)
         if (!activeKeys.has(key) && now - w.lastSeen > staleMs) _wallTracker.delete(key);
+
+      // Build the visual depth profile: top levels each side within ±2%.
+      // Always populated (not gated on 10 min) — persistence shows as an age badge.
+      const ageOf = px => {
+        const key = Math.round(px / step) * step, w = _wallTracker.get(key);
+        return w ? Math.round((now - w.firstSeen) / 60000) : 0;
+      };
+      const topLevels = (rows, side) => {
+        const lvls = [];
+        rows.forEach(([p, q]) => {
+          const px = +p;
+          if (side === 'bid' && px < lo) return;
+          if (side === 'ask' && px > hi) return;
+          lvls.push({ price: px, usd: px * +q, side, age: ageOf(px) });
+        });
+        return lvls.sort((a, b) => b.usd - a.usd).slice(0, 6);
+      };
+      _depthLevels = {
+        mid,
+        bids: topLevels(snap.bids, 'bid').sort((a, b) => b.price - a.price),
+        asks: topLevels(snap.asks, 'ask').sort((a, b) => b.price - a.price),
+        bidTot, askTot,
+      };
     } catch(e) {}
   }
 
@@ -266,6 +345,69 @@ const OrderBookTab = (() => {
       const t = j && j.result && j.result.list && j.result.list[0];
       if (!t) return;
       _fundingData = { rate: parseFloat(t.fundingRate || 0), oi: parseFloat(t.openInterestValue || 0), price: parseFloat(t.lastPrice || 0) };
+    } catch(e) {}
+  }
+
+  /* ══════════════════════════════════════════════════════
+     30-DAY HISTORY — funding (8h) + OI (1d) + price (1d)
+     All from Bybit REST, fetched in the browser (not geo-blocked)
+  ══════════════════════════════════════════════════════ */
+  async function _loadHistory() {
+    if (!_alive()) return;
+    const sym = _sym, pair = pairOf(sym);
+    _histKey = sym;
+
+    // Funding history — 8h cadence → ~90 points = 30 days
+    try {
+      const r = await fetch(`https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${pair}&limit=90`, { signal: _sig(8000) });
+      const j = await r.json();
+      const list = (j && j.result && j.result.list) || [];
+      _fundHist = list.map(x => ({ t: +x.fundingRateTimestamp, rate: +x.fundingRate })).reverse();
+    } catch(e) { _fundHist = null; }
+
+    // Price daily — for OI USD scaling + divergence overlay
+    try {
+      const r = await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${pair}&interval=D&limit=30`, { signal: _sig(8000) });
+      const j = await r.json();
+      const list = (j && j.result && j.result.list) || [];
+      _oiPxHist = list.map(c => ({ t: +c[0], close: +c[4] })).reverse();
+    } catch(e) { _oiPxHist = null; }
+
+    // OI history — daily, last 30 (base-coin units → ×price = USD)
+    try {
+      const r = await fetch(`https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${pair}&intervalTime=1d&limit=30`, { signal: _sig(8000) });
+      const j = await r.json();
+      const list = (j && j.result && j.result.list) || [];
+      const pxAt = ts => {
+        if (!_oiPxHist || !_oiPxHist.length) return _fundingData ? _fundingData.price : 1;
+        let best = _oiPxHist[0]; for (const p of _oiPxHist) if (Math.abs(p.t - ts) < Math.abs(best.t - ts)) best = p;
+        return best.close;
+      };
+      _oiHist = list.map(x => ({ t: +x.timestamp, oiUsd: +x.openInterest * pxAt(+x.timestamp) })).reverse();
+    } catch(e) { _oiHist = null; }
+
+    if (sym === _sym && _alive()) { _paintFunding(); _paintOI(); }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     CVD SEED — fill bars from historical klines immediately
+     Binance klines carry taker-buy quote volume per candle, so
+     we get real signed delta bars without waiting for live trades.
+  ══════════════════════════════════════════════════════ */
+  async function _seedCVD() {
+    if (!_alive()) return;
+    const pair = pairOf(_sym), iv = { '15m':'15m','1h':'1h','4h':'4h','D':'1d' }[_tf] || '1h';
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=${iv}&limit=${CVD_BARS}`, { signal: _sig(8000) });
+      const kl = await r.json();
+      if (Array.isArray(kl) && kl.length) {
+        // [openTime, o,h,l,c, vol, closeTime, quoteVol, trades, takerBuyBase, takerBuyQuote, ...]
+        _cvdBuckets = kl.map(c => {
+          const quoteVol = +c[7], takerBuyQuote = +c[10];
+          return { t: +c[0], buy: takerBuyQuote, sell: Math.max(quoteVol - takerBuyQuote, 0) };
+        });
+        _paintCVDBars();
+      }
     } catch(e) {}
   }
 
@@ -461,7 +603,8 @@ const OrderBookTab = (() => {
   function _paintAll() {
     if (!_alive()) { _cleanup(); return; }
     _paintStatus();
-    _paintFundingOI();
+    _paintFunding();
+    _paintOI();
     _paintCVDBars();
     _paintWalls();
   }
@@ -474,53 +617,70 @@ const OrderBookTab = (() => {
     el.innerHTML = `<span style="color:${col}">${txt}</span>`;
   }
 
-  function _paintFundingOI() {
-    const fEl = document.getElementById('ob-fund'), oEl = document.getElementById('ob-oi');
-    if (!fEl || !oEl) return;
-    if (!_fundingData) { fEl.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; oEl.innerHTML = ''; return; }
+  function _paintFunding() {
+    const el = document.getElementById('ob-fund'); if (!el) return;
+    if (!_fundingData && !_fundHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
+    const rate = _fundingData ? _fundingData.rate : (_fundHist && _fundHist.length ? _fundHist[_fundHist.length-1].rate : 0);
 
-    const { rate, oi, price } = _fundingData;
-    const ratePct  = (rate * 100).toFixed(4);
-    const sign     = rate >= 0 ? '+' : '';
-    const rateCol  = Math.abs(rate) > 0.0002 ? (rate > 0 ? '#ef4444' : '#22c55e') : 'var(--text-sub,var(--muted))';
-    let rateInterp = '';
-    if      (rate > 0.0003) rateInterp = 'Longs paying heavily — market very crowded long. Long-squeeze is path of least resistance.';
-    else if (rate > 0.00005) rateInterp = 'Longs paying slightly — mild long bias. Watch for flush before continuation.';
-    else if (rate < -0.0002) rateInterp = 'Shorts paying heavily — market crowded short. Short-squeeze potential is high.';
-    else if (rate < -0.00005) rateInterp = 'Shorts paying — market net short. Upside wick/squeeze possible before real move.';
-    else                     rateInterp = 'Near-zero — no strong positioning bias. Move will be organic, less violent.';
+    let tone, lbl, sub;
+    if      (rate >=  0.0003)  { tone='bear'; lbl='Crowded LONG';  sub='longs paying hard → flush risk'; }
+    else if (rate >=  0.00005) { tone='warn'; lbl='Leaning long';  sub='mild long bias'; }
+    else if (rate <= -0.0003)  { tone='bull'; lbl='Crowded SHORT'; sub='shorts paying hard → squeeze fuel'; }
+    else if (rate <= -0.00005) { tone='bull'; lbl='Leaning short'; sub='mild short bias'; }
+    else                       { tone='flat'; lbl='Neutral';       sub='no positioning bias'; }
 
-    let oiInterp = 'Watching…';
-    if (_prevOI2 != null && oi > 0 && _prevPrice != null) {
-      const rising = oi > _prevOI2 * 1.005, falling = oi < _prevOI2 * 0.995;
-      const priceUp = price > _prevPrice;
-      if      (rising  && priceUp)  oiInterp = 'OI + price rising → new longs entering. Real conviction buying.';
-      else if (rising  && !priceUp) oiInterp = 'OI rising, price falling → new shorts entering. Bearish conviction.';
-      else if (falling && priceUp)  oiInterp = 'OI falling, price rising → short covering only. Weaker up-move.';
-      else if (falling)             oiInterp = 'OI falling — positions closing. Compression or reversal possible.';
-      else                          oiInterp = 'OI flat — no new money entering. Range / chop likely.';
+    let chart = `<div class="ob-fund-loading">Loading 30-day history…</div>`, stat = '';
+    if (_fundHist && _fundHist.length) {
+      const vals   = _fundHist.map(x => x.rate);
+      chart        = _svgSignedBars(vals, C_BEAR, C_BULL, vals.length - 1);
+      const posPct = Math.round(vals.filter(v => v > 0).length / vals.length * 100);
+      const avg    = vals.reduce((a, b) => a + b, 0) / vals.length;
+      stat = `<div class="ob-vstat"><span>now <b style="color:${rate>=0?C_BEAR:C_BULL}">${rate>=0?'+':''}${(rate*100).toFixed(4)}%</b></span><span>30d avg ${(avg*100).toFixed(4)}%</span><span>${posPct}% of time longs paid</span></div>`;
+    }
+    el.innerHTML = `
+      ${_verdict(tone, lbl, sub)}
+      <div class="ob-vchart">${chart}</div>
+      <div class="ob-vaxis"><span style="color:${C_BEAR}">▲ longs pay</span><span>← 30 days →</span><span style="color:${C_BULL}">▼ shorts pay</span></div>
+      ${stat}`;
+  }
+
+  function _paintOI() {
+    const el = document.getElementById('ob-oi'); if (!el) return;
+    if (!_fundingData && !_oiHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
+
+    let tone='flat', lbl='Flat', sub='no new money — range / chop';
+    if (_oiHist && _oiHist.length >= 4 && _oiPxHist && _oiPxHist.length >= 4) {
+      const oN = _oiHist.length, pN = _oiPxHist.length;
+      const oiChg = (_oiHist[oN-1].oiUsd - _oiHist[oN-4].oiUsd) / (_oiHist[oN-4].oiUsd || 1);
+      const pxChg = (_oiPxHist[pN-1].close - _oiPxHist[pN-4].close) / (_oiPxHist[pN-4].close || 1);
+      const oiUp = oiChg > 0.01, oiDn = oiChg < -0.01, pxUp = pxChg > 0;
+      if      (oiUp && pxUp)  { tone='bull'; lbl='New longs';      sub='OI↑ price↑ — trend has fuel'; }
+      else if (oiUp && !pxUp) { tone='bear'; lbl='New shorts';     sub='OI↑ price↓ — bearish conviction'; }
+      else if (oiDn && pxUp)  { tone='warn'; lbl='Short covering'; sub='OI↓ price↑ — weak rally'; }
+      else if (oiDn)          { tone='warn'; lbl='Longs bailing';  sub='OI↓ price↓ — selloff exhausting'; }
     }
 
-    let oiChg = '';
-    if (_prevOI != null && oi > 0) {
-      const chg = (oi - _prevOI) / _prevOI * 100;
-      oiChg = `<span style="color:${chg >= 0 ? '#22c55e' : '#ef4444'};font-size:.75rem;margin-left:6px">${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%</span>`;
+    let chart = `<div class="ob-fund-loading">Loading 30-day history…</div>`, stat = '';
+    if (_oiHist && _oiHist.length) {
+      const vals = _oiHist.map(x => x.oiUsd);
+      const px   = (_oiPxHist && _oiPxHist.length === vals.length) ? _oiPxHist.map(x => x.close) : null;
+      chart      = _svgArea(vals, '#6c63ff', px);
+      const cur  = _fundingData ? _fundingData.oi : vals[vals.length - 1];
+      const chg  = (vals[vals.length - 1] - vals[0]) / (vals[0] || 1) * 100;
+      stat = `<div class="ob-vstat"><span>now <b>${_fmtUsd(cur)}</b></span><span>30d ${chg>=0?'+':''}${chg.toFixed(1)}%</span><span>━ OI · ┄ price</span></div>`;
     }
-    _prevOI2 = _prevOI; _prevOI = oi; _prevPrice = price;
-
-    fEl.innerHTML = `
-      <div class="ob-fund-val" style="color:${rateCol}">${sign}${ratePct}% <span class="ob-fund-lbl">8h</span></div>
-      <div class="ob-fund-interp">${rateInterp}</div>`;
-    oEl.innerHTML = `
-      <div class="ob-fund-val">${_fmtUsd(oi)}${oiChg} <span class="ob-fund-lbl">perp OI</span></div>
-      <div class="ob-fund-interp">${oiInterp}</div>`;
+    el.innerHTML = `
+      ${_verdict(tone, lbl, sub)}
+      <div class="ob-vchart">${chart}</div>
+      <div class="ob-vaxis"><span>open interest (USD)</span><span>← 30 days →</span></div>
+      ${stat}`;
   }
 
   function _paintCVDBars() {
     const el = document.getElementById('ob-cvd'); if (!el) return;
     const bkts = _cvdBuckets.slice(-CVD_BARS);
     if (bkts.length < 3) {
-      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Building… ${bkts.length}/${CVD_BARS} ${esc(_tf)} bars collected</div>`;
+      el.innerHTML = `<div class="ob-cvd-head"><span class="ob-ws-dot" id="ob-ws-status"></span></div><div class="ob-fund-loading">Loading ${esc(_tf)} taker flow…</div>`;
       _paintStatus(); return;
     }
     const deltas  = bkts.map(b => b.buy - b.sell);
@@ -528,56 +688,76 @@ const OrderBookTab = (() => {
     const runCVD  = deltas.reduce((a, d, i) => { a.push((a[i - 1] || 0) + d); return a; }, []);
     const cvdMin  = Math.min(...runCVD), cvdMax = Math.max(...runCVD, 1), cvdRng = (cvdMax - cvdMin) || 1;
     const total   = runCVD[runCVD.length - 1];
-    const W = 560, H = 100, bSlot = W / bkts.length, bW = bSlot * 0.82, baseY = 80, lineTop = 16;
 
+    const recent = deltas.slice(-5).reduce((a, b) => a + b, 0);
+    let tone, lbl, sub;
+    if      (total > 0 && recent > 0) { tone='bull'; lbl='Buyers in control';  sub='net buying, momentum up'; }
+    else if (total < 0 && recent < 0) { tone='bear'; lbl='Sellers in control'; sub='net selling, momentum down'; }
+    else if (total > 0 && recent < 0) { tone='warn'; lbl='Buying fading';      sub='net buy but sellers stepping in'; }
+    else if (total < 0 && recent > 0) { tone='warn'; lbl='Selling absorbed';   sub='net sell but buyers stepping in'; }
+    else                              { tone='flat'; lbl='Balanced';           sub='no dominant aggressor — chop'; }
+
+    const W = 600, H = 110, bSlot = W / bkts.length, bW = bSlot * 0.8, baseY = 92, lineTop = 12;
     let bars = '', linePts = '';
     bkts.forEach((b, i) => {
       const d = deltas[i], x = i * bSlot;
       const h = Math.max(1, Math.abs(d) / maxAbs * (baseY - lineTop - 4));
-      bars += `<rect x="${x.toFixed(1)}" y="${(baseY - h).toFixed(1)}" width="${bW.toFixed(1)}" height="${h.toFixed(1)}" fill="${d >= 0 ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)'}" rx="1"/>`;
+      bars += `<rect x="${x.toFixed(1)}" y="${(baseY - h).toFixed(1)}" width="${bW.toFixed(1)}" height="${h.toFixed(1)}" fill="${d >= 0 ? C_BULL : C_BEAR}" opacity="0.8" rx="1"/>`;
       const cv = runCVD[i], ly = lineTop + (1 - (cv - cvdMin) / cvdRng) * (baseY - lineTop - 4);
       const cx = x + bW / 2;
       linePts += (i === 0 ? `M${cx.toFixed(1)},${ly.toFixed(1)}` : ` L${cx.toFixed(1)},${ly.toFixed(1)}`);
     });
 
-    const col = total >= 0 ? 'var(--good)' : 'var(--bad)';
     el.innerHTML = `
+      ${_verdict(tone, lbl, sub)}
       <div class="ob-cvd-head">
-        <strong style="color:${col}">${total >= 0 ? '+' : ''}${_fmtUsd(Math.abs(total))}</strong>
-        <span class="ob-cvd-hint">${total >= 0 ? 'net buying' : 'net selling'} · ${bkts.length} ${esc(_tf)} bars</span>
+        <strong style="color:${total >= 0 ? C_BULL : C_BEAR}">${total >= 0 ? '+' : ''}${_fmtUsd(Math.abs(total))}</strong>
+        <span class="ob-cvd-hint">${bkts.length} ${esc(_tf)} bars · 🟩 buy / 🟥 sell · line = running total</span>
         <span class="ob-ws-dot" id="ob-ws-status"></span>
       </div>
       <svg viewBox="0 0 ${W} ${H}" class="ob-cvd-svg" preserveAspectRatio="none">
-        <line x1="0" y1="${baseY}" x2="${W}" y2="${baseY}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+        <line x1="0" y1="${baseY}" x2="${W}" y2="${baseY}" stroke="rgba(127,127,127,0.25)" stroke-width="1"/>
         ${bars}
-        <path d="${linePts}" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+        <path d="${linePts}" fill="none" stroke="rgba(80,80,95,0.7)" stroke-width="1.6"/>
       </svg>`;
     _paintStatus();
   }
 
   function _paintWalls() {
     const el = document.getElementById('ob-walls'); if (!el) return;
-    const now = Date.now();
-    const persistent = [..._wallTracker.values()].filter(w => now - w.firstSeen >= WALL_MIN_MS);
-    if (!persistent.length) {
-      const watching = [..._wallTracker.values()].filter(w => now - w.firstSeen < WALL_MIN_MS).length;
-      el.innerHTML = `<div class="ob-empty">No persistent walls yet — tracking ${watching} level${watching !== 1 ? 's' : ''} (need ≥10 min).</div>`;
+    if (!_depthLevels || (!_depthLevels.bids.length && !_depthLevels.asks.length)) {
+      el.innerHTML = `<div class="ob-empty">Reading the order book…</div>`;
       return;
     }
-    const mid = _lastSnapMid || 1;
-    el.innerHTML = [...persistent].sort((a, b) => b.usd - a.usd).slice(0, 6).map(w => {
-      const dist = ((w.price - mid) / mid) * 100;
-      const col  = w.side === 'bid' ? 'var(--good)' : 'var(--bad)';
-      const icon = w.side === 'bid' ? '↓ Bid' : '↑ Ask';
-      const age  = Math.round((now - w.firstSeen) / 60000);
-      return `<div class="ob-wall">
-        <span class="ob-wall-side" style="color:${col}">${icon}</span>
-        <span class="ob-wall-px">${_fmtPx(w.price)}</span>
-        <span class="ob-wall-dist" style="color:${col}">${dist >= 0 ? '+' : ''}${dist.toFixed(2)}%</span>
-        <span class="ob-wall-usd">${_fmtUsd(w.usd)}</span>
-        <span class="ob-wall-age">${age}m</span>
+    const { mid, bids, asks, bidTot, askTot } = _depthLevels;
+    const maxUsd = Math.max(...[...bids, ...asks].map(l => l.usd), 1);
+
+    let tone, lbl, sub;
+    const ratio = bidTot / (askTot || 1);
+    if      (ratio > 1.3)  { tone='bull'; lbl='Bids stacked';  sub='heavier support below — buyers defending'; }
+    else if (ratio < 0.77) { tone='bear'; lbl='Asks stacked';  sub='heavier supply above — sellers capping'; }
+    else                   { tone='flat'; lbl='Balanced book'; sub='no strong wall bias'; }
+
+    const row = l => {
+      const w    = Math.max(l.usd / maxUsd * 100, 4);
+      const col  = l.side === 'bid' ? C_BULL : C_BEAR;
+      const dist = ((l.price - mid) / mid) * 100;
+      const held = l.age >= 10 ? `<span class="ob-dp-age held">✓ ${l.age}m</span>` : `<span class="ob-dp-age">new</span>`;
+      return `<div class="ob-dp-row">
+        <span class="ob-dp-px">${_fmtPx(l.price)}</span>
+        <span class="ob-dp-dist" style="color:${col}">${dist>=0?'+':''}${dist.toFixed(2)}%</span>
+        <span class="ob-dp-track"><span class="ob-dp-bar" style="width:${w.toFixed(0)}%;background:${col}"></span></span>
+        <span class="ob-dp-usd">${_fmtUsd(l.usd)}</span>
+        ${held}
       </div>`;
-    }).join('');
+    };
+    el.innerHTML = `
+      ${_verdict(tone, lbl, sub)}
+      <div class="ob-depth">
+        ${asks.map(row).join('')}
+        <div class="ob-dp-mid">▬ mid ${_fmtPx(mid)} ▬</div>
+        ${bids.map(row).join('')}
+      </div>`;
   }
 
   /* ══════════════════════════════════════════════════════
@@ -611,12 +791,12 @@ const OrderBookTab = (() => {
         <!-- 2. FUNDING + OI — two columns -->
         <div class="ob-two-col">
           <div class="ob-card">
-            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">Bybit 8h · longs pay = positive</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
+            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">30-day history · Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
             <div id="ob-fund" class="ob-fund-panel"></div>
             ${_matrixHTML('funding')}
           </div>
           <div class="ob-card">
-            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">Bybit perp · rising = new positions</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
+            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">30-day history · Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
             <div id="ob-oi" class="ob-fund-panel"></div>
             ${_matrixHTML('oi')}
           </div>
@@ -629,9 +809,9 @@ const OrderBookTab = (() => {
           ${_matrixHTML('cvd')}
         </div>
 
-        <!-- 4. PERSISTENT WALLS -->
+        <!-- 4. DEPTH / WALLS -->
         <div class="ob-card">
-          <div class="ob-card-h">🧱 Persistent Walls <span class="ob-sub">resting ≥10 min · 30s REST snapshots · Binance spot</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
+          <div class="ob-card-h">🧱 Order-Book Walls <span class="ob-sub">live depth ±2% · Binance spot · ✓ = held ≥10 min</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
           <div id="ob-walls"></div>
           ${_matrixHTML('walls')}
         </div>
@@ -649,26 +829,30 @@ const OrderBookTab = (() => {
   function _startAll() {
     _resetState();
     _connectWS();
+    _seedCVD();
     _snapBook();
     _pollFunding();
+    _loadHistory();
     _loadLiq();
     _paintAll();
     _snapTimer    = setInterval(_snapBook,    SNAP_INT_MS);
     _fundingTimer = setInterval(_pollFunding, FUND_INT_MS);
+    _histTimer    = setInterval(_loadHistory, 600000);   // refresh history every 10 min
     _paintTimer   = setInterval(_paintAll,    PAINT_MS);
     _cgTimer      = setInterval(_cgPoll,      60000);
   }
   function _cleanup() {
     if (_ws) { try { _ws.onclose = null; _ws.close(); } catch(_) {} _ws = null; }
-    [_paintTimer, _fundingTimer, _snapTimer, _reconTimer, _cgTimer].forEach(t => {
+    [_paintTimer, _fundingTimer, _snapTimer, _histTimer, _reconTimer, _cgTimer].forEach(t => {
       if (t != null) { clearInterval(t); clearTimeout(t); }
     });
-    _paintTimer = _fundingTimer = _snapTimer = _reconTimer = _cgTimer = null;
+    _paintTimer = _fundingTimer = _snapTimer = _histTimer = _reconTimer = _cgTimer = null;
   }
   function _resetState() {
-    _cvdBuckets = []; _wallTracker = new Map(); _lastSnapMid = null;
+    _cvdBuckets = []; _wallTracker = new Map(); _lastSnapMid = null; _depthLevels = null;
     _liqData = null; _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false;
-    _fundingData = null; _prevOI = null; _prevOI2 = null; _prevPrice = null;
+    _fundingData = null;
+    _fundHist = null; _oiHist = null; _oiPxHist = null; _histKey = null;
     _cvdBucketMs = TF_MS[_tf] || 3600000;
     _status = 'idle'; _lastMsg = 0; _reconDelay = 1000;
     _cgNoKey = false; _cgState = 'idle'; _cg = {};
@@ -720,7 +904,7 @@ const OrderBookTab = (() => {
     if (!tf || tf === _tf) return;
     _tf = tf; localStorage.setItem(LS_TF, _tf); _cvdBucketMs = TF_MS[_tf] || 3600000;
     document.querySelectorAll('#ob-root .ob-tf-pill').forEach(b => b.classList.toggle('active', b.dataset.tf === _tf));
-    _cvdBuckets = [];
+    _cvdBuckets = []; _seedCVD();
     _liqKlines = null; _liqKlinesKey = null; _liqInFlight = false; _loadLiq();
   }
   function _setWin(w) {
