@@ -37,7 +37,12 @@ const OrderBookTab = (() => {
   const WALL_SHARE   = 0.06;      // ≥6% of ±2% side depth = wall
   const FUND_INT_MS  = 60000;     // funding/OI poll interval
   const PAINT_MS     = 10000;     // UI repaint (10s — no flicker)
-  const LW_API       = 'http://127.0.0.1:8766';
+  // LW server: localhost dev → :8766 direct; on Railway → same-origin /lw proxy
+  // (Chrome PNA blocks HTTPS→localhost, so the direct :8766 only works in local dev)
+  function _lwBase() {
+    return ['localhost', '127.0.0.1'].includes(location.hostname)
+      ? 'http://127.0.0.1:8766' : location.origin + '/lw';
+  }
 
   /* ── Persistence keys ─────────────────────────────────── */
   const LS_SYM = 'jb_ob_symbol';
@@ -320,7 +325,7 @@ const OrderBookTab = (() => {
     // 2 — try LW estimated model
     try {
       const tf = { '15m':'15m', '1h':'1h', '4h':'4h', 'D':'D' }[_tf] || '1h';
-      const r = await fetch(`${LW_API}/api/asset/${asset}/liquidations?tf=${tf}&window=${win}`,
+      const r = await fetch(`${_lwBase()}/api/asset/${asset}/liquidations?tf=${tf}&window=${win}`,
         { mode: 'cors', cache: 'no-store', signal: _sig(8000) });
       if (r.ok) {
         _liqData = await r.json();
