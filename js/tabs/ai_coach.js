@@ -895,6 +895,79 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     </div>`;
   }
 
+  /* ── Structured error card for Weekly Review failures ──────────────────
+     Detects the two most common failure modes (expired tunnel / no credits)
+     and shows a clean card with action buttons instead of a raw text dump. */
+  function _renderWeeklyError(msg) {
+    const isCredit  = /credit balance|too low|billing|insufficient|quota/i.test(msg);
+    const isTunnel  = /tunnel unreachable|expired|cloudflare/i.test(msg);
+    const isBoth    = /Both AI paths failed/i.test(msg);
+
+    let headline, detail, actions = '';
+
+    if (isBoth && isCredit) {
+      headline = 'Both AI paths failed — API credits depleted';
+      detail   = 'The Cloudflare tunnel has expired AND the Railway Anthropic key is out of credits. ' +
+                 'Quickest fix: add credits at <b>console.anthropic.com</b>, then click Generate again. ' +
+                 'Your existing reviews are still intact below.';
+      actions  = `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://console.anthropic.com/settings/plans" target="_blank" rel="noopener" class="btn-ghost btn-sm">Add credits ↗</a>
+        <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙ Update tunnel URL</button>
+      </div>`;
+    } else if (isCredit) {
+      headline = 'API credits depleted';
+      detail   = 'The Railway Anthropic key has run out of credits. Add credits at <b>console.anthropic.com</b>, ' +
+                 'or switch to Local mode if your Mac is running the local AI server.';
+      actions  = `<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://console.anthropic.com/settings/plans" target="_blank" rel="noopener" class="btn-ghost btn-sm">Add credits ↗</a>
+        <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙ Settings</button>
+      </div>`;
+    } else if (isTunnel) {
+      headline = 'Local AI tunnel offline';
+      detail   = 'The Cloudflare quick-tunnel URL has expired. Restart cloudflared on your Mac and paste the ' +
+                 'new URL in Settings → Local AI URL, or turn off Local mode to use the Railway proxy.';
+      actions  = `<div style="margin-top:10px">
+        <button class="btn-ghost btn-sm" onclick="AICoachTab._openSettings()">⚙ Update URL in Settings</button>
+      </div>`;
+    } else {
+      headline = 'Generation failed';
+      detail   = `<pre style="white-space:pre-wrap;font-family:inherit;font-size:.75rem;margin:4px 0 0;color:var(--muted)">${esc(msg)}</pre>`;
+    }
+
+    return `<div style="margin-top:12px;padding:14px 16px;border-radius:8px;background:var(--red-subtle,#fff1f0);border:1px solid var(--red-border,#fecaca)">
+      <div style="font-weight:600;color:var(--bad,#dc2626);margin-bottom:6px">⚠ ${headline}</div>
+      <div style="font-size:.83rem;color:var(--text);line-height:1.55">${detail}</div>
+      ${actions}
+    </div>`;
+  }
+
+  /* ── Download a stored review as a self-contained HTML file ─────────── */
+  function _downloadReview(idx) {
+    const all = getJ(KEYS.reviews, []);
+    const r = all[idx];
+    if (!r) return;
+    const lbl  = r.rangeLabel || `Week of ${r.weekOf}`;
+    const gen  = r.generated ? new Date(r.generated).toLocaleString() : '';
+    const body = _reviewMd(r.html);
+    const style = `body{font-family:system-ui,-apple-system,sans-serif;max-width:720px;margin:30px auto;padding:0 20px;line-height:1.65;color:#222}
+      h2{margin:0 0 4px;font-size:1.4rem}h3{margin:24px 0 8px;color:#0a3;border-bottom:1px solid #eee;padding-bottom:4px}
+      h4{margin:16px 0 6px;color:#444}ul,ol{margin:6px 0 12px 22px}li{margin:5px 0}
+      hr{border:0;border-top:1px solid #ddd;margin:18px 0}
+      table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5}
+      .meta{font-size:.82rem;color:#888;margin-bottom:24px}`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${lbl}</title><style>${style}</style></head>` +
+                 `<body><h2>${lbl}</h2><div class="meta">Generated ${gen}</div>${body}</body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `review_${(r.weekOf || 'unknown').replace(/[^0-9-]/g, '')}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function renderWeeklyReview() {
     const all = getJ(KEYS.reviews, []);
     const latest = all[0];
@@ -903,8 +976,11 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     const lbl = r => r && r.rangeLabel ? r.rangeLabel : `Week of ${r ? r.weekOf : ''}`;
     return `<div class="ai-section">
       <h3 class="ai-section-hdr">📅 Weekly Review</h3>
-      <button class="btn-primary" id="aiWeeklyBtn">🧠 Generate review — last 7 days (${esc(upcoming)})</button>
-      <span id="aiWeeklyStatus" class="text-dim" style="font-size:.8rem;margin-left:10px"></span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <button class="btn-primary" id="aiWeeklyBtn">🧠 Generate review — last 7 days (${esc(upcoming)})</button>
+        ${latest ? `<button class="btn-ghost btn-sm" onclick="AICoachTab._downloadReview(0)" title="Download this review as HTML">📥 Download</button>` : ''}
+      </div>
+      <div id="aiWeeklyStatus" class="text-dim" style="font-size:.8rem;margin-top:6px"></div>
       ${latest ? `
         <div class="ai-review" style="margin-top:14px">
           <div class="text-sub" style="font-size:.78rem;margin-bottom:8px">${esc(lbl(latest))} · generated ${new Date(latest.generated).toLocaleString()}</div>
@@ -912,12 +988,14 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
         </div>
       ` : ''}
       ${all.length > 1 ? `<details style="margin-top:14px"><summary class="text-sub" style="cursor:pointer;font-size:.82rem">Past reviews (${all.length-1})</summary>
-        <div style="margin-top:10px">${all.slice(1).map(r => {
+        <div style="margin-top:10px">${all.slice(1).map((r, i) => {
           const safeWeek = /^\d{4}-\d{2}-\d{2}$/.test(r.weekOf) ? r.weekOf : '';
+          const dlIdx = i + 1;
           return `
-          <div class="ai-hist-row" onclick="AICoachTab._showReview('${safeWeek}')" style="cursor:pointer">
-            <span class="text-sub">📅 ${esc(lbl(r))}</span>
-            <span class="text-dim" style="font-size:.7rem;margin-left:auto">${new Date(r.generated).toLocaleDateString()}</span>
+          <div class="ai-hist-row" style="cursor:pointer;display:flex;align-items:center">
+            <span class="text-sub" onclick="AICoachTab._showReview('${safeWeek}')" style="flex:1">📅 ${esc(lbl(r))}</span>
+            <button class="btn-ghost btn-sm" onclick="AICoachTab._downloadReview(${dlIdx})" title="Download" style="margin-left:8px;flex-shrink:0">📥</button>
+            <span class="text-dim" onclick="AICoachTab._showReview('${safeWeek}')" style="font-size:.7rem;margin-left:8px">${new Date(r.generated).toLocaleDateString()}</span>
           </div>`;
         }).join('')}</div>
       </details>` : ''}
@@ -1133,9 +1211,9 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     document.getElementById('aiWeeklyBtn')?.addEventListener('click', async () => {
       const btn = document.getElementById('aiWeeklyBtn');
       const status = document.getElementById('aiWeeklyStatus');
-      btn.disabled = true; status.textContent = 'Generating (15-30s)…'; status.style.color = 'var(--gold)';
+      btn.disabled = true; status.innerHTML = '<span style="color:var(--gold)">Generating (15-30s)…</span>';
       try { await generateWeeklyReview(); _mountWeeklyReview(); }
-      catch (e) { status.textContent = '⚠ ' + e.message; status.style.color = 'var(--red)'; btn.disabled = false; }
+      catch (e) { status.innerHTML = _renderWeeklyError(e.message); btn.disabled = false; }
     });
   }
 
@@ -1211,9 +1289,9 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
         document.getElementById('aiWeeklyBtn')?.addEventListener('click', async () => {
           const btn = document.getElementById('aiWeeklyBtn');
           const status = document.getElementById('aiWeeklyStatus');
-          btn.disabled = true; status.textContent = 'Generating (15-30s)…'; status.style.color = 'var(--gold)';
+          btn.disabled = true; status.innerHTML = '<span style="color:var(--gold)">Generating (15-30s)…</span>';
           try { await generateWeeklyReview(); _renderSubTab(getKey()); }
-          catch (e) { status.textContent = '⚠ ' + e.message; status.style.color = 'var(--red)'; btn.disabled = false; }
+          catch (e) { status.innerHTML = _renderWeeklyError(e.message); btn.disabled = false; }
         });
         break;
 
@@ -1356,5 +1434,6 @@ Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
       w.document.write(`<html><head><title>Review · Week of ${weekOf}</title><style>body{font-family:system-ui;max-width:720px;margin:30px auto;padding:0 20px;line-height:1.65;color:#222}h3{margin:24px 0 8px;color:#0a3;border-bottom:1px solid #eee;padding-bottom:4px}h4{margin:16px 0 6px;color:#444}ul,ol{margin:6px 0 12px 22px}li{margin:5px 0}hr{border:0;border-top:1px solid #ddd;margin:18px 0}table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5}</style></head><body>${_reviewMd(r.html)}</body></html>`);
       w.document.close();
     },
+    _downloadReview,
   };
 })();
