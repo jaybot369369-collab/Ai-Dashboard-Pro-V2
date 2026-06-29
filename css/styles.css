@@ -7209,13 +7209,13 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
    CRYPTO SCANNER — parent shell + sub-tab chip bar
 ══════════════════════════════════════════════════════════ */
 .cs-wrapper { display:flex; flex-direction:column; gap:0; }
-.cs-header { display:flex; justify-content:space-between; align-items:flex-start; padding:16px 20px 0; }
-.cs-chip-bar {
-  display:flex; gap:8px; padding:12px 20px;
-  border-bottom:1px solid var(--border);
+.cs-header {
+  display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+  padding:14px 20px; border-bottom:1px solid var(--border);
   background:var(--surface); position:sticky; top:var(--topbar-h); z-index:10;
-  flex-wrap:wrap;
 }
+.cs-header .page-title { font-size:1.15rem; }
+.cs-chip-bar { display:flex; gap:8px; flex-wrap:wrap; }
 .cs-chip {
   padding:7px 16px; border-radius:var(--r-sm); border:1px solid var(--border);
   background:transparent; color:var(--muted); font-size:13px; font-weight:500;
@@ -7231,11 +7231,13 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 /* ══════════════════════════════════════════════════════════
    CRYPTO RADAR — card grid + SVG radar + controls
 ══════════════════════════════════════════════════════════ */
-.radar-controls {
-  display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+/* One compact control bar (no duplicate page title — parent header carries it) */
+.radar-bar {
+  display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;
   padding:12px 20px; border-bottom:1px solid var(--border);
 }
-.radar-pill-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.radar-bar-left  { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.radar-bar-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .radar-pill-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
 .radar-sort-pill {
   padding:5px 12px; border-radius:var(--r-sm); border:1px solid var(--border);
@@ -7244,8 +7246,9 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 }
 .radar-sort-pill:hover { background:var(--surface2); color:var(--text); }
 .radar-sort-pill.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+.radar-reset-link { font-size:11px; color:var(--muted); margin-left:8px; text-decoration:none; }
+.radar-reset-link:hover { color:var(--accent); text-decoration:underline; }
 
-.radar-add-row { display:flex; align-items:center; gap:8px; }
 .radar-search-input {
   padding:6px 10px; border-radius:var(--r-sm); border:1px solid var(--border);
   background:var(--surface2); color:var(--text); font-size:12px; outline:none;
@@ -7253,11 +7256,12 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 }
 .radar-search-input:focus { border-color:var(--accent); }
 
-.radar-status { padding:4px 20px; font-size:12px; min-height:20px; }
+.radar-substatus { display:flex; gap:14px; align-items:center; padding:4px 20px; min-height:18px; }
+.radar-status { font-size:12px; }
 
 .radar-grid {
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap:14px;
   padding:16px 20px;
 }
@@ -7282,26 +7286,20 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .radar-rm:hover { color:var(--bad); }
 
 .radar-svg-wrap { display:flex; justify-content:center; align-items:center; }
-.radar-svg-wrap svg { width:100%; height:auto; max-width:140px; }
+.radar-svg-wrap svg { width:100%; height:auto; max-width:168px; }
 .radar-empty-svg {
-  width:140px; height:140px; display:flex; align-items:center; justify-content:center;
+  width:100%; aspect-ratio:1; max-width:168px; display:flex; align-items:center; justify-content:center;
   color:var(--muted); font-size:11px; background:var(--surface2); border-radius:8px;
 }
 
-.radar-tf-row { display:grid; grid-template-columns:repeat(4,1fr); gap:2px; }
-.radar-tf-cell { text-align:center; }
-.radar-tf-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-.radar-tf-val { font-size:12px; font-weight:600; font-family:var(--font-mono, monospace); }
-.radar-rsi-na { color:var(--muted); }
-
+/* Clean price line: price · 1h · 24h · 7d */
 .radar-footer {
-  display:flex; align-items:center; gap:4px; font-size:11px; flex-wrap:wrap;
+  display:flex; align-items:center; gap:7px; font-size:10.5px; flex-wrap:wrap;
+  border-top:1px solid var(--border); padding-top:7px;
 }
-.radar-price { font-weight:600; color:var(--text); font-size:12px; }
-.radar-sep { color:var(--muted); }
-.radar-footer-usdtd { font-size:10px; text-align:center; }
-
-.radar-avg { font-size:10px; text-align:center; font-weight:600; letter-spacing:.02em; }
+.radar-price { font-weight:700; color:var(--text); font-size:12px; }
+.radar-chg { white-space:nowrap; }
+.radar-chg-lbl { color:var(--muted); }
 
 .radar-guide { padding:16px 20px; }
 .radar-guide-grid {

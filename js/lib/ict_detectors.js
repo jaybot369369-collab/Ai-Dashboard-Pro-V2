@@ -578,11 +578,28 @@ window.ICTDetect = (() => {
     };
   }
 
+  /* ── RSI (Wilder smoothing) ───────────────────────────── */
+  function rsi(closes, n = 14) {
+    if (!closes || closes.length < n + 1) return null;
+    let gains = 0, losses = 0;
+    for (let i = 1; i <= n; i++) {
+      const d = closes[i] - closes[i - 1];
+      if (d > 0) gains += d; else losses -= d;
+    }
+    let ag = gains / n, al = losses / n;
+    for (let i = n + 1; i < closes.length; i++) {
+      const d = closes[i] - closes[i - 1];
+      ag = (ag * (n - 1) + Math.max(0, d)) / n;
+      al = (al * (n - 1) + Math.max(0, -d)) / n;
+    }
+    return al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  }
+
   /* ── helper ───────────────────────────────────────────── */
   function _miss(reason) { return { fired: false, dir: null, strength: 0, evidence: reason }; }
 
   return {
-    sma, ema, emaSeries, atr, adx, volMult,
+    sma, ema, emaSeries, atr, adx, volMult, rsi,
     detectBias, detectADXGate,
     detectFVG, detectOB, detectSweep, detectCISD, detectBOS, detectAMD,
     activeKillzone, isKillzoneActive, nearLevel, nyHour,

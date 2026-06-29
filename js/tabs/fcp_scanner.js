@@ -476,8 +476,8 @@ const FCPScanner = (() => {
   }
 
   /* ── main render ────────────────────────────────────────── */
-  function render() {
-    const content = document.getElementById('content');
+  function render(mountId) {
+    const content = document.getElementById(mountId || 'content');
     content.innerHTML = `
       <div class="page-head">
         <div>

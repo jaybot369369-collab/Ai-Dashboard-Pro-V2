@@ -49,8 +49,9 @@ const App = (() => {
     liquidity:  () => LiquidityWatcherTab.render(),
     orderbook:  () => OrderBookTab.render(),
     marketintel:() => MarketIntelTab.render(),
-    fcpscan:    () => FCPScanner.render(),
-    lowcap:     () => LowCapTab.render(),
+    cryptoscanner: () => CryptoScannerTab.render(),
+    fcpscan:    () => FCPScanner.render(),   // back-compat deep-link
+    lowcap:     () => LowCapTab.render(),    // back-compat deep-link
     fund:       () => FundTab.render(),
     sensei:     () => SenseiTab.render(),
     protools:   () => ProToolsTab.render(),

@@ -20,6 +20,7 @@ const ScannerTab = (() => {
   const base = () => source === 'api' ? API_URL : LOCAL_URL;
 
   let _retryTimer = null;
+  let _mount = 'content';  // mount target — set when render(mountId) is called
 
   function esc(s) {
     if (s === undefined || s === null) return '';
@@ -28,7 +29,8 @@ const ScannerTab = (() => {
   }
 
   function _isActiveTab() {
-    return document.querySelector('.nav-item.active')?.dataset.tab === 'scanner';
+    const active = document.querySelector('.nav-item.active')?.dataset.tab;
+    return active === 'scanner' || active === 'cryptoscanner';
   }
 
   async function _fetchHealth() {
@@ -116,8 +118,9 @@ const ScannerTab = (() => {
     document.getElementById('sdLaunchBtn')?.addEventListener('click', _launchScanner);
   }
 
-  async function render() {
-    const content = document.getElementById('content');
+  async function render(mountId) {
+    if (mountId) _mount = mountId;
+    const content = document.getElementById(_mount);
     if (!content) return;
     if (_retryTimer) { clearTimeout(_retryTimer); _retryTimer = null; }
 

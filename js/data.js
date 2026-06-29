@@ -63,15 +63,13 @@ const DB = (() => {
     { id: 'dailyreport',label: 'Daily Report',     icon: '📰', builtin: true, group: 'TRADING'  },
     { id: 'confluence', label: 'Confluence',       icon: '🎯', builtin: true, group: 'TRADING'  },
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
-    { id: 'scanner',    label: 'Day Trade Scanner',icon: '📡', builtin: true, group: 'TRADING'  },
-    { id: 'aicoach',    label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
-    { id: 'orderbook',  label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
-    { id: 'liquidity',  label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
-    { id: 'catalysts',  label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
-    { id: 'marketintel',label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
-    { id: 'fcpscan',    label: 'FCP Scanner',       icon: '🔬', builtin: true, group: 'MARKETS'  },
-    { id: 'lowcap',     label: 'Low-Cap Finder',   icon: '💎', builtin: true, group: 'MARKETS'  },
-    { id: 'fund',       label: 'Bot Farm',         icon: '🏦', builtin: true, group: 'MARKETS'  },
+    { id: 'aicoach',       label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
+    { id: 'orderbook',    label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
+    { id: 'liquidity',    label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
+    { id: 'catalysts',    label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
+    { id: 'marketintel',  label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
+    { id: 'cryptoscanner',label: 'Crypto Scanner',  icon: '🔍', builtin: true, group: 'MARKETS'  },
+    { id: 'fund',         label: 'Bot Farm',         icon: '🏦', builtin: true, group: 'MARKETS'  },
     { id: 'protools',   label: 'Pro Tools',        icon: '🛠', builtin: true, group: 'TOOLS'    },
   ];
   // Tabs from old versions that should be silently dropped from the sidebar.
@@ -81,7 +79,7 @@ const DB = (() => {
   //   - reports  → AI Coach Weekly Review
   //   - playbook → AI Coach > Catalogue
   //   - rules    → AI Coach > Rules section
-  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies','dojo','goals','reports','playbook','rules']);
+  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies','dojo','goals','reports','playbook','rules','fcpscan','lowcap']);
   function getTabs() {
     const stored = load(KEYS.tabs);
     // Always honor the canonical builtin order from DEFAULT_TABS;
