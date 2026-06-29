@@ -1,11 +1,11 @@
 /* ═══════════════════════════════════════════════════════════
    CRYPTO RADAR — multi-timeframe RSI spider chart wall.
-   Each coin card has 4 spokes (4h / D / W / M), where each
-   spoke's radius = RSI/100. Green center = oversold (RSI<30),
-   red outer ring = overbought (RSI>70), matching the CoinsKid
-   radar aesthetic.
+   8 spokes per card (1min/5min/15min/1hr/4hr/Daily/Weekly/Monthly),
+   matching the CoinsKid radar aesthetic. Spoke radius = RSI/100.
+   Green core = oversold (RSI≤30), red ring = overbought (RSI≥70).
    Universe: CoinGecko top ~24 by mcap + editable watchlist
-   + a USDT.D macro card (D/W/M spokes; 4h = n/a, no free feed).
+   + a USDT.D macro card. Monthly shows ? on Railway (no monthly
+   bars from CryptoCompare free tier).
 ════════════════════════════════════════════════════════════ */
 const CryptoRadarTab = (() => {
 
