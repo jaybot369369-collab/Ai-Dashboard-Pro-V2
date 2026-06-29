@@ -3148,11 +3148,12 @@ input.date-picker::-webkit-calendar-picker-indicator {
 .mi-section-body { padding: 0 16px 16px; border-top: 1px solid var(--border-sub); padding-top: 14px; }
 
 /* Claims */
-.mi-claims { list-style: none; padding: 0; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.mi-claims { list-style: disc; padding: 0 0 0 20px; margin: 4px 0 14px; }
 .mi-claims li {
-  padding: 9px 12px; background: var(--bg-card2);
-  border-radius: var(--radius-sm); border-left: 2px solid var(--accent);
+  padding: 3px 0; margin: 0;
+  background: none; border: none; border-radius: 0;
 }
+.mi-claims li::marker { color: var(--text-sub); }
 .mi-claim { font-size: 0.91rem; color: var(--text); line-height: 1.5; }
 .mi-claim-broken {
   color: var(--red); border-left-color: var(--red);
@@ -4585,7 +4586,7 @@ body.sidebar-collapsed .sb-brand { position: relative; }
 .mi-section-chev { color: var(--muted, var(--text-sub)); font-size: 14px; transition: transform var(--t); }
 .mi-section-body { padding: 14px 18px; border-top: 1px solid var(--border); }
 .mi-claim {
-  padding: 10px 0; border-bottom: 1px solid var(--border);
+  padding: 0; border-bottom: none;
   font: 400 13px/1.5 'Plus Jakarta Sans', sans-serif; color: var(--text);
 }
 .mi-claim:last-child { border-bottom: none; }
@@ -7203,3 +7204,108 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .fcp-guide-table th { text-align:left; font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:6px 8px; border-bottom:1px solid var(--border); }
 .fcp-guide-table td { padding:6px 8px; border-bottom:1px solid var(--border); vertical-align:middle; }
 
+
+/* ══════════════════════════════════════════════════════════
+   CRYPTO SCANNER — parent shell + sub-tab chip bar
+══════════════════════════════════════════════════════════ */
+.cs-wrapper { display:flex; flex-direction:column; gap:0; }
+.cs-header { display:flex; justify-content:space-between; align-items:flex-start; padding:16px 20px 0; }
+.cs-chip-bar {
+  display:flex; gap:8px; padding:12px 20px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface); position:sticky; top:var(--topbar-h); z-index:10;
+  flex-wrap:wrap;
+}
+.cs-chip {
+  padding:7px 16px; border-radius:var(--r-sm); border:1px solid var(--border);
+  background:transparent; color:var(--muted); font-size:13px; font-weight:500;
+  cursor:pointer; transition:background .15s, color .15s, border-color .15s;
+}
+.cs-chip:hover { background:var(--surface2); color:var(--text); }
+.cs-chip.active {
+  background:var(--accent); border-color:var(--accent);
+  color:#fff; font-weight:700;
+}
+#cs-body { min-height:300px; }
+
+/* ══════════════════════════════════════════════════════════
+   CRYPTO RADAR — card grid + SVG radar + controls
+══════════════════════════════════════════════════════════ */
+.radar-controls {
+  display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+  padding:12px 20px; border-bottom:1px solid var(--border);
+}
+.radar-pill-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.radar-pill-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
+.radar-sort-pill {
+  padding:5px 12px; border-radius:var(--r-sm); border:1px solid var(--border);
+  background:transparent; color:var(--muted); font-size:12px; cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.radar-sort-pill:hover { background:var(--surface2); color:var(--text); }
+.radar-sort-pill.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+
+.radar-add-row { display:flex; align-items:center; gap:8px; }
+.radar-search-input {
+  padding:6px 10px; border-radius:var(--r-sm); border:1px solid var(--border);
+  background:var(--surface2); color:var(--text); font-size:12px; outline:none;
+  transition:border-color .15s;
+}
+.radar-search-input:focus { border-color:var(--accent); }
+
+.radar-status { padding:4px 20px; font-size:12px; min-height:20px; }
+
+.radar-grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap:14px;
+  padding:16px 20px;
+}
+.radar-empty { grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--muted); font-size:14px; }
+
+.radar-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--r); padding:12px; display:flex; flex-direction:column; gap:8px;
+  transition:border-color .15s, box-shadow .15s;
+}
+.radar-card:hover { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+
+.radar-card-head {
+  display:flex; align-items:center; gap:6px; min-height:24px;
+}
+.radar-sym { font-size:13px; font-weight:700; color:var(--heading); }
+.radar-name { font-size:10px; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.radar-rm {
+  background:none; border:none; cursor:pointer; color:var(--muted); font-size:11px; padding:0 2px; line-height:1;
+  transition:color .15s;
+}
+.radar-rm:hover { color:var(--bad); }
+
+.radar-svg-wrap { display:flex; justify-content:center; align-items:center; }
+.radar-svg-wrap svg { width:100%; height:auto; max-width:140px; }
+.radar-empty-svg {
+  width:140px; height:140px; display:flex; align-items:center; justify-content:center;
+  color:var(--muted); font-size:11px; background:var(--surface2); border-radius:8px;
+}
+
+.radar-tf-row { display:grid; grid-template-columns:repeat(4,1fr); gap:2px; }
+.radar-tf-cell { text-align:center; }
+.radar-tf-label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+.radar-tf-val { font-size:12px; font-weight:600; font-family:var(--font-mono, monospace); }
+.radar-rsi-na { color:var(--muted); }
+
+.radar-footer {
+  display:flex; align-items:center; gap:4px; font-size:11px; flex-wrap:wrap;
+}
+.radar-price { font-weight:600; color:var(--text); font-size:12px; }
+.radar-sep { color:var(--muted); }
+.radar-footer-usdtd { font-size:10px; text-align:center; }
+
+.radar-avg { font-size:10px; text-align:center; font-weight:600; letter-spacing:.02em; }
+
+.radar-guide { padding:16px 20px; }
+.radar-guide-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:12px; margin-top:12px; font-size:13px; color:var(--text);
+}
+.radar-guide-grid div { line-height:1.5; }
