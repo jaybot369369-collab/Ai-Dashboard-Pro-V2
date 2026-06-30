@@ -941,7 +941,9 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     </div>`;
   }
 
-  /* ── Download a stored review as a self-contained HTML file ─────────── */
+  /* ── Download a stored review as a PDF (via browser print dialog) ──────
+     Opens a styled print window and auto-triggers window.print(). Chrome/
+     Safari both default to "Save as PDF" — no external library needed. */
   function _downloadReview(idx) {
     const all = getJ(KEYS.reviews, []);
     const r = all[idx];
@@ -949,23 +951,28 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     const lbl  = r.rangeLabel || `Week of ${r.weekOf}`;
     const gen  = r.generated ? new Date(r.generated).toLocaleString() : '';
     const body = _reviewMd(r.html);
-    const style = `body{font-family:system-ui,-apple-system,sans-serif;max-width:720px;margin:30px auto;padding:0 20px;line-height:1.65;color:#222}
-      h2{margin:0 0 4px;font-size:1.4rem}h3{margin:24px 0 8px;color:#0a3;border-bottom:1px solid #eee;padding-bottom:4px}
-      h4{margin:16px 0 6px;color:#444}ul,ol{margin:6px 0 12px 22px}li{margin:5px 0}
-      hr{border:0;border-top:1px solid #ddd;margin:18px 0}
-      table{border-collapse:collapse;width:100%;margin:10px 0}td,th{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5}
-      .meta{font-size:.82rem;color:#888;margin-bottom:24px}`;
+    const style = `
+      @media print { @page { margin: 18mm 20mm; } }
+      body { font-family: system-ui, -apple-system, sans-serif; max-width: 700px; margin: 28px auto; padding: 0 22px; line-height: 1.68; color: #1a1a1a; font-size: 13.5px; }
+      h2  { margin: 0 0 4px; font-size: 1.45rem; color: #111; }
+      h3  { margin: 22px 0 7px; font-size: 1.05rem; color: #0a5c2f; border-bottom: 1px solid #d4e8d8; padding-bottom: 3px; }
+      h4  { margin: 14px 0 5px; color: #333; }
+      ul, ol { margin: 5px 0 11px 22px; }
+      li  { margin: 4px 0; }
+      hr  { border: 0; border-top: 1px solid #ddd; margin: 16px 0; }
+      table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: .9em; }
+      td, th { border: 1px solid #ddd; padding: 5px 9px; text-align: left; }
+      th  { background: #f2f5f0; font-weight: 600; }
+      .meta { font-size: .8rem; color: #888; margin-bottom: 22px; }
+      strong { color: #111; }
+    `;
     const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${lbl}</title><style>${style}</style></head>` +
-                 `<body><h2>${lbl}</h2><div class="meta">Generated ${gen}</div>${body}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `review_${(r.weekOf || 'unknown').replace(/[^0-9-]/g, '')}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+                 `<body onload="setTimeout(()=>{window.print();window.onafterprint=()=>window.close();},350)">` +
+                 `<h2>${lbl}</h2><div class="meta">Generated ${gen}</div>${body}</body></html>`;
+    const w = window.open('', '_blank');
+    if (!w) { if (typeof App !== 'undefined' && App.toast) App.toast('Allow pop-ups to download the review', 'warn'); return; }
+    w.document.write(html);
+    w.document.close();
   }
 
   function renderWeeklyReview() {
