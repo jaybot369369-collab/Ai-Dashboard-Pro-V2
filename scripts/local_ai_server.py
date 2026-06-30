@@ -46,6 +46,13 @@ SCANNER_DIR  = "/Users/claudebot-1/Documents/Claude/Q2_2026/_CLAUDE PROJECTS/Sig
 SCANNER_PORT = 8771
 PYTHON_BIN   = "/usr/bin/python3"
 
+# ── Sensei coach — "run on click" (FREE, local Claude CLI) ───────────
+# The Bot Farm tab's 🧠 Run Sensei button POSTs /run-sensei here; we
+# fire the local Sensei runner which generates a report with the local
+# Claude CLI (no API spend) and POSTs it to the cloud (fund.db). Fire-
+# and-forget: it takes 1-3 min, then shows up on the dashboard refresh.
+FUND_DIR = "/Users/claudebot-1/Documents/Claude/Q2_2026/_CLAUDE PROJECTS/Mini Hedge Fund"
+
 
 def _port_alive(port: int, timeout: float = 0.5) -> bool:
     """True if something is LISTENing on 127.0.0.1:port. Raw TCP check —
@@ -176,11 +183,44 @@ class Handler(BaseHTTPRequestHandler):
         self._send(500, {"ok": False,
                          "error": "server spawned but :8771 never came up — see /tmp/signal_deck.log"}); return
 
+    def _run_sensei(self):
+        """Fire the FREE local Sensei runner (python3 -m fund.tools.sensei_local).
+        Generates a coach report with the local Claude CLI (no API spend) and
+        POSTs it to the cloud. Fire-and-forget — returns immediately; the
+        report appears on the dashboard after ~1-3 min on refresh."""
+        if not self._auth_ok():
+            self._send(403, {"error": "bad or missing X-Shim-Token"}); return
+        if not os.path.isdir(os.path.join(FUND_DIR, "fund", "tools")):
+            self._send(500, {"ok": False, "error": f"fund pkg not found in {FUND_DIR}"}); return
+        try:
+            # Same TCC-safe /tmp .command + `open -g` pattern as the scanner:
+            # a launchd-managed python3 loses FDA for ~/Documents, but a
+            # Terminal-launched .command inherits Terminal's FDA.
+            import stat as _stat
+            cmd_file = '/tmp/run_sensei_local.command'
+            with open(cmd_file, 'w') as _f:
+                _f.write('#!/bin/bash\n')
+                _f.write(f"cd '{FUND_DIR}'\n")
+                _f.write('PYTHONPATH="." nohup python3 -m fund.tools.sensei_local '
+                         '>> /tmp/sensei_local.log 2>&1 &\n')
+                _f.write('exit 0\n')
+            os.chmod(cmd_file,
+                     _stat.S_IRWXU | _stat.S_IRGRP | _stat.S_IXGRP |
+                     _stat.S_IROTH | _stat.S_IXOTH)
+            subprocess.Popen(['open', '-g', cmd_file], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            self._send(500, {"ok": False, "error": f"spawn failed: {e}"}); return
+        self._send(200, {"ok": True, "started": True,
+                         "note": "Sensei is generating a report (1-3 min) — refresh the panel."})
+
     def do_POST(self):
         if self.path.startswith("/launch-trainer"):
             return self._launch_trainer()
         if self.path.startswith("/launch-scanner"):
             return self._launch_scanner()
+        if self.path.startswith("/run-sensei"):
+            return self._run_sensei()
         if not self.path.startswith("/chat"):
             self._send(404, {"error": "not found"}); return
         if not self._auth_ok():

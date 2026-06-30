@@ -757,15 +757,31 @@ const FundTab = (() => {
   function _wireLive(url) {
     document.getElementById('fundRunSensei')?.addEventListener('click', async (ev) => {
       const btn = ev.currentTarget;
-      btn.disabled = true; btn.textContent = '⏳ Running…';
+      const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+      btn.disabled = true;
+      // Sensei's brain is the FREE local Claude CLI — it only runs on the
+      // Mac. From localhost we can trigger it via the local AI server
+      // (:8770). From the Railway HTTPS page Chrome PNA blocks localhost,
+      // so we can't reach it — tell the user to run it from their Mac.
+      if (!isLocal) {
+        btn.textContent = '🖥️ Run from your Mac';
+        alert('Sensei runs on your Mac for free (local Claude CLI — no API spend).\n\n'
+            + 'To generate a report now, either:\n'
+            + '  • open this dashboard at localhost:8768 and click Run Sensei, or\n'
+            + '  • run:  python3 -m fund.tools.sensei_local\n\n'
+            + 'The report saves to the cloud (fund.db) automatically and shows here on refresh.');
+        setTimeout(() => { btn.textContent = '🧠 Run Sensei'; btn.disabled = false; }, 4000);
+        return;
+      }
+      btn.textContent = '⏳ Running…';
       try {
-        const r = await fetch(url + 'api/coach/run_now', {
+        const r = await fetch('http://127.0.0.1:8770/run-sensei', {
           method: 'POST', mode: 'cors', cache: 'no-store',
-          signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined,
+          signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined,
         });
-        btn.textContent = r.ok ? '✓ Queued' : '✗ Error';
-      } catch { btn.textContent = '✗ Offline'; }
-      setTimeout(() => { btn.textContent = '🧠 Run Sensei'; btn.disabled = false; }, 3500);
+        btn.textContent = r.ok ? '✓ Generating…' : '✗ Local server off';
+      } catch { btn.textContent = '✗ Start local AI server'; }
+      setTimeout(() => { btn.textContent = '🧠 Run Sensei'; btn.disabled = false; }, 4000);
     });
     document.getElementById('fundRefresh')?.addEventListener('click', () => render());
   }
