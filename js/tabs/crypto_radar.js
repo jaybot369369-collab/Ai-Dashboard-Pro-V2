@@ -122,28 +122,54 @@ const CryptoRadarTab = (() => {
     return null;
   }
 
-  /* ── USDT.D history via CoinGecko tether market_chart + live dominance ── */
-  /* RSI is computed on USDT market_cap series — a direct proxy for USDT.D;
-     when Tether mcap rises vs total crypto, dominance rises, so RSI direction is identical. */
+  /* ── USDT.D history — TRUE dominance ratio (USDT mcap ÷ total crypto mcap) ── */
+  /* Raw USDT market cap has been growing for years, so its RSI is always ~60-70.
+     The dominance RATIO (what CoinsKid shows) gives the correct inverse correlation
+     to BTC: when crypto sells off, USDT.D RSI rises; when crypto rallies, it falls. */
   async function _fetchUsdtD() {
-    // Require closes_1h to be present (quick-fetch only sets dom, not kline arrays)
     if (_usdtdCache && _usdtdCache.closes_1h && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
     try {
-      // Three parallel fetches: 5-min (last 24h), hourly (last 14d), daily (last 365d)
-      const [r5m, r1h, r1d] = await Promise.all([
+      // Fetch USDT mcap AND total crypto mcap in parallel for 3 resolutions
+      const [rU5m, rT5m, rU1h, rT1h, rUDy, rTDy] = await Promise.all([
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
-          { signal: AbortSignal.timeout(10000) }),
+          { signal: AbortSignal.timeout(12000) }),
+        fetch('https://api.coingecko.com/api/v3/global/market_cap_chart?vs_currency=usd&days=1',
+          { signal: AbortSignal.timeout(12000) }),
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
-          { signal: AbortSignal.timeout(10000) }),
+          { signal: AbortSignal.timeout(12000) }),
+        fetch('https://api.coingecko.com/api/v3/global/market_cap_chart?vs_currency=usd&days=14',
+          { signal: AbortSignal.timeout(12000) }),
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=365&interval=daily',
-          { signal: AbortSignal.timeout(10000) }),
+          { signal: AbortSignal.timeout(12000) }),
+        fetch('https://api.coingecko.com/api/v3/global/market_cap_chart?vs_currency=usd&days=365',
+          { signal: AbortSignal.timeout(12000) }),
       ]);
-      if (!r5m.ok || !r1h.ok || !r1d.ok) return null;
-      const [j5m, j1h, j1d] = await Promise.all([r5m.json(), r1h.json(), r1d.json()]);
 
-      const closes5m  = (j5m.market_caps  || []).map(x => x[1]);
-      const closes1h  = (j1h.market_caps  || []).map(x => x[1]);
-      const closesDay = (j1d.market_caps  || []).map(x => x[1]);
+      // Parse dominance ratio series — fall back to raw USDT mcap if total mcap unavailable
+      const parseRatio = (usdtResp, totalResp, usdtJson, totalJson) => {
+        const uMcaps = (usdtJson.market_caps || []);
+        const tMcaps = totalResp?.ok ? (totalJson?.market_cap || []) : [];
+        if (tMcaps.length >= 10) {
+          const len = Math.min(uMcaps.length, tMcaps.length);
+          return Array.from({ length: len }, (_, i) => {
+            const t = tMcaps[i][1];
+            return t > 0 ? (uMcaps[i][1] / t) * 100 : null;
+          }).filter(v => v !== null);
+        }
+        // Fallback: raw USDT mcap (less accurate but better than nothing)
+        return uMcaps.map(x => x[1]);
+      };
+
+      if (!rU5m.ok || !rU1h.ok || !rUDy.ok) return null;
+      const [jU5m, jT5m, jU1h, jT1h, jUDy, jTDy] = await Promise.all([
+        rU5m.json(), rT5m.ok ? rT5m.json() : Promise.resolve({}),
+        rU1h.json(), rT1h.ok ? rT1h.json() : Promise.resolve({}),
+        rUDy.json(), rTDy.ok ? rTDy.json() : Promise.resolve({}),
+      ]);
+
+      const closes5m  = parseRatio(rU5m, rT5m, jU5m, jT5m);
+      const closes1h  = parseRatio(rU1h, rT1h, jU1h, jT1h);
+      const closesDay = parseRatio(rUDy, rTDy, jUDy, jTDy);
       if (closesDay.length < 20) return null;
 
       const closes15m = closes5m.filter((_, i) => i % 3 === 0);
@@ -151,7 +177,6 @@ const CryptoRadarTab = (() => {
       const closesW   = closesDay.filter((_, i) => i % 7 === 0);
       const closesM   = closesDay.filter((_, i) => i % 30 === 0);
 
-      // Current dominance % from /global (best-effort, preserve existing if call fails)
       let dom = _usdtdCache?.dom ?? null;
       try {
         const g = await fetch('https://api.coingecko.com/api/v3/global', { signal: AbortSignal.timeout(8000) });
