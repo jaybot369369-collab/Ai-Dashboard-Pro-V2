@@ -22,6 +22,8 @@ const CryptoRadarTab = (() => {
   const LS_SORT     = 'jb_radar_sort';
   const LS_SEARCH   = 'jb_radar_search';
   const LS_TOPN     = 'jb_radar_topn';
+  const LS_AUTO     = 'jb_radar_auto';
+  const AUTO_MS     = 300_000;       // 5 min auto-refresh cadence
   const SORT_OPTS   = ['mcap', 'overbought', 'oversold'];
 
   /* USDT.D via CoinGecko tether market_chart (daily only; 4h = n/a) */
@@ -41,6 +43,8 @@ const CryptoRadarTab = (() => {
   let _search     = '';
   let _page       = 1;
   let _pulling    = false;
+  let _autoTimer  = null;    // 5-min auto-refresh interval handle
+  let _lastPullTs = 0;       // ms timestamp of last completed pull
   let _mountId    = 'content';
   let _lastCgCoins = [];     // last fetched CG full non-stable list (for slicing + add validation)
   let _lastAllCoins = [];    // _lastCgCoins.slice(0,_topN) + custom additions (drives the grid)
@@ -124,81 +128,152 @@ const CryptoRadarTab = (() => {
     return null;
   }
 
-  /* ── USDT.D history — dominance proxy via BTC-normalised USDT mcap ── */
-  /* global/market_cap_chart is Pro-only on CoinGecko; raw USDT mcap trends
-     monotonically upward (RSI always ~65) giving wrong direction signals.
-     Fix: divide USDT mcap by BTC price (already cached from the regular pull).
-     USDT_mcap/BTC_price rises when risk-off (BTC drops, stablecoin inflows)
-     and falls when risk-on (BTC rallies) — correct inverse correlation.
-     3 CoinGecko calls: days=1 (5m), days=14 (1h), days=max (D/W/M). */
+  /* ── USDT.D history — hybrid sourcing (server proxy → direct CG → rebuild) ──
+     USDT_mcap/BTC_price rises risk-off (BTC drops, stablecoin inflows), falls
+     risk-on. RSI is scale-invariant so dividing by BTC price adds the inverse
+     correlation without changing the math. Sourcing order:
+       1. Railway: same-origin /api/usdtd (one cached call, dodges browser 429s)
+       2. localhost / proxy-miss: direct CoinGecko market_chart (allSettled)
+       3. both fail: reconstruct from the reliable coin klines (_reconstructUsdtD)
+     so the "linchpin" card is never blank. `source` tags which path won. */
+  function _normByBtc(usdtArr, cacheKey) {
+    const entry = _kCache.get(cacheKey);
+    if (!entry || !entry.klines || entry.klines.length < 15) return usdtArr;
+    const btcCloses = entry.klines.map(k => k.c);
+    const len = Math.min(usdtArr.length, btcCloses.length);
+    const u = usdtArr.slice(-len);
+    const b = btcCloses.slice(-len);
+    return u.map((v, i) => b[i] > 0 ? v / b[i] : v);
+  }
+
+  /* Reconstruct a USDT.D series for one timeframe from coin klines we already
+     fetched reliably. USDT.D ∝ 1 / total-market-cap, so build a mcap-weighted
+     total-market index from real candles of that TF and invert. RSI scale-
+     invariance drops the ~constant USDT mcap out. Directionally faithful; not
+     exchange-confirmed (labeled). Returns [] if <3 coins have ≥15 bars. */
+  function _reconIdxTF(tf) {
+    const coins = _lastAllCoins.filter(c => c.sym !== USDTD_ID && c.mcap > 0);
+    if (coins.length < 3) return [];
+    const series = []; let minLen = Infinity;
+    for (const c of coins) {
+      const e = _kCache.get(`${c.sym}-${tf}`);
+      if (!e || !e.klines || e.klines.length < 15) continue;
+      series.push({ w: c.mcap, closes: e.klines.map(k => k.c) });
+      minLen = Math.min(minLen, e.klines.length);
+    }
+    if (series.length < 3 || !isFinite(minLen) || minLen < 15) return [];
+    const idx = [];
+    for (let t = 0; t < minLen; t++) {
+      let sum = 0;
+      for (const s of series) {
+        const a = s.closes.slice(-minLen), last = a[a.length - 1];
+        if (last > 0) sum += s.w * (a[t] / last);
+      }
+      if (sum > 0) idx.push(1 / sum);
+    }
+    return idx;
+  }
+
+  /* Whole-card reconstruction fallback (CoinGecko fully unavailable). */
+  function _reconstructUsdtD() {
+    const closes5m = _reconIdxTF('5m'), closes1h = _reconIdxTF('1h'), closesDay = _reconIdxTF('D');
+    if (!closes5m.length && !closes1h.length && !closesDay.length) return null;
+    return { closes5m, closes1h, closesDay };
+  }
+
   async function _fetchUsdtD() {
-    if (_usdtdCache && _usdtdCache.closes_1h && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
-    try {
-      // allSettled: one 429 from CoinGecko doesn't kill the others
-      const [r5m, r1h, rDy] = await Promise.allSettled([
-        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
-          { signal: AbortSignal.timeout(12000) }),
-        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
-          { signal: AbortSignal.timeout(12000) }),
-        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=max&interval=daily',
-          { signal: AbortSignal.timeout(12000) }),
-      ]);
-      const _j = async s => {
-        if (s.status !== 'fulfilled' || !s.value.ok) return null;
-        try { return await s.value.json(); } catch (_) { return null; }
-      };
-      const [j5m, j1h, jDy] = await Promise.all([_j(r5m), _j(r1h), _j(rDy)]);
+    if (_usdtdCache && _usdtdCache.closes_1h && _usdtdCache.closes_1h.length
+        && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
 
-      // CoinGecko free-tier granularity: days=1 → 5m bars; days=14 → 1h bars;
-      // days=max&interval=daily → daily bars since ~2015 (3 000+ bars for USDT).
-      const usdtFm = j5m ? (j5m.market_caps || []).map(x => x[1]) : [];
-      const usdtH  = j1h ? (j1h.market_caps || []).map(x => x[1]) : [];
-      const usdtDy = jDy ? (jDy.market_caps || []).map(x => x[1]) : [];
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    let usdtFm = [], usdtH = [], usdtDy = [];
+    let dom = _approxUsdtDom ?? (_usdtdCache?.dom ?? null);
+    let source = 'proxy';
 
-      // Normalise by BTC price from the kline cache (populated during regular coin pull).
-      // RSI is scale-invariant under positive scaling, so dividing by BTC price
-      // adds the correct inverse relationship without changing the RSI math.
-      // Note: arrays are zipped by recency (last N bars from both), not by exact
-      // timestamp — off-by-minutes precision, but direction is preserved.
-      const normByBtc = (usdtArr, cacheKey) => {
-        const entry = _kCache.get(cacheKey);
-        if (!entry || !entry.klines || entry.klines.length < 15) return usdtArr;
-        const btcCloses = entry.klines.map(k => k.c);
-        const len = Math.min(usdtArr.length, btcCloses.length);
-        const u = usdtArr.slice(-len);
-        const b = btcCloses.slice(-len);
-        return u.map((v, i) => b[i] > 0 ? v / b[i] : v);
-      };
-
-      const closes5m  = normByBtc(usdtFm, 'BTC-5m');
-      const closes1h  = normByBtc(usdtH,  'BTC-1h');
-      const closesDay = normByBtc(usdtDy, 'BTC-D');
-
-      // Sub-sampling: approximate candle boundaries (directionally correct;
-      // may be misaligned vs exchange 4h/W candle UTC boundaries by ≤3h/6d).
-      const closes15m = closes5m.filter((_, i) => i % 3 === 0);
-      const closes4h  = closes1h.filter((_, i) => i % 4 === 0);
-      const closesW   = closesDay.filter((_, i) => i % 7 === 0);
-      const closesM   = closesDay.filter((_, i) => i % 30 === 0);
-
-      let dom = _approxUsdtDom ?? (_usdtdCache?.dom ?? null);
+    // 1. Railway/github.io: same-origin cached server proxy
+    if (!isLocal) {
       try {
-        const g = await fetch('https://api.coingecko.com/api/v3/global', { signal: AbortSignal.timeout(8000) });
-        if (g.ok) dom = (await g.json())?.data?.market_cap_percentage?.usdt ?? dom;
+        const r = await fetch('/api/usdtd', { cache: 'no-store', signal: AbortSignal.timeout(12000) });
+        if (r.ok) {
+          const j = await r.json();
+          if (j && j.ok) {
+            usdtFm = j.usdt_5m || [];
+            usdtH  = j.usdt_1h || [];
+            usdtDy = j.usdt_daily || [];
+            dom    = j.dom ?? dom;
+            source = j.stale ? 'cache' : 'live';
+          }
+        }
       } catch (_) {}
+    }
 
-      _usdtdCache = {
-        ts: Date.now(), dom,
-        closes_5m:  closes5m,
-        closes_15m: closes15m,
-        closes_1h:  closes1h,
-        closes_4h:  closes4h,
-        closes_d:   closesDay,
-        closes_w:   closesW,
-        closes_m:   closesM,
-      };
-      return _usdtdCache;
-    } catch (_) { return null; }
+    // 2. localhost OR proxy returned nothing → direct CoinGecko (allSettled)
+    if (!usdtFm.length && !usdtH.length && !usdtDy.length) {
+      try {
+        // Free-tier: days=1 → 5m, days=14 → hourly, days=365 → daily.
+        // (interval=daily / days=max are Pro-only and 401 on the free tier.)
+        const [r5m, r1h, rDy] = await Promise.allSettled([
+          fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
+            { signal: AbortSignal.timeout(12000) }),
+          fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
+            { signal: AbortSignal.timeout(12000) }),
+          fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=365',
+            { signal: AbortSignal.timeout(12000) }),
+        ]);
+        const _j = async s => {
+          if (s.status !== 'fulfilled' || !s.value.ok) return null;
+          try { return await s.value.json(); } catch (_) { return null; }
+        };
+        const [j5m, j1h, jDy] = await Promise.all([_j(r5m), _j(r1h), _j(rDy)]);
+        usdtFm = j5m ? (j5m.market_caps || []).map(x => x[1]) : [];
+        usdtH  = j1h ? (j1h.market_caps || []).map(x => x[1]) : [];
+        usdtDy = jDy ? (jDy.market_caps || []).map(x => x[1]) : [];
+        if (usdtFm.length || usdtH.length || usdtDy.length) source = 'live';
+        try {
+          const g = await fetch('https://api.coingecko.com/api/v3/global', { signal: AbortSignal.timeout(8000) });
+          if (g.ok) dom = (await g.json())?.data?.market_cap_percentage?.usdt ?? dom;
+        } catch (_) {}
+      } catch (_) {}
+    }
+
+    // 3. Normalise USDT mcap by BTC price
+    let closes5m  = _normByBtc(usdtFm, 'BTC-5m');
+    let closes1h  = _normByBtc(usdtH,  'BTC-1h');
+    let closesDay = _normByBtc(usdtDy, 'BTC-D');
+
+    // 4. Both sources dry → reconstruct from reliable coin klines
+    if (!closes5m.length && !closes1h.length && !closesDay.length) {
+      const rec = _reconstructUsdtD();
+      if (rec) {
+        closes5m = rec.closes5m; closes1h = rec.closes1h; closesDay = rec.closesDay;
+        source = 'reconstructed';
+      }
+    }
+
+    // 5. Sub-sample remaining TFs (directionally correct; ≤3h/6d boundary drift)
+    const closes15m = closes5m.filter((_, i) => i % 3 === 0);
+    const closes4h  = closes1h.filter((_, i) => i % 4 === 0);
+    let   closesW   = closesDay.filter((_, i) => i % 7 === 0);
+    let   closesM   = closesDay.filter((_, i) => i % 30 === 0);
+
+    // CoinGecko free tier caps at 365 daily bars → ~52 weekly / ~12 monthly
+    // subsampled points. Monthly falls below RSI's 15-bar minimum, so rebuild
+    // the W/M spokes from the top coins' real weekly/monthly candles (stable
+    // closed bars, the most reliable data we have) when subsampling is too thin.
+    if (closesW.length < 15) { const w = _reconIdxTF('W'); if (w.length >= 15) closesW = w; }
+    if (closesM.length < 15) { const m = _reconIdxTF('M'); if (m.length >= 15) closesM = m; }
+
+    _usdtdCache = {
+      ts: Date.now(), dom, source,
+      closes_5m:  closes5m,
+      closes_15m: closes15m,
+      closes_1h:  closes1h,
+      closes_4h:  closes4h,
+      closes_d:   closesDay,
+      closes_w:   closesW,
+      closes_m:   closesM,
+    };
+    return _usdtdCache;
   }
 
   /* ── CoinGecko top-N list ────────────────────────────────── */
@@ -464,6 +539,23 @@ const CryptoRadarTab = (() => {
     ).join('')}</div>`;
   }
 
+  /* USDT.D data-source honesty chip (RULE #2/#3) */
+  function _usdtdSrcChip() {
+    const s = _usdtdCache && _usdtdCache.source;
+    if (!s || s === 'proxy') return '';
+    const map = {
+      live:          ['live',    'var(--good)'],
+      cache:         ['cached',  'var(--warn)'],
+      reconstructed: ['rebuilt', 'var(--warn)'],
+    };
+    const [lbl, col] = map[s] || [s, 'var(--muted)'];
+    const tip = s === 'reconstructed'
+      ? 'Reconstructed from live coin klines (CoinGecko down) — direction sound, not exchange-confirmed'
+      : s === 'cache' ? 'Served from last-good server cache (CoinGecko throttled)'
+      : 'Live USDT.D from CoinGecko via server cache';
+    return `<span class="radar-src-chip" title="${tip}" style="color:${col};border-color:${col}">${lbl}</span>`;
+  }
+
   /* ── Card HTML ───────────────────────────────────────────── */
   function _cardHTML(card) {
     const isUsdtD = card.sym === USDTD_ID;
@@ -484,6 +576,7 @@ const CryptoRadarTab = (() => {
       ? `<div class="radar-footer">
           <span class="radar-price">${card.dom != null ? card.dom.toFixed(2) + '%' : '—'}</span>
           <span class="muted" style="font-size:10px">Tether dominance · macro risk gauge</span>
+          ${_usdtdSrcChip()}
         </div>`
       : `<div class="radar-footer">
           <span class="radar-price">${_fmtPrice(card.price)}</span>
@@ -587,11 +680,44 @@ const CryptoRadarTab = (() => {
       const usdtdRsi = await _scoreUsdtD();
       _scores.set(USDTD_ID, usdtdRsi);
       _renderGrid(allCoins);
-      _setStatus('');
+      _lastPullTs = Date.now();
+      _setStatus(_updatedStatus());
     } finally {
       _pulling = false;
       if (btn) { btn.disabled = false; btn.textContent = '⟳ Pull Data'; }
     }
+  }
+
+  function _updatedStatus() {
+    const t = new Date(_lastPullTs || Date.now())
+      .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const auto = localStorage.getItem(LS_AUTO) !== 'off';
+    return `Updated ${t}${auto ? ' · auto 5m' : ''}`;
+  }
+
+  /* ── 5-min auto-refresh (default on; self-cancels when radar unmounts) ── */
+  function _autoOn() { return localStorage.getItem(LS_AUTO) !== 'off'; }
+  function _stopAuto() { if (_autoTimer) { clearInterval(_autoTimer); _autoTimer = null; } }
+  function _startAuto() {
+    _stopAuto();
+    if (localStorage.getItem(LS_AUTO) === 'off') return;
+    _autoTimer = setInterval(() => {
+      if (document.hidden) return;                              // tab backgrounded
+      if (!document.getElementById('radarGrid')) { _stopAuto(); return; }  // unmounted
+      if (_pulling) return;
+      _pullData();
+    }, AUTO_MS);
+  }
+  function _toggleAuto() {
+    const wasOff = localStorage.getItem(LS_AUTO) === 'off';
+    localStorage.setItem(LS_AUTO, wasOff ? 'on' : 'off');
+    const btn = document.getElementById('radarAutoBtn');
+    if (btn) {
+      btn.classList.toggle('active', wasOff);
+      btn.textContent = wasOff ? 'Auto 5m ✓' : 'Auto 5m ✗';
+    }
+    if (wasOff) { _startAuto(); if (!_pulling) _pullData(); }
+    else { _stopAuto(); _setStatus(_lastPullTs ? _updatedStatus() : ''); }
   }
 
   function _setStatus(msg) {
@@ -684,10 +810,11 @@ const CryptoRadarTab = (() => {
         <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer = 100 (max overbought).</div>
         <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation area.</div>
         <div><strong style="color:var(--bad)">Red ring</strong><br>RSI ≥ 70 — overbought / caution on new longs.</div>
-        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price (free-tier proxy). Direction is correct — rising = risk-off / stablecoin rotation. 4h and W use hourly/daily subsampling, not exchange-candle-aligned. All 7 spokes filled after Pull Data.</div>
+        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price. Source chip on the card: <strong style="color:var(--good)">live</strong> = real USDT.D via the server cache, <strong style="color:var(--warn)">cached</strong> = last-good (CoinGecko throttled), <strong style="color:var(--warn)">rebuilt</strong> = reconstructed from live coin klines if CoinGecko is down (direction sound, not exchange-confirmed). Rising = risk-off / stablecoin rotation.</div>
+        <div><strong>Auto 5m</strong><br>The radar auto-refreshes every 5 min while open (toggle in the bar). Note: RSI is read from <em>closed</em> candles and is deterministic — refreshing improves freshness of the current bar, not accuracy.</div>
         <div><strong>Remove a coin</strong><br>Click ✕ on any card; use Sort to surface the most stretched.</div>
       </div>
-      <div class="muted" style="font-size:11px;margin-top:10px">Monthly RSI may show <strong>?</strong> on the hosted dashboard — the server-side data feed has no monthly bars. It fills in when run locally.</div>
+      <div class="muted" style="font-size:11px;margin-top:10px">4h and Weekly spokes use hourly/daily subsampling — directionally accurate, not aligned to exchange candle boundaries (≤3h/6d drift).</div>
     </div>`;
 
   /* ── Main render ─────────────────────────────────────────── */
@@ -715,6 +842,8 @@ const CryptoRadarTab = (() => {
           <input id="radarSearch" class="radar-search-input" type="text" placeholder="Search…" value="${_search}"/>
           <input id="radarAddInput" class="radar-search-input" type="text" placeholder="Add ticker…" style="width:120px"/>
           <button class="btn-ghost" id="radarAddBtn" style="font-size:12px">＋ Add</button>
+          <button class="btn-ghost radar-auto-btn${_autoOn() ? ' active' : ''}" id="radarAutoBtn" style="font-size:12px"
+            title="Auto-refresh every 5 minutes" onclick="CryptoRadarTab._toggleAuto()">Auto 5m ${_autoOn() ? '✓' : '✗'}</button>
           <button class="btn-primary" id="radarPullBtn">⟳ Pull Data</button>
         </div>
       </div>
@@ -727,13 +856,14 @@ const CryptoRadarTab = (() => {
       </div>
       ${GUIDE_HTML}`;
 
-    // Sort pills
-    root.querySelectorAll('.radar-sort-pill').forEach(btn => {
+    // Sort pills (exclude the Top-N pills, which share the .radar-sort-pill class
+    // but carry data-n, not data-sort, and handle their own click via _setTopN)
+    root.querySelectorAll('.radar-sort-pill:not(.radar-topn-pill)').forEach(btn => {
       btn.addEventListener('click', () => {
         _sort = btn.dataset.sort;
         _page = 1;
         localStorage.setItem(LS_SORT, _sort);
-        root.querySelectorAll('.radar-sort-pill').forEach(b => b.classList.toggle('active', b.dataset.sort === _sort));
+        root.querySelectorAll('.radar-sort-pill:not(.radar-topn-pill)').forEach(b => b.classList.toggle('active', b.dataset.sort === _sort));
         _renderGrid();
       });
     });
@@ -783,6 +913,15 @@ const CryptoRadarTab = (() => {
     if (_scores.size > 0) _renderGrid();
     _fetchUsdtDQuick();
     _updateResetLink();
+    if (_lastPullTs) _setStatus(_updatedStatus());
+
+    // Auto-refresh: arm the 5-min timer (self-cancels on unmount); kick an
+    // immediate pull when auto is on and data is empty/stale so opening the tab
+    // shows fresh spokes without a manual click.
+    _startAuto();
+    if (_autoOn() && !_pulling && (_scores.size === 0 || Date.now() - _lastPullTs > AUTO_MS)) {
+      _pullData();
+    }
   }
 
   function _goPage(n) {
@@ -793,5 +932,5 @@ const CryptoRadarTab = (() => {
     document.getElementById('radarGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN };
+  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN, _toggleAuto };
 })();
