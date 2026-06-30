@@ -16,12 +16,12 @@ const CryptoRadarTab = (() => {
   const KLINE_LIMIT = 120;
   const KLINE_TTL   = 60_000;        // 60 s kline cache
   const CG_TTL      = 300_000;       // 5 min CoinGecko cache
-  const TOP_N       = 100;
   const PAGE_SIZE   = 20;
   const LS_SYMS     = 'jb_radar_symbols';
   const LS_BLOCK    = 'jb_radar_blocked';
   const LS_SORT     = 'jb_radar_sort';
   const LS_SEARCH   = 'jb_radar_search';
+  const LS_TOPN     = 'jb_radar_topn';
   const SORT_OPTS   = ['mcap', 'overbought', 'oversold'];
 
   /* USDT.D via CoinGecko tether market_chart (daily only; 4h = n/a) */
@@ -32,16 +32,18 @@ const CryptoRadarTab = (() => {
   let _kCache     = new Map();  // key `${sym}-${tf}` → { ts, klines }
   let _scores     = new Map();  // key sym → { '4h':rsi, D:rsi, W:rsi, M:rsi }
   let _usdtdCache = null;    // { ts, closes_d, closes_w, closes_m }
+  let _approxUsdtDom = null; // dom % computed from coins/markets — no extra CG call needed
   let _syms       = null;    // null = use top-N from CG; loaded from LS on first render
   let _customSyms = [];      // user-pinned additions (stored in LS_SYMS)
   let _blockedSyms = [];     // user-removed tickers (stored in LS_BLOCK)
   let _sort       = localStorage.getItem(LS_SORT) || 'mcap';
+  let _topN       = parseInt(localStorage.getItem(LS_TOPN) || '30');
   let _search     = '';
   let _page       = 1;
   let _pulling    = false;
   let _mountId    = 'content';
-  let _lastCgCoins = [];     // last fetched CG top list (for add validation)
-  let _lastAllCoins = [];    // CG top list + custom additions (drives the grid)
+  let _lastCgCoins = [];     // last fetched CG full non-stable list (for slicing + add validation)
+  let _lastAllCoins = [];    // _lastCgCoins.slice(0,_topN) + custom additions (drives the grid)
 
   /* ── Kline fetcher (proxy on Railway, else Bybit → Binance → OKX) ── */
   const TF_BYBIT = { '5m':'5', '15m':'15', '1h':'60', '4h':'240', D:'D', W:'W', M:'M' };
@@ -132,7 +134,8 @@ const CryptoRadarTab = (() => {
   async function _fetchUsdtD() {
     if (_usdtdCache && _usdtdCache.closes_1h && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
     try {
-      const [r5m, r1h, rDy] = await Promise.all([
+      // allSettled: one 429 from CoinGecko doesn't kill the others
+      const [r5m, r1h, rDy] = await Promise.allSettled([
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
           { signal: AbortSignal.timeout(12000) }),
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
@@ -140,15 +143,17 @@ const CryptoRadarTab = (() => {
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=max&interval=daily',
           { signal: AbortSignal.timeout(12000) }),
       ]);
-      if (!r5m.ok || !r1h.ok || !rDy.ok) return null;
-      const [j5m, j1h, jDy] = await Promise.all([r5m.json(), r1h.json(), rDy.json()]);
+      const _j = async s => {
+        if (s.status !== 'fulfilled' || !s.value.ok) return null;
+        try { return await s.value.json(); } catch (_) { return null; }
+      };
+      const [j5m, j1h, jDy] = await Promise.all([_j(r5m), _j(r1h), _j(rDy)]);
 
       // CoinGecko free-tier granularity: days=1 → 5m bars; days=14 → 1h bars;
       // days=max&interval=daily → daily bars since ~2015 (3 000+ bars for USDT).
-      const usdtFm = (j5m.market_caps || []).map(x => x[1]);
-      const usdtH  = (j1h.market_caps || []).map(x => x[1]);
-      const usdtDy = (jDy.market_caps || []).map(x => x[1]);
-      if (usdtDy.length < 20) return null;
+      const usdtFm = j5m ? (j5m.market_caps || []).map(x => x[1]) : [];
+      const usdtH  = j1h ? (j1h.market_caps || []).map(x => x[1]) : [];
+      const usdtDy = jDy ? (jDy.market_caps || []).map(x => x[1]) : [];
 
       // Normalise by BTC price from the kline cache (populated during regular coin pull).
       // RSI is scale-invariant under positive scaling, so dividing by BTC price
@@ -176,7 +181,7 @@ const CryptoRadarTab = (() => {
       const closesW   = closesDay.filter((_, i) => i % 7 === 0);
       const closesM   = closesDay.filter((_, i) => i % 30 === 0);
 
-      let dom = _usdtdCache?.dom ?? null;
+      let dom = _approxUsdtDom ?? (_usdtdCache?.dom ?? null);
       try {
         const g = await fetch('https://api.coingecko.com/api/v3/global', { signal: AbortSignal.timeout(8000) });
         if (g.ok) dom = (await g.json())?.data?.market_cap_percentage?.usdt ?? dom;
@@ -211,9 +216,14 @@ const CryptoRadarTab = (() => {
       const STABLE = new Set(['usdt','usdc','dai','busd','tusd','usdd','fdusd','pyusd',
         'usdp','frax','usde','susd','gusd','lusd','crvusd','usds','dola','mim','musd',
         'gho','eurc','euri','steur','usdb','usdx','cusd','bfusd','usd1','usdm']);
-      const coins = raw
+      // Approximate USDT dominance from this response (no extra API call)
+    const tetherRaw  = raw.find(c => c.symbol?.toLowerCase() === 'usdt');
+    const top250Total = raw.reduce((s, c) => s + (c.market_cap || 0), 0);
+    if (tetherRaw && top250Total > 0)
+      _approxUsdtDom = (tetherRaw.market_cap || 0) / top250Total * 100;
+
+    const coins = raw
         .filter(c => !STABLE.has(c.symbol?.toLowerCase()))
-        .slice(0, TOP_N)
         .map(c => ({
           id: c.id,
           sym: c.symbol.toUpperCase(),
@@ -246,18 +256,20 @@ const CryptoRadarTab = (() => {
     return result;
   }
 
-  /* Quick fetch of live USDT.D % so the card shows immediately on render */
+  /* Quick fetch of live USDT.D % so the card shows immediately on render.
+     Falls back to the approx dom computed from the coins/markets response. */
   async function _fetchUsdtDQuick() {
+    // Start with the approx already computed (or last known value)
+    let dom = _approxUsdtDom ?? (_usdtdCache?.dom ?? null);
     try {
       const r = await fetch('https://api.coingecko.com/api/v3/global',
         { signal: AbortSignal.timeout(8000) });
-      if (!r.ok) return;
-      const dom = (await r.json())?.data?.market_cap_percentage?.usdt ?? null;
-      if (dom === null) return;
-      if (!_usdtdCache) _usdtdCache = { ts: 0, dom };
-      else _usdtdCache.dom = dom;
-      _renderGrid();
+      if (r.ok) dom = (await r.json())?.data?.market_cap_percentage?.usdt ?? dom;
     } catch (_) {}
+    if (dom === null) return;
+    if (!_usdtdCache) _usdtdCache = { ts: 0, dom };
+    else _usdtdCache.dom = dom;
+    _renderGrid();
   }
 
   async function _scoreUsdtD() {
@@ -547,8 +559,8 @@ const CryptoRadarTab = (() => {
       const cgCoins = await _fetchCG();
       if (!cgCoins) { _setStatus('CoinGecko unavailable — try again shortly.'); return; }
 
-      // 2. Build full coin list: top-N + custom additions
-      const allCoins = [...cgCoins];
+      // 2. Build full coin list: top-_topN + custom additions
+      const allCoins = [...cgCoins.slice(0, _topN)];
       for (const sym of _customSyms) {
         if (!allCoins.find(c => c.sym === sym)) {
           allCoins.push({ sym, name: sym, id: sym.toLowerCase(), mcap: 0, price: 0, chg1: null, chg24: null, chg7: null, rank: 999 });
@@ -594,17 +606,14 @@ const CryptoRadarTab = (() => {
 
     // Default to the last merged list (CG top-N + custom additions)
     const coins = (allCoins && allCoins.length) ? allCoins
-      : (_lastAllCoins.length ? _lastAllCoins : [..._lastCgCoins]);
+      : (_lastAllCoins.length ? _lastAllCoins : [..._lastCgCoins.slice(0, _topN)]);
     const q = _search.toLowerCase().trim();
 
     let cards = [];
 
-    // USDT.D card — always first, shown as soon as dom % is fetched (even before Pull Data)
-    const usdtdRsi = _scores.get(USDTD_ID);
-    const usdtdDom = _usdtdCache?.dom ?? null;
-    if (usdtdRsi || usdtdDom !== null) {
-      cards.push({ sym: USDTD_ID, name: 'Tether Dominance', rank: 0, dom: usdtdDom, rsiMap: usdtdRsi || {} });
-    }
+    // USDT.D card — always pinned first, even before any data loads
+    cards.push({ sym: USDTD_ID, name: 'Tether Dominance', rank: 0,
+      dom: _usdtdCache?.dom ?? null, rsiMap: _scores.get(USDTD_ID) || {} });
 
     coins.forEach(c => {
       if (_blockedSyms.includes(c.sym)) return;  // user removed
@@ -633,6 +642,29 @@ const CryptoRadarTab = (() => {
     gridEl.innerHTML = visibleCards.length
       ? visibleCards.map(_cardHTML).join('') + pager
       : `<div class="radar-empty">No coins to show. ${_blockedSyms.length ? 'You removed them all — ' : ''}<a href="#" id="radarResetInline" onclick="CryptoRadarTab._resetBlocked();return false">reset removed</a>.</div>`;
+  }
+
+  /* ── Top-N selector ─────────────────────────────────────── */
+  function _topNPills() {
+    return [30, 60, 100].map(n =>
+      `<button class="radar-sort-pill radar-topn-pill${_topN === n ? ' active' : ''}"
+        data-n="${n}" onclick="CryptoRadarTab._setTopN(${n})">Top ${n}</button>`
+    ).join('');
+  }
+
+  function _setTopN(n) {
+    _topN = n;
+    localStorage.setItem(LS_TOPN, String(n));
+    _page = 1;
+    const base = _lastCgCoins.slice(0, _topN);
+    _lastAllCoins = [...base];
+    for (const sym of _customSyms) {
+      if (!_lastAllCoins.find(c => c.sym === sym))
+        _lastAllCoins.push({ sym, name: sym, id: sym.toLowerCase(), mcap: 0, price: 0, chg1: null, chg24: null, chg7: null, rank: 999 });
+    }
+    document.querySelectorAll('.radar-topn-pill').forEach(b =>
+      b.classList.toggle('active', +b.dataset.n === n));
+    _renderGrid();
   }
 
   /* ── Controls HTML ────────────────────────────────────────── */
@@ -676,6 +708,7 @@ const CryptoRadarTab = (() => {
       <div class="radar-bar">
         <div class="radar-bar-left">
           <span class="radar-pill-label">Sort</span>${_sortPills()}
+          <span class="radar-pill-label" style="margin-left:10px">Show</span>${_topNPills()}
           <a href="#" id="radarResetLink" class="radar-reset-link" style="display:none" onclick="CryptoRadarTab._resetBlocked();return false">Reset removed</a>
         </div>
         <div class="radar-bar-right">
@@ -760,5 +793,5 @@ const CryptoRadarTab = (() => {
     document.getElementById('radarGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage };
+  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN };
 })();
