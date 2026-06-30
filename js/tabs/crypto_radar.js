@@ -530,7 +530,7 @@ const CryptoRadarTab = (() => {
       else if (avg < 45)           { grade = 'C'; col = 'var(--muted)'; }
       else if (avg > 55)           { grade = 'C'; col = 'var(--muted)'; }
       else                         { grade = 'D'; col = 'var(--muted)'; }
-      const dir = avg < 48 ? '▲ Long' : avg > 52 ? '▼ Short' : '—';
+      const dir = avg < 48 ? '▲' : avg > 52 ? '▼' : '—';
       return { label, grade, dir, col };
     });
   }
