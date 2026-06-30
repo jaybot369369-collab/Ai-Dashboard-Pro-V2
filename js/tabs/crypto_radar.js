@@ -1,24 +1,23 @@
 /* ═══════════════════════════════════════════════════════════
    CRYPTO RADAR — multi-timeframe RSI spider chart wall.
-   8 spokes per card (1min/5min/15min/1hr/4hr/Daily/Weekly/Monthly),
+   7 spokes per card (5min/15min/1hr/4hr/Daily/Weekly/Monthly),
    matching the CoinsKid radar aesthetic. Spoke radius = RSI/100.
    Green core = oversold (RSI≤30), red ring = overbought (RSI≥70).
-   Universe: CoinGecko top ~24 by mcap + editable watchlist
-   + a USDT.D macro card. Monthly shows ? on Railway (no monthly
-   bars from CryptoCompare free tier).
+   Universe: top 100 Binance USDT pairs (CoinGecko ranked, stablecoins
+   excluded) + editable watchlist + USDT.D macro card.
 ════════════════════════════════════════════════════════════ */
 const CryptoRadarTab = (() => {
 
   /* ── Config ─────────────────────────────────────────────── */
-  // 8 spokes, matching the CoinsKid radar. Ordered to draw clockwise from
-  // the top-left (see _radarSVG angle map). Monthly is best-effort on
-  // Railway (CryptoCompare has no monthly aggregation → renders "?").
-  const TFS       = ['1m', '5m', '15m', '1h', '4h', 'D', 'W', 'M'];
-  const TF_LABEL  = { '1m':'1min', '5m':'5min', '15m':'15min', '1h':'1hr', '4h':'4hr', D:'Daily', W:'Weekly', M:'Monthly' };
+  // 7 spokes — 1m removed (no reliable free-tier 1m source for any
+  // venue that is reachable from Railway). Angles at 360/7 ≈ 51.4° each.
+  const TFS       = ['5m', '15m', '1h', '4h', 'D', 'W', 'M'];
+  const TF_LABEL  = { '5m':'5min', '15m':'15min', '1h':'1hr', '4h':'4hr', D:'Daily', W:'Weekly', M:'Monthly' };
   const KLINE_LIMIT = 120;
   const KLINE_TTL   = 60_000;        // 60 s kline cache
   const CG_TTL      = 300_000;       // 5 min CoinGecko cache
-  const TOP_N       = 24;
+  const TOP_N       = 100;
+  const PAGE_SIZE   = 20;
   const LS_SYMS     = 'jb_radar_symbols';
   const LS_BLOCK    = 'jb_radar_blocked';
   const LS_SORT     = 'jb_radar_sort';
@@ -38,15 +37,16 @@ const CryptoRadarTab = (() => {
   let _blockedSyms = [];     // user-removed tickers (stored in LS_BLOCK)
   let _sort       = localStorage.getItem(LS_SORT) || 'mcap';
   let _search     = '';
+  let _page       = 1;
   let _pulling    = false;
   let _mountId    = 'content';
   let _lastCgCoins = [];     // last fetched CG top list (for add validation)
   let _lastAllCoins = [];    // CG top list + custom additions (drives the grid)
 
   /* ── Kline fetcher (proxy on Railway, else Bybit → Binance → OKX) ── */
-  const TF_BYBIT = { '1m':'1', '5m':'5', '15m':'15', '1h':'60', '4h':'240', D:'D', W:'W', M:'M' };
-  const TF_BIN   = { '1m':'1m', '5m':'5m', '15m':'15m', '1h':'1h', '4h':'4h',  D:'1d', W:'1w', M:'1M' };
-  const TF_OKX   = { '1m':'1m', '5m':'5m', '15m':'15m', '1h':'1H', '4h':'4H',  D:'1D', W:'1W', M:'1M' };
+  const TF_BYBIT = { '5m':'5', '15m':'15', '1h':'60', '4h':'240', D:'D', W:'W', M:'M' };
+  const TF_BIN   = { '5m':'5m', '15m':'15m', '1h':'1h', '4h':'4h',  D:'1d', W:'1w', M:'1M' };
+  const TF_OKX   = { '5m':'5m', '15m':'15m', '1h':'1H', '4h':'4H',  D:'1D', W:'1W', M:'1M' };
 
   async function _fetchKlines(sym, tf) {
     const key = `${sym}-${tf}`;
@@ -188,13 +188,18 @@ const CryptoRadarTab = (() => {
     if (_cgCache && Date.now() - _cgCache.ts < CG_TTL) return _cgCache.coins;
     try {
       const url = 'https://api.coingecko.com/api/v3/coins/markets' +
-        '?vs_currency=usd&order=market_cap_desc&per_page=50&page=1' +
+        '?vs_currency=usd&order=market_cap_desc&per_page=250&page=1' +
         '&price_change_percentage=1h,24h,7d';
       const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
       if (!r.ok) return null;
       const raw = await r.json();
+      // Exclude stablecoins (fiat-backed, algo, Euro stables) — USDT.D is tracked
+      // separately as the macro risk gauge so USDT itself is excluded here too.
+      const STABLE = new Set(['usdt','usdc','dai','busd','tusd','usdd','fdusd','pyusd',
+        'usdp','frax','usde','susd','gusd','lusd','crvusd','usds','dola','mim','musd',
+        'gho','eurc','euri','steur','usdb','usdx','cusd','bfusd','usd1','usdm']);
       const coins = raw
-        .filter(c => !['usdt','usdc','dai','busd','tusd','usdd','fdusd','pyusd'].includes(c.symbol?.toLowerCase()))
+        .filter(c => !STABLE.has(c.symbol?.toLowerCase()))
         .slice(0, TOP_N)
         .map(c => ({
           id: c.id,
@@ -262,11 +267,11 @@ const CryptoRadarTab = (() => {
     };
   }
 
-  /* CoinsKid spoke positions (deg, 0=right, clockwise). Independent of the
-     TFS array order so the visual layout stays fixed even if TFS changes. */
+  /* CoinsKid spoke positions (deg, 0=right, clockwise). 7 spokes at 360/7
+     ≈ 51.4° each, anchored so Monthly sits at the top-left (~10 o'clock). */
   const TF_ANGLE = {
-    M:   -112.5, '1m': -67.5, '5m': -22.5, '15m': 22.5,
-    '1h': 67.5,  '4h': 112.5, D:    157.5, W:   -157.5,
+    M:   -112.5, '5m': -61.1, '15m':  -9.6,
+    '1h':  41.8, '4h':  93.2, D:    144.6,  W: 196.1,
   };
 
   /* ── SVG radar card ──────────────────────────────────────── */
@@ -401,7 +406,7 @@ const CryptoRadarTab = (() => {
   // Grade: A = strong (avg RSI <35 or >65 AND TFs agree), B = moderate, C = mixed/neutral.
   // Direction: LONG (avg <50), SHORT (avg >50), — (avg 48-52).
   const SCORE_CLUSTERS = {
-    scalp: { tfs: ['1m','5m','15m','1h'], label: 'Scalp' },
+    scalp: { tfs: ['5m','15m','1h'], label: 'Scalp' },
     swing: { tfs: ['1h','4h','D'],        label: 'Swing' },
     long:  { tfs: ['D','W','M'],          label: 'Long'  },
   };
@@ -597,8 +602,24 @@ const CryptoRadarTab = (() => {
     });
 
     cards = _sortCards(cards);
-    gridEl.innerHTML = cards.length
-      ? cards.map(_cardHTML).join('')
+
+    // Paginate — USDT.D is always pinned first on page 1, outside the page slice
+    const usdtdCard = cards.find(c => c.sym === USDTD_ID);
+    const coinCards = cards.filter(c => c.sym !== USDTD_ID);
+    const totalPages = Math.max(1, Math.ceil(coinCards.length / PAGE_SIZE));
+    if (_page > totalPages) _page = totalPages;
+    const pageCoins = coinCards.slice((_page - 1) * PAGE_SIZE, _page * PAGE_SIZE);
+    const visibleCards = usdtdCard ? [usdtdCard, ...pageCoins] : pageCoins;
+
+    const pager = totalPages > 1 ? `
+      <div class="radar-pager">
+        <button class="radar-pager-btn" onclick="CryptoRadarTab._goPage(${_page - 1})" ${_page <= 1 ? 'disabled' : ''}>‹ Prev</button>
+        <span class="radar-pager-info">Page ${_page} of ${totalPages} · coins ${(_page-1)*PAGE_SIZE+1}–${Math.min(_page*PAGE_SIZE,coinCards.length)} of ${coinCards.length}</span>
+        <button class="radar-pager-btn" onclick="CryptoRadarTab._goPage(${_page + 1})" ${_page >= totalPages ? 'disabled' : ''}>Next ›</button>
+      </div>` : '';
+
+    gridEl.innerHTML = visibleCards.length
+      ? visibleCards.map(_cardHTML).join('') + pager
       : `<div class="radar-empty">No coins to show. ${_blockedSyms.length ? 'You removed them all — ' : ''}<a href="#" id="radarResetInline" onclick="CryptoRadarTab._resetBlocked();return false">reset removed</a>.</div>`;
   }
 
@@ -615,11 +636,11 @@ const CryptoRadarTab = (() => {
     <div class="radar-guide card" style="margin-top:24px">
       <div class="card-title">📡 How to read the Crypto Radar</div>
       <div class="radar-guide-grid">
-        <div><strong>Spoke = timeframe</strong><br>1min · 5min · 15min · 1hr · 4hr · Daily · Weekly · Monthly.</div>
+        <div><strong>Spoke = timeframe</strong><br>5min · 15min · 1hr · 4hr · Daily · Weekly · Monthly.</div>
         <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer = 100 (max overbought).</div>
         <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation area.</div>
         <div><strong style="color:var(--bad)">Red ring</strong><br>RSI ≥ 70 — overbought / caution on new longs.</div>
-        <div><strong>USDT.D card</strong><br>RSI from USDT market cap (CoinGecko proxy — directionally identical to true USDT.D). 5m/15m/1h/4h/D/W/M filled; 1m n/a. Rising = risk-off.</div>
+        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price (free-tier proxy — correct inverse correlation to BTC). 1h/4h/D/W filled; 5m/15m/M n/a. Rising = risk-off / stablecoin rotation.</div>
         <div><strong>Remove a coin</strong><br>Click ✕ on any card; use Sort to surface the most stretched.</div>
       </div>
       <div class="muted" style="font-size:11px;margin-top:10px">Monthly RSI may show <strong>?</strong> on the hosted dashboard — the server-side data feed has no monthly bars. It fills in when run locally.</div>
@@ -665,6 +686,7 @@ const CryptoRadarTab = (() => {
     root.querySelectorAll('.radar-sort-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         _sort = btn.dataset.sort;
+        _page = 1;
         localStorage.setItem(LS_SORT, _sort);
         root.querySelectorAll('.radar-sort-pill').forEach(b => b.classList.toggle('active', b.dataset.sort === _sort));
         _renderGrid();
@@ -676,6 +698,7 @@ const CryptoRadarTab = (() => {
     if (searchInput) {
       searchInput.addEventListener('input', () => {
         _search = searchInput.value;
+        _page = 1;
         _renderGrid();
       });
     }
@@ -717,5 +740,13 @@ const CryptoRadarTab = (() => {
     _updateResetLink();
   }
 
-  return { render, _removeSymbol, _blockSymbol, _resetBlocked };
+  function _goPage(n) {
+    const coinCards = _lastAllCoins.filter(c => !_blockedSyms.includes(c.sym));
+    const totalPages = Math.max(1, Math.ceil(coinCards.length / PAGE_SIZE));
+    _page = Math.max(1, Math.min(n, totalPages));
+    _renderGrid();
+    document.getElementById('radarGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage };
 })();
