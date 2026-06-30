@@ -12,7 +12,7 @@ const CryptoRadarTab = (() => {
   // 7 spokes — 1m removed (no reliable free-tier 1m source for any
   // venue that is reachable from Railway). Angles at 360/7 ≈ 51.4° each.
   const TFS       = ['5m', '15m', '1h', '4h', 'D', 'W', 'M'];
-  const TF_LABEL  = { '5m':'5min', '15m':'15min', '1h':'1hr', '4h':'4hr', D:'Daily', W:'Weekly', M:'Monthly' };
+  const TF_LABEL  = { '5m':'5m', '15m':'15m', '1h':'1h', '4h':'4h', D:'D', W:'W', M:'M' };
   const KLINE_LIMIT = 120;
   const KLINE_TTL   = 60_000;        // 60 s kline cache
   const CG_TTL      = 300_000;       // 5 min CoinGecko cache
@@ -374,7 +374,7 @@ const CryptoRadarTab = (() => {
   };
 
   /* ── SVG radar card ──────────────────────────────────────── */
-  function _radarSVG(rsiMap) {
+  function _radarSVG(rsiMap, sym) {
     const W = 168, CX = 84, CY = 84, R = 54;
     const cs = getComputedStyle(document.documentElement);
     const accent  = (cs.getPropertyValue('--accent')  || '#8b5cf6').trim();
@@ -389,11 +389,16 @@ const CryptoRadarTab = (() => {
       return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
     }
 
-    // Guide rings: green oversold core → neutral mid → red overbought ring
+    // Any spoke at RSI ≤ 10 → extreme oversold → yellow center warning
+    const hasExtreme = Object.values(rsiMap).some(v => v !== null && v !== undefined && v <= 10);
+
+    // Guide rings drawn largest → smallest so the green core always paints on top.
+    // Visual result: red outer band (RSI 70–100) → grey middle (30–70) → green core (0–30).
     const rings = [
-      { rsi: 30, col: 'rgba(52,211,153,0.18)' },
-      { rsi: 50, col: 'rgba(150,150,150,0.10)' },
-      { rsi: 70, col: 'rgba(248,113,113,0.16)' },
+      { rsi: 100, col: 'rgba(248,113,113,0.10)' },  // faint red edge (overbought boundary)
+      { rsi:  70, col: 'rgba(248,113,113,0.20)' },  // overbought zone
+      { rsi:  50, col: 'rgba(130,130,130,0.12)' },  // neutral mid
+      { rsi:  30, col: hasExtreme ? 'rgba(250,204,21,0.35)' : 'rgba(52,211,153,0.28)' },  // oversold core; yellow on extreme
     ];
 
     const p = [];
@@ -430,23 +435,28 @@ const CryptoRadarTab = (() => {
       p.push(`<line x1="${valid[0].pt[0].toFixed(1)}" y1="${valid[0].pt[1].toFixed(1)}" x2="${valid[1].pt[0].toFixed(1)}" y2="${valid[1].pt[1].toFixed(1)}" stroke="${accent}" stroke-width="1.4"/>`);
     }
 
-    // Dots
+    // Dots — yellow for extreme oversold (RSI ≤ 10), green for oversold (≤ 30), red for overbought (≥ 70)
     axes.forEach(ax => {
       const rsi = rsiMap[ax.tf];
       if (rsi === null || rsi === undefined) return;
       const [dx, dy] = pt(ax.angle, Math.max(3, (rsi / 100) * R));
-      const dotCol = rsi >= 70 ? '#f87171' : rsi <= 30 ? '#34d399' : accent;
+      const dotCol = rsi >= 70 ? '#f87171' : rsi <= 10 ? '#facc15' : rsi <= 30 ? '#34d399' : accent;
       p.push(`<circle cx="${dx.toFixed(1)}" cy="${dy.toFixed(1)}" r="3.2" fill="${dotCol}" stroke="${surface}" stroke-width="1.1"/>`);
     });
 
-    // Axis labels — anchor by horizontal position so long labels don't clip
+    // Axis labels — short (D/W/M/1h etc.); anchor by horizontal position
     axes.forEach(ax => {
       const rsi = rsiMap[ax.tf];
       const [lx, ly] = pt(ax.angle, R + 11);
       const anchor = lx < CX - 6 ? 'end' : lx > CX + 6 ? 'start' : 'middle';
       const naNote = (rsi === null || rsi === undefined) ? '?' : '';
-      p.push(`<text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="${anchor}" font-size="7.5" fill="${textCol}" font-family="monospace">${TF_LABEL[ax.tf]}${naNote}</text>`);
+      p.push(`<text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="${anchor}" font-size="8" fill="${textCol}" font-family="monospace">${TF_LABEL[ax.tf]}${naNote}</text>`);
     });
+
+    // Ticker symbol centered in the chart — subtle watermark giving each card identity
+    if (sym && sym !== USDTD_ID) {
+      p.push(`<text x="${CX}" y="${CY + 3.5}" text-anchor="middle" font-size="8" fill="${textCol}" font-family="monospace" font-weight="700" opacity="0.45">${sym}</text>`);
+    }
 
     p.push('</svg>');
     return p.join('');
@@ -561,7 +571,7 @@ const CryptoRadarTab = (() => {
     const isUsdtD = card.sym === USDTD_ID;
     const sym = isUsdtD ? 'USDT.D' : card.sym;
     const name = isUsdtD ? 'Tether Dom.' : (card.name || card.sym);
-    const radar = _radarSVG(card.rsiMap);
+    const radar = _radarSVG(card.rsiMap, card.sym);
     // Always show SVG for USDT.D (shows rings even before Pull Data scores it)
     const loaded = isUsdtD || Object.values(card.rsiMap).some(v => v !== null);
 
@@ -802,20 +812,64 @@ const CryptoRadarTab = (() => {
   }
 
   /* ── Guide HTML ──────────────────────────────────────────── */
-  const GUIDE_HTML = `
+  function _buildGuideHTML() {
+    // Mini example radars — canned RSI maps illustrating each pattern
+    const exScalpLong  = _radarSVG({'5m':22,'15m':24,'1h':27,'4h':44,D:50,W:52,M:55}, '_ex');
+    const exScalpShort = _radarSVG({'5m':76,'15m':78,'1h':73,'4h':58,D:52,W:49,M:47}, '_ex');
+    const exSwingLong  = _radarSVG({'5m':50,'15m':46,'1h':28,'4h':25,D:22,W:44,M:50}, '_ex');
+
+    return `
     <div class="radar-guide card" style="margin-top:24px">
       <div class="card-title">📡 How to read the Crypto Radar</div>
       <div class="radar-guide-grid">
-        <div><strong>Spoke = timeframe</strong><br>5min · 15min · 1hr · 4hr · Daily · Weekly · Monthly.</div>
-        <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer = 100 (max overbought).</div>
-        <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation area.</div>
-        <div><strong style="color:var(--bad)">Red ring</strong><br>RSI ≥ 70 — overbought / caution on new longs.</div>
-        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price. Source chip on the card: <strong style="color:var(--good)">live</strong> = real USDT.D via the server cache, <strong style="color:var(--warn)">cached</strong> = last-good (CoinGecko throttled), <strong style="color:var(--warn)">rebuilt</strong> = reconstructed from live coin klines if CoinGecko is down (direction sound, not exchange-confirmed). Rising = risk-off / stablecoin rotation.</div>
-        <div><strong>Auto 5m</strong><br>The radar auto-refreshes every 5 min while open (toggle in the bar). Note: RSI is read from <em>closed</em> candles and is deterministic — refreshing improves freshness of the current bar, not accuracy.</div>
-        <div><strong>Remove a coin</strong><br>Click ✕ on any card; use Sort to surface the most stretched.</div>
+        <div><strong>Spoke = timeframe</strong><br>5m · 15m · 1h · 4h · D · W · M (7 spokes, each = RSI of that timeframe).</div>
+        <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer edge = 100 (max overbought).</div>
+        <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation zone.</div>
+        <div><strong style="color:var(--bad)">Red outer ring</strong><br>RSI ≥ 70 — overbought / caution on new longs. Dots turn <strong style="color:#f87171">red</strong> at ≥70, <strong style="color:#facc15">yellow</strong> at ≤10 (extreme oversold — core turns yellow too).</div>
+        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price. Source chip: <strong style="color:var(--good)">live</strong> = real CoinGecko data, <strong style="color:var(--warn)">cached</strong> = last-good, <strong style="color:var(--warn)">rebuilt</strong> = reconstructed from live coin klines. Rising = risk-off rotation.</div>
+        <div><strong>Auto 5m</strong><br>Radar auto-refreshes every 5 min while open (toggle in bar). RSI is computed from <em>closed</em> candles — refresh improves freshness, not accuracy.</div>
       </div>
-      <div class="muted" style="font-size:11px;margin-top:10px">4h and Weekly spokes use hourly/daily subsampling — directionally accurate, not aligned to exchange candle boundaries (≤3h/6d drift).</div>
+
+      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:10px">Grade system — how the S / SW / L badges are scored</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-size:11px;line-height:1.5">
+          <span style="color:var(--good);font-weight:800">A</span><span>Avg RSI &lt;30 or &gt;70 AND timeframes agree (spread &lt;18) — high-conviction, full size</span>
+          <span style="color:#5eead4;font-weight:800">B</span><span>Avg RSI &lt;38 or &gt;62 — moderate lean, half size</span>
+          <span style="color:var(--muted);font-weight:800">C</span><span>Avg RSI &lt;45 or &gt;55 — mild lean, wait for extra confluence before entering</span>
+          <span style="color:var(--muted);font-weight:800">D</span><span>Avg RSI 45–55 — neutral, no edge, skip</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">
+          <strong>S</strong> = Scalp cluster (5m · 15m · 1h) &nbsp;·&nbsp;
+          <strong>SW</strong> = Swing cluster (1h · 4h · D) &nbsp;·&nbsp;
+          <strong>L</strong> = Long-term (D · W · M) &nbsp;·&nbsp;
+          ▲ Long = avg &lt;48 &nbsp;·&nbsp; ▼ Short = avg &gt;52
+        </div>
+      </div>
+
+      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:12px">Visual examples</div>
+        <div class="radar-guide-examples">
+          <div class="radar-guide-ex">
+            ${exScalpLong}
+            <div class="radar-ex-badge" style="color:var(--good)">S A ▲ Long</div>
+            <div class="radar-ex-label">Strong Scalp Long<br><span>5m·15m·1h deep in the green core, higher TFs neutral</span></div>
+          </div>
+          <div class="radar-guide-ex">
+            ${exScalpShort}
+            <div class="radar-ex-badge" style="color:var(--bad)">S A ▼ Short</div>
+            <div class="radar-ex-label">Strong Scalp Short<br><span>5m·15m·1h pushed into the red outer ring, higher TFs neutral</span></div>
+          </div>
+          <div class="radar-guide-ex">
+            ${exSwingLong}
+            <div class="radar-ex-badge" style="color:#5eead4">SW A ▲ Long</div>
+            <div class="radar-ex-label">Strong Swing Long<br><span>1h·4h·D deep in the green core, scalp TFs neutral</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:11px;margin-top:14px">4h and W spokes use hourly/daily subsampling — directionally accurate, ≤3h/6d boundary drift.</div>
     </div>`;
+  }
 
   /* ── Main render ─────────────────────────────────────────── */
   function render(mountId) {
@@ -854,7 +908,7 @@ const CryptoRadarTab = (() => {
       <div class="radar-grid" id="radarGrid">
         <div class="radar-empty">Click <strong>⟳ Pull Data</strong> to load the radar.</div>
       </div>
-      ${GUIDE_HTML}`;
+      ${_buildGuideHTML()}`;
 
     // Sort pills (exclude the Top-N pills, which share the .radar-sort-pill class
     // but carry data-n, not data-sort, and handle their own click via _setTopN)
