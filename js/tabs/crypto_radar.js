@@ -193,6 +193,20 @@ const CryptoRadarTab = (() => {
     return result;
   }
 
+  /* Quick fetch of live USDT.D % so the card shows immediately on render */
+  async function _fetchUsdtDQuick() {
+    try {
+      const r = await fetch('https://api.coingecko.com/api/v3/global',
+        { signal: AbortSignal.timeout(8000) });
+      if (!r.ok) return;
+      const dom = (await r.json())?.data?.market_cap_percentage?.usdt ?? null;
+      if (dom === null) return;
+      if (!_usdtdCache) _usdtdCache = { ts: 0, closes_d: [], closes_w: [], closes_m: [], dom };
+      else _usdtdCache.dom = dom;
+      _renderGrid();
+    } catch (_) {}
+  }
+
   async function _scoreUsdtD() {
     const d = await _fetchUsdtD();
     if (!d) return { '4h': null, D: null, W: null, M: null };
@@ -236,7 +250,7 @@ const CryptoRadarTab = (() => {
 
     const p = [];
     p.push(`<svg width="${W}" height="${W}" viewBox="0 0 ${W} ${W}" xmlns="http://www.w3.org/2000/svg">`);
-    p.push(`<rect width="${W}" height="${W}" fill="${surface}" rx="10"/>`);
+    p.push(`<rect width="${W}" height="${W}" fill="transparent" rx="10"/>`);
 
     rings.forEach(ring => {
       const rr = (ring.rsi / 100) * R;
@@ -344,7 +358,8 @@ const CryptoRadarTab = (() => {
     const sym = isUsdtD ? 'USDT.D' : card.sym;
     const name = isUsdtD ? 'Tether Dom.' : (card.name || card.sym);
     const radar = _radarSVG(card.rsiMap);
-    const loaded = Object.values(card.rsiMap).some(v => v !== null);
+    // Always show SVG for USDT.D (shows rings even before Pull Data scores it)
+    const loaded = isUsdtD || Object.values(card.rsiMap).some(v => v !== null);
 
     // ✕ removes ANY ticker: custom additions drop from the watchlist,
     // default top-N coins go to the persisted blocklist.
@@ -483,10 +498,11 @@ const CryptoRadarTab = (() => {
 
     let cards = [];
 
-    // USDT.D card (always first when scored)
+    // USDT.D card — always first, shown as soon as dom % is fetched (even before Pull Data)
     const usdtdRsi = _scores.get(USDTD_ID);
-    if (usdtdRsi) {
-      cards.push({ sym: USDTD_ID, name: 'Tether Dominance', rank: 0, dom: _usdtdCache?.dom ?? null, rsiMap: usdtdRsi });
+    const usdtdDom = _usdtdCache?.dom ?? null;
+    if (usdtdRsi || usdtdDom !== null) {
+      cards.push({ sym: USDTD_ID, name: 'Tether Dominance', rank: 0, dom: usdtdDom, rsiMap: usdtdRsi || {} });
     }
 
     coins.forEach(c => {
@@ -611,8 +627,9 @@ const CryptoRadarTab = (() => {
       statusEl.textContent = `${raw} added — Pull Data to score it.`;
     });
 
-    // If we already have scores, render immediately
+    // If we already have scores, render immediately; always kick off USDT.D quick-fetch
     if (_scores.size > 0) _renderGrid();
+    _fetchUsdtDQuick();
     _updateResetLink();
   }
 
