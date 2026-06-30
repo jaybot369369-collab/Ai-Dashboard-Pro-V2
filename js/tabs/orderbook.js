@@ -112,6 +112,10 @@ const OrderBookTab = (() => {
   let _cgState  = 'idle';
   let _cg       = {};
 
+  // L2 regime strip (reads l2-1 regime_view rows from fund.db via API)
+  let _regimeData  = {};   // { BTC: {score, bias, ts}, ... }
+  let _regimeTimer = null;
+
   /* ── DOM guard ────────────────────────────────────────── */
   function _alive() { return !!document.getElementById('ob-root'); }
 
@@ -214,6 +218,45 @@ const OrderBookTab = (() => {
   function _fundBase() {
     return ['localhost', '127.0.0.1'].includes(location.hostname)
       ? 'http://127.0.0.1:8767' : location.origin;
+  }
+
+  /* ── L2 Regime Strip ───────────────────────────────────────
+     Fetches the most recent regime_view per asset from l2-1
+     (falls back to micro-1) and renders a 5-symbol score bar.
+  ──────────────────────────────────────────────────────────── */
+  async function _fetchRegime() {
+    try {
+      const url = `${_fundBase()}/api/messages?type=regime_view&limit=50`;
+      const r = await fetch(url, { cache: 'no-store', signal: _sig(8000) });
+      if (!r.ok) return;
+      const rows = await r.json().catch(() => []);
+      const latest = {};
+      for (const row of rows) {
+        const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : (row.payload || {});
+        const asset = p.asset;
+        const src   = row.source;
+        if (!asset || !SYMBOLS.includes(asset)) continue;
+        if (!latest[asset] || src === 'l2-1') latest[asset] = { score: p.score, bias: p.direction_bias, source: src, ts: row.ts };
+      }
+      _regimeData = latest;
+      _paintRegime();
+    } catch(_) {}
+  }
+
+  function _paintRegime() {
+    const el = document.getElementById('ob-regime-strip');
+    if (!el) return;
+    if (!Object.keys(_regimeData).length) { el.innerHTML = '<span style="color:var(--muted);font-size:12px">L2 signal — awaiting first l2-1 cycle (5 min)…</span>'; return; }
+    el.innerHTML = SYMBOLS.map(s => {
+      const d = _regimeData[s];
+      if (!d) return `<span class="ob-reg-chip ob-reg-neut">${s} <span class="ob-reg-score">—</span></span>`;
+      const score = Math.round(d.score || 50);
+      const bias  = (d.bias || 'neutral').toLowerCase();
+      const cls   = bias === 'bull' ? 'ob-reg-bull' : bias === 'bear' ? 'ob-reg-bear' : 'ob-reg-neut';
+      const icon  = bias === 'bull' ? '🟢' : bias === 'bear' ? '🔴' : '⚪';
+      const src   = d.source === 'l2-1' ? '' : ' <span style="font-size:10px;opacity:.5">lw</span>';
+      return `<span class="ob-reg-chip ${cls}">${icon} ${s} <span class="ob-reg-score">${score}</span> <span class="ob-reg-bias">${bias.toUpperCase()}</span>${src}</span>`;
+    }).join('');
   }
   async function _cgFetch(resource, params = {}) {
     const qs = new URLSearchParams(params).toString();
@@ -806,6 +849,12 @@ const OrderBookTab = (() => {
       <div id="ob-root" class="ob-wrap">
         ${_headHTML()}
 
+        <!-- L2 REGIME SIGNAL STRIP — bot's current reading per asset -->
+        <div class="ob-regime-bar">
+          <span class="ob-regime-label">🤖 Bot signal</span>
+          <div id="ob-regime-strip" class="ob-regime-chips"><span style="color:var(--muted);font-size:12px">Loading…</span></div>
+        </div>
+
         <!-- 1. LIQUIDATION HEATMAP — full width -->
         <div class="ob-card">
           <div class="ob-card-h">
@@ -880,13 +929,15 @@ const OrderBookTab = (() => {
     _histTimer    = setInterval(() => { _loadFunding(); _loadOIData(); }, 600000);  // refresh history every 10 min
     _paintTimer   = setInterval(_paintAll,    PAINT_MS);
     _cgTimer      = setInterval(_cgPoll,      60000);
+    _fetchRegime();
+    _regimeTimer  = setInterval(_fetchRegime, 120000);  // refresh every 2 min
   }
   function _cleanup() {
     if (_ws) { try { _ws.onclose = null; _ws.close(); } catch(_) {} _ws = null; }
-    [_paintTimer, _fundingTimer, _snapTimer, _histTimer, _reconTimer, _cgTimer].forEach(t => {
+    [_paintTimer, _fundingTimer, _snapTimer, _histTimer, _reconTimer, _cgTimer, _regimeTimer].forEach(t => {
       if (t != null) { clearInterval(t); clearTimeout(t); }
     });
-    _paintTimer = _fundingTimer = _snapTimer = _histTimer = _reconTimer = _cgTimer = null;
+    _paintTimer = _fundingTimer = _snapTimer = _histTimer = _reconTimer = _cgTimer = _regimeTimer = null;
   }
   function _resetState() {
     _cvdBuckets = []; _wallTracker = new Map(); _lastSnapMid = null; _depthLevels = null;
@@ -897,6 +948,7 @@ const OrderBookTab = (() => {
     _cvdBucketMs = cc.ms; _cvdMax = cc.count;
     _status = 'idle'; _lastMsg = 0; _reconDelay = 1000;
     _cgNoKey = false; _cgState = 'idle'; _cg = {};
+    _regimeData = {};
   }
 
   // Per-panel window pill row (7D / 30D / 60D / 90D)
