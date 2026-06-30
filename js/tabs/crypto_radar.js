@@ -123,32 +123,38 @@ const CryptoRadarTab = (() => {
   }
 
   /* ── USDT.D history — dominance proxy via BTC-normalised USDT mcap ── */
-  /* global/market_cap_chart is Pro-only on CoinGecko; and raw USDT mcap
-     trends monotonically upward (RSI always ~65) giving wrong signals.
-     Fix: divide USDT mcap by BTC price (already cached from regular pull).
-     USDT_mcap / BTC_price rises when people flee to stablecoins (risk-off)
-     and falls when they deploy capital (risk-on) — correct inverse correlation,
-     zero extra API calls. Covers 1h / 4h / D / W; 5m/15m/M left null. */
+  /* global/market_cap_chart is Pro-only on CoinGecko; raw USDT mcap trends
+     monotonically upward (RSI always ~65) giving wrong direction signals.
+     Fix: divide USDT mcap by BTC price (already cached from the regular pull).
+     USDT_mcap/BTC_price rises when risk-off (BTC drops, stablecoin inflows)
+     and falls when risk-on (BTC rallies) — correct inverse correlation.
+     3 CoinGecko calls: days=1 (5m), days=14 (1h), days=max (D/W/M). */
   async function _fetchUsdtD() {
     if (_usdtdCache && _usdtdCache.closes_1h && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
     try {
-      // Only 2 CoinGecko calls: hourly (14d) + daily (365d) USDT market cap
-      const [r1h, rDy] = await Promise.all([
+      const [r5m, r1h, rDy] = await Promise.all([
+        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
+          { signal: AbortSignal.timeout(12000) }),
         fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
           { signal: AbortSignal.timeout(12000) }),
-        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=365&interval=daily',
+        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=max&interval=daily',
           { signal: AbortSignal.timeout(12000) }),
       ]);
-      if (!r1h.ok || !rDy.ok) return null;
-      const [j1h, jDy] = await Promise.all([r1h.json(), rDy.json()]);
+      if (!r5m.ok || !r1h.ok || !rDy.ok) return null;
+      const [j5m, j1h, jDy] = await Promise.all([r5m.json(), r1h.json(), rDy.json()]);
 
+      // CoinGecko free-tier granularity: days=1 → 5m bars; days=14 → 1h bars;
+      // days=max&interval=daily → daily bars since ~2015 (3 000+ bars for USDT).
+      const usdtFm = (j5m.market_caps || []).map(x => x[1]);
       const usdtH  = (j1h.market_caps || []).map(x => x[1]);
       const usdtDy = (jDy.market_caps || []).map(x => x[1]);
       if (usdtDy.length < 20) return null;
 
       // Normalise by BTC price from the kline cache (populated during regular coin pull).
-      // RSI is scale-invariant under multiplication, so dividing by BTC price just
-      // adds the correct inverse relationship without changing the RSI algorithm.
+      // RSI is scale-invariant under positive scaling, so dividing by BTC price
+      // adds the correct inverse relationship without changing the RSI math.
+      // Note: arrays are zipped by recency (last N bars from both), not by exact
+      // timestamp — off-by-minutes precision, but direction is preserved.
       const normByBtc = (usdtArr, cacheKey) => {
         const entry = _kCache.get(cacheKey);
         if (!entry || !entry.klines || entry.klines.length < 15) return usdtArr;
@@ -159,10 +165,16 @@ const CryptoRadarTab = (() => {
         return u.map((v, i) => b[i] > 0 ? v / b[i] : v);
       };
 
+      const closes5m  = normByBtc(usdtFm, 'BTC-5m');
       const closes1h  = normByBtc(usdtH,  'BTC-1h');
       const closesDay = normByBtc(usdtDy, 'BTC-D');
+
+      // Sub-sampling: approximate candle boundaries (directionally correct;
+      // may be misaligned vs exchange 4h/W candle UTC boundaries by ≤3h/6d).
+      const closes15m = closes5m.filter((_, i) => i % 3 === 0);
       const closes4h  = closes1h.filter((_, i) => i % 4 === 0);
       const closesW   = closesDay.filter((_, i) => i % 7 === 0);
+      const closesM   = closesDay.filter((_, i) => i % 30 === 0);
 
       let dom = _usdtdCache?.dom ?? null;
       try {
@@ -172,12 +184,13 @@ const CryptoRadarTab = (() => {
 
       _usdtdCache = {
         ts: Date.now(), dom,
-        closes_5m: null, closes_15m: null,
+        closes_5m:  closes5m,
+        closes_15m: closes15m,
         closes_1h:  closes1h,
         closes_4h:  closes4h,
         closes_d:   closesDay,
         closes_w:   closesW,
-        closes_m:   null,
+        closes_m:   closesM,
       };
       return _usdtdCache;
     } catch (_) { return null; }
@@ -256,14 +269,13 @@ const CryptoRadarTab = (() => {
       return v === null ? null : Math.round(v * 10) / 10;
     };
     return {
-      '1m':  null,    // no sub-hourly feed for dominance
-      '5m':  null,
-      '15m': null,
+      '5m':  rsi14(d.closes_5m),
+      '15m': rsi14(d.closes_15m),
       '1h':  rsi14(d.closes_1h),
       '4h':  rsi14(d.closes_4h),
       D:     rsi14(d.closes_d),
       W:     rsi14(d.closes_w),
-      M:     null,    // no monthly without Pro-tier total mcap
+      M:     rsi14(d.closes_m),
     };
   }
 
@@ -640,7 +652,7 @@ const CryptoRadarTab = (() => {
         <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer = 100 (max overbought).</div>
         <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation area.</div>
         <div><strong style="color:var(--bad)">Red ring</strong><br>RSI ≥ 70 — overbought / caution on new longs.</div>
-        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price (free-tier proxy — correct inverse correlation to BTC). 1h/4h/D/W filled; 5m/15m/M n/a. Rising = risk-off / stablecoin rotation.</div>
+        <div><strong>USDT.D card</strong><br>RSI from USDT mcap ÷ BTC price (free-tier proxy). Direction is correct — rising = risk-off / stablecoin rotation. 4h and W use hourly/daily subsampling, not exchange-candle-aligned. All 7 spokes filled after Pull Data.</div>
         <div><strong>Remove a coin</strong><br>Click ✕ on any card; use Sort to surface the most stretched.</div>
       </div>
       <div class="muted" style="font-size:11px;margin-top:10px">Monthly RSI may show <strong>?</strong> on the hosted dashboard — the server-side data feed has no monthly bars. It fills in when run locally.</div>
