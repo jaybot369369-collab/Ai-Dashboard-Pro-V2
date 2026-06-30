@@ -452,10 +452,6 @@ const CryptoRadarTab = (() => {
       p.push(`<text x="${lx.toFixed(1)}" y="${(ly + 3).toFixed(1)}" text-anchor="${anchor}" font-size="8" fill="${textCol}" font-family="monospace">${TF_LABEL[ax.tf]}${naNote}</text>`);
     });
 
-    // Ticker symbol centered in the chart — subtle watermark giving each card identity
-    if (sym && sym !== USDTD_ID) {
-      p.push(`<text x="${CX}" y="${CY + 3.5}" text-anchor="middle" font-size="8" fill="${textCol}" font-family="monospace" font-weight="700" opacity="0.45">${sym}</text>`);
-    }
 
     p.push('</svg>');
     return p.join('');
@@ -843,22 +839,22 @@ const CryptoRadarTab = (() => {
           <div class="radar-guide-ex">
             ${exScalpLong}
             <div class="radar-ex-badge" style="color:var(--good)">S A ▲ Long</div>
-            <div class="radar-ex-label">Scalp Long<br><span>5m·15m·1h in green core</span></div>
+            <div class="radar-ex-label">Scalp Long<br><span>5m·15m·1h in green core</span><br><span>Entry: 5m–15m · Hold: 1–4h</span></div>
           </div>
           <div class="radar-guide-ex">
             ${exScalpShort}
             <div class="radar-ex-badge" style="color:var(--bad)">S A ▼ Short</div>
-            <div class="radar-ex-label">Scalp Short<br><span>5m·15m·1h in red ring</span></div>
+            <div class="radar-ex-label">Scalp Short<br><span>5m·15m·1h in red ring</span><br><span>Entry: 5m–15m · Hold: 1–4h</span></div>
           </div>
           <div class="radar-guide-ex">
             ${exSwingLong}
             <div class="radar-ex-badge" style="color:#5eead4">SW A ▲ Long</div>
-            <div class="radar-ex-label">Swing Long<br><span>1h·4h·D in green core</span></div>
+            <div class="radar-ex-label">Swing Long<br><span>1h·4h·D in green core</span><br><span>Entry: 1h–4h · Hold: 1–5D</span></div>
           </div>
           <div class="radar-guide-ex">
             ${exSwingShort}
             <div class="radar-ex-badge" style="color:var(--bad)">SW A ▼ Short</div>
-            <div class="radar-ex-label">Swing Short<br><span>1h·4h·D in red ring</span></div>
+            <div class="radar-ex-label">Swing Short<br><span>1h·4h·D in red ring</span><br><span>Entry: 1h–4h · Hold: 1–5D</span></div>
           </div>
         </div>
       </div>
