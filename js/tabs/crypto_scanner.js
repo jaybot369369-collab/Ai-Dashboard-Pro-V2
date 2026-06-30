@@ -49,6 +49,8 @@ const CryptoScannerTab = (() => {
   }
 
   function render() {
+    _sub = 'radar';
+    localStorage.setItem(LS_SUB, _sub);
     const content = document.getElementById('content');
     if (!content) return;
     content.innerHTML = `
