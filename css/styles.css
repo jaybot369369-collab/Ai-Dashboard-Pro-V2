@@ -7301,6 +7301,21 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .radar-chg { white-space:nowrap; }
 .radar-chg-lbl { color:var(--muted); }
 
+/* ── Trade-type score badges ─────────────────────────────── */
+.radar-scores {
+  display:flex; gap:6px; padding:6px 0 4px;
+  border-top:1px solid var(--border);
+}
+.radar-score-badge {
+  display:flex; align-items:center; gap:3px;
+  border:1px solid; border-radius:6px;
+  padding:2px 7px; font-size:10px; line-height:1.4;
+  background:transparent; flex:1; justify-content:center;
+}
+.rsc-label { font-weight:700; opacity:0.7; }
+.rsc-grade { font-weight:800; font-size:12px; margin:0 2px; }
+.rsc-dir   { font-size:9px; opacity:0.85; white-space:nowrap; }
+
 .radar-guide { padding:16px 20px; }
 .radar-guide-grid {
   display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));

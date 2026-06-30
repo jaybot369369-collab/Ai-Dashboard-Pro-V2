@@ -123,27 +123,47 @@ const CryptoRadarTab = (() => {
   }
 
   /* ── USDT.D history via CoinGecko tether market_chart + live dominance ── */
+  /* RSI is computed on USDT market_cap series — a direct proxy for USDT.D;
+     when Tether mcap rises vs total crypto, dominance rises, so RSI direction is identical. */
   async function _fetchUsdtD() {
-    if (_usdtdCache && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
+    // Require closes_1h to be present (quick-fetch only sets dom, not kline arrays)
+    if (_usdtdCache && _usdtdCache.closes_1h && Date.now() - _usdtdCache.ts < CG_TTL) return _usdtdCache;
     try {
-      const r = await fetch(
-        'https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=365&interval=daily',
-        { signal: AbortSignal.timeout(10000) }
-      );
-      if (!r.ok) return null;
-      const j = await r.json();
-      const daily = (j.market_caps || []).map(x => x[1]);
-      if (daily.length < 20) return null;
-      // resample weekly (every 7 days) and monthly (every 30 days)
-      const weekly  = daily.filter((_, i) => i % 7 === 0);
-      const monthly = daily.filter((_, i) => i % 30 === 0);
-      // Current dominance % from /global (best-effort, non-fatal)
-      let dom = null;
+      // Three parallel fetches: 5-min (last 24h), hourly (last 14d), daily (last 365d)
+      const [r5m, r1h, r1d] = await Promise.all([
+        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=1',
+          { signal: AbortSignal.timeout(10000) }),
+        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=14',
+          { signal: AbortSignal.timeout(10000) }),
+        fetch('https://api.coingecko.com/api/v3/coins/tether/market_chart?vs_currency=usd&days=365&interval=daily',
+          { signal: AbortSignal.timeout(10000) }),
+      ]);
+      if (!r5m.ok || !r1h.ok || !r1d.ok) return null;
+      const [j5m, j1h, j1d] = await Promise.all([r5m.json(), r1h.json(), r1d.json()]);
+
+      const closes5m  = (j5m.market_caps  || []).map(x => x[1]);
+      const closes1h  = (j1h.market_caps  || []).map(x => x[1]);
+      const closesDay = (j1d.market_caps  || []).map(x => x[1]);
+      if (closesDay.length < 20) return null;
+
+      const closes15m = closes5m.filter((_, i) => i % 3 === 0);
+      const closes4h  = closes1h.filter((_, i) => i % 4 === 0);
+      const closesW   = closesDay.filter((_, i) => i % 7 === 0);
+      const closesM   = closesDay.filter((_, i) => i % 30 === 0);
+
+      // Current dominance % from /global (best-effort, preserve existing if call fails)
+      let dom = _usdtdCache?.dom ?? null;
       try {
         const g = await fetch('https://api.coingecko.com/api/v3/global', { signal: AbortSignal.timeout(8000) });
-        if (g.ok) dom = (await g.json())?.data?.market_cap_percentage?.usdt ?? null;
+        if (g.ok) dom = (await g.json())?.data?.market_cap_percentage?.usdt ?? dom;
       } catch (_) {}
-      _usdtdCache = { ts: Date.now(), closes_d: daily, closes_w: weekly, closes_m: monthly, dom };
+
+      _usdtdCache = {
+        ts: Date.now(), dom,
+        closes_5m: closes5m, closes_15m: closes15m,
+        closes_1h: closes1h, closes_4h: closes4h,
+        closes_d: closesDay, closes_w: closesW, closes_m: closesM,
+      };
       return _usdtdCache;
     } catch (_) { return null; }
   }
@@ -201,7 +221,7 @@ const CryptoRadarTab = (() => {
       if (!r.ok) return;
       const dom = (await r.json())?.data?.market_cap_percentage?.usdt ?? null;
       if (dom === null) return;
-      if (!_usdtdCache) _usdtdCache = { ts: 0, closes_d: [], closes_w: [], closes_m: [], dom };
+      if (!_usdtdCache) _usdtdCache = { ts: 0, dom };
       else _usdtdCache.dom = dom;
       _renderGrid();
     } catch (_) {}
@@ -209,12 +229,21 @@ const CryptoRadarTab = (() => {
 
   async function _scoreUsdtD() {
     const d = await _fetchUsdtD();
-    if (!d) return { '4h': null, D: null, W: null, M: null };
+    if (!d) return {};
+    const rsi14 = arr => {
+      if (!arr || arr.length < 15) return null;
+      const v = ICTDetect.rsi(arr, 14);
+      return v === null ? null : Math.round(v * 10) / 10;
+    };
     return {
-      '4h': null,  // no free intraday dominance feed
-      D:  ICTDetect.rsi(d.closes_d, 14) !== null ? Math.round(ICTDetect.rsi(d.closes_d, 14) * 10) / 10 : null,
-      W:  ICTDetect.rsi(d.closes_w, 14) !== null ? Math.round(ICTDetect.rsi(d.closes_w, 14) * 10) / 10 : null,
-      M:  d.closes_m.length >= 5 ? Math.round(ICTDetect.rsi(d.closes_m, Math.min(14, d.closes_m.length - 1)) * 10) / 10 : null,
+      '1m':  null,               // no 1m feed for dominance
+      '5m':  rsi14(d.closes_5m),
+      '15m': rsi14(d.closes_15m),
+      '1h':  rsi14(d.closes_1h),
+      '4h':  rsi14(d.closes_4h),
+      D:     rsi14(d.closes_d),
+      W:     rsi14(d.closes_w),
+      M:     rsi14(d.closes_m),
     };
   }
 
@@ -352,6 +381,45 @@ const CryptoRadarTab = (() => {
     });
   }
 
+  /* ── Trade-type score badges ────────────────────────────── */
+  // Three overlapping TF clusters → one grade + direction each.
+  // Grade: A = strong (avg RSI <35 or >65 AND TFs agree), B = moderate, C = mixed/neutral.
+  // Direction: LONG (avg <50), SHORT (avg >50), — (avg 48-52).
+  const SCORE_CLUSTERS = {
+    scalp: { tfs: ['1m','5m','15m','1h'], label: 'Scalp' },
+    swing: { tfs: ['1h','4h','D'],        label: 'Swing' },
+    long:  { tfs: ['D','W','M'],          label: 'Long'  },
+  };
+
+  function _tradeScores(rsiMap) {
+    return Object.entries(SCORE_CLUSTERS).map(([key, { tfs, label }]) => {
+      const vals = tfs.map(tf => rsiMap[tf]).filter(v => v !== null && v !== undefined);
+      if (vals.length === 0) return { label, grade: '?', dir: '—', col: 'var(--muted)' };
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const spread = Math.max(...vals) - Math.min(...vals);
+      const strong = spread < 18;  // TFs in rough agreement
+      let grade, col;
+      if      (avg < 30 && strong) { grade = 'A'; col = 'var(--good)'; }
+      else if (avg < 38)           { grade = 'B'; col = '#5eead4'; }
+      else if (avg > 70 && strong) { grade = 'A'; col = 'var(--bad)'; }
+      else if (avg > 62)           { grade = 'B'; col = '#f97316'; }
+      else if (avg < 45)           { grade = 'C'; col = 'var(--muted)'; }
+      else if (avg > 55)           { grade = 'C'; col = 'var(--muted)'; }
+      else                         { grade = 'D'; col = 'var(--muted)'; }
+      const dir = avg < 48 ? '▲ Long' : avg > 52 ? '▼ Short' : '—';
+      return { label, grade, dir, col };
+    });
+  }
+
+  function _scoreBadges(rsiMap) {
+    const scores = _tradeScores(rsiMap);
+    return `<div class="radar-scores">${scores.map(s =>
+      `<span class="radar-score-badge" style="border-color:${s.col};color:${s.col}" title="${s.label}">
+        <span class="rsc-label">${s.label[0]}</span><span class="rsc-grade">${s.grade}</span><span class="rsc-dir">${s.dir}</span>
+      </span>`
+    ).join('')}</div>`;
+  }
+
   /* ── Card HTML ───────────────────────────────────────────── */
   function _cardHTML(card) {
     const isUsdtD = card.sym === USDTD_ID;
@@ -389,6 +457,7 @@ const CryptoRadarTab = (() => {
       <div class="radar-svg-wrap">
         ${loaded ? radar : `<div class="radar-empty-svg">No data</div>`}
       </div>
+      ${loaded ? _scoreBadges(card.rsiMap) : ''}
       ${footer}
     </div>`;
   }
@@ -535,7 +604,7 @@ const CryptoRadarTab = (() => {
         <div><strong>Dot position = RSI</strong><br>Center = 0 (max oversold) · outer = 100 (max overbought).</div>
         <div><strong style="color:var(--good)">Green core</strong><br>RSI ≤ 30 — oversold / potential accumulation area.</div>
         <div><strong style="color:var(--bad)">Red ring</strong><br>RSI ≥ 70 — overbought / caution on new longs.</div>
-        <div><strong>USDT.D card</strong><br>Tether dominance — rising = risk-off. Intraday spokes n/a (no free feed).</div>
+        <div><strong>USDT.D card</strong><br>RSI from USDT market cap (CoinGecko proxy — directionally identical to true USDT.D). 5m/15m/1h/4h/D/W/M filled; 1m n/a. Rising = risk-off.</div>
         <div><strong>Remove a coin</strong><br>Click ✕ on any card; use Sort to surface the most stretched.</div>
       </div>
       <div class="muted" style="font-size:11px;margin-top:10px">Monthly RSI may show <strong>?</strong> on the hosted dashboard — the server-side data feed has no monthly bars. It fills in when run locally.</div>
