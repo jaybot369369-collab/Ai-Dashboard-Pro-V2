@@ -402,7 +402,6 @@ const CoachTab = (() => {
       const a = angleFor(i);
       return [cx + Math.cos(a) * R * frac, cy + Math.sin(a) * R * frac];
     };
-    const outerPts = _GFS_ORDER.map((_, i) => pt(i, 1).join(',')).join(' ');
     const grid = [0.25, 0.5, 0.75, 1].map(frac => {
       const pts = _GFS_ORDER.map((_, i) => pt(i, frac).join(',')).join(' ');
       return `<polygon class="gfs-grid" points="${pts}" />`;
@@ -426,14 +425,6 @@ const CoachTab = (() => {
     }).join('');
     return `
       <svg class="gfs-radar-svg" viewBox="0 0 700 480" width="100%" height="480" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <radialGradient id="gfsHeatGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ef4444" />
-            <stop offset="100%" stop-color="#22c55e" />
-          </radialGradient>
-          <clipPath id="gfsHeatClip"><polygon points="${outerPts}" /></clipPath>
-        </defs>
-        <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#gfsHeatGrad)" fill-opacity="0.5" clip-path="url(#gfsHeatClip)" />
         ${grid}${spokes}
         <polygon class="gfs-fill" points="${fillPts}" />
         ${dots}
@@ -442,7 +433,9 @@ const CoachTab = (() => {
   }
 
   function _scoreCard() {
-    const gfs = DB.getFreeScore(DB.getTrades());
+    // Scoped to manually-logged ('new') trades only — same scoping as _adherenceCard()
+    // above — so imported Notion/Binance history doesn't dilute your real trade log.
+    const gfs = DB.getFreeScore(DB.filterByMode(DB.getTrades(), 'new'));
     if (!gfs.ready) {
       const pct = Math.min(100, (gfs.closedCount / gfs.minTrades) * 100);
       return `
@@ -492,10 +485,12 @@ const CoachTab = (() => {
           </div>
         </div>
         <div class="text-xs text-dim" style="margin-top:14px;line-height:1.6">
-          ℹ️ Profit Factor, Avg Win/Loss, Trade Win %, and Recovery Factor thresholds follow TradeZella's
-          published Zella Score methodology. Consistency's scaling and Recovery Factor's interior curve
-          are our own reasonable choice (not published by TradeZella). Discipline (rule adherence +
-          grading + tagging) has no TradeZella equivalent — it's this dashboard's own metric.
+          ℹ️ Calculated from your ${gfs.closedCount} manually-logged closed trades only — imported
+          Notion/Binance history is excluded so it can't dilute the numbers. Profit Factor, Avg
+          Win/Loss, Trade Win %, and Recovery Factor thresholds follow TradeZella's published Zella
+          Score methodology. Consistency's scaling and Recovery Factor's interior curve are our own
+          reasonable choice (not published by TradeZella). Discipline (rule adherence + grading +
+          tagging) has no TradeZella equivalent — it's this dashboard's own metric.
           ${notes.length ? `<br>${notes.join(' · ')}.` : ''}
         </div>
       </div>`;
