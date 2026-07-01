@@ -1026,11 +1026,12 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
   let _activeSubTab = 'alerts';
 
   const _SUB_TABS = [
-    { id: 'alerts',    label: '🚨 Alerts',         needsKey: false },
-    { id: 'grading',   label: '📊 Grade Insights', needsKey: false },
-    { id: 'catalogue', label: '📖 Setup Catalogue', needsKey: false },
-    { id: 'review',    label: '📅 Weekly Review',  needsKey: true  },
-    { id: 'settings',  label: '⚙️ Settings',        needsKey: false },
+    { id: 'alerts',       label: '🚨 Alerts',          needsKey: false },
+    { id: 'grading',      label: '📊 Grade Insights',  needsKey: false },
+    { id: 'catalogue',    label: '📖 Setup Catalogue', needsKey: false },
+    { id: 'getfreescore', label: '🏆 Get Free Score',  needsKey: false },
+    { id: 'review',       label: '📅 Weekly Review',   needsKey: true  },
+    { id: 'settings',     label: '⚙️ Settings',         needsKey: false },
   ];
 
   /* ── Dismissed insight titles (session-only) ─────────── */
@@ -1283,6 +1284,12 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
         wrap.innerHTML = '<div id="aicCatalogue"></div>';
         try { if (typeof CoachTab !== 'undefined') CoachTab._renderCatalogue(document.getElementById('aicCatalogue')); }
         catch (e) { document.getElementById('aicCatalogue').innerHTML = `<div class="text-dim">Catalogue unavailable: ${e.message}</div>`; }
+        break;
+
+      case 'getfreescore':
+        wrap.innerHTML = '<div id="aicScore"></div>';
+        try { if (typeof CoachTab !== 'undefined') CoachTab._renderScore(document.getElementById('aicScore')); }
+        catch (e) { document.getElementById('aicScore').innerHTML = `<div class="text-dim">Score unavailable: ${e.message}</div>`; }
         break;
 
       case 'review':

@@ -345,6 +345,127 @@ const CoachTab = (() => {
       </div>`;
   }
 
+  /* ── Get Free Score — composite 0-100 score, TradeZella Zella-Score-style
+     radar chart layout (verified against their own help-center screenshot,
+     2026-07-01), 7 axes: 6 financial metrics + 1 Discipline metric unique
+     to this dashboard. ─────────────────────────────────────────────── */
+  const _GFS_LABELS = {
+    pf:           { label: 'Profit Factor',    fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
+    maxDrawdown:  { label: 'Max Drawdown',     fmt: v => v.toFixed(1) + '%' },
+    winLossRatio: { label: 'Avg Win/Loss',     fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
+    winRate:      { label: 'Win Rate',         fmt: v => v.toFixed(1) + '%' },
+    recovery:     { label: 'Recovery Factor',  fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
+    consistency:  { label: 'Consistency',      fmt: v => v === null ? '—' : v.toFixed(2) },
+    discipline:   { label: '🧠 Discipline',    fmt: v => Math.round(v.score) + '/100' },
+  };
+  const _GFS_ORDER = ['pf', 'maxDrawdown', 'winLossRatio', 'winRate', 'recovery', 'consistency', 'discipline'];
+
+  function _gfsColor(sub) {
+    return sub >= 80 ? 'var(--green)' : sub >= 60 ? '#84cc16' : sub >= 40 ? 'var(--gold, #eab308)' : sub >= 20 ? '#f59e0b' : 'var(--red)';
+  }
+
+  /* Flat 2D radar/spider chart — N axes evenly spaced, filled polygon, vertex dots,
+     concentric gridlines. Matches TradeZella's own Zella Score layout (6 axes there,
+     7 here) rather than a circular gauge. */
+  function _radarSVG(components) {
+    const n = _GFS_ORDER.length;
+    const cx = 160, cy = 150, R = 108;
+    const angleFor = i => (Math.PI * 2 * i / n) - Math.PI / 2;
+    const pt = (i, frac) => {
+      const a = angleFor(i);
+      return [cx + Math.cos(a) * R * frac, cy + Math.sin(a) * R * frac];
+    };
+    const grid = [0.25, 0.5, 0.75, 1].map(frac => {
+      const pts = _GFS_ORDER.map((_, i) => pt(i, frac).join(',')).join(' ');
+      return `<polygon class="gfs-grid" points="${pts}" />`;
+    }).join('');
+    const spokes = _GFS_ORDER.map((_, i) => {
+      const [x, y] = pt(i, 1);
+      return `<line class="gfs-grid" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" />`;
+    }).join('');
+    const fillPts = _GFS_ORDER.map((key, i) => pt(i, (components[key].subScore || 0) / 100).join(',')).join(' ');
+    const dots = _GFS_ORDER.map((key, i) => {
+      const [x, y] = pt(i, (components[key].subScore || 0) / 100);
+      return `<circle class="gfs-dot" cx="${x}" cy="${y}" r="3.5" fill="${_gfsColor(components[key].subScore)}" />`;
+    }).join('');
+    const labels = _GFS_ORDER.map((key, i) => {
+      const [x, y] = pt(i, 1.24);
+      const anchor = Math.abs(Math.cos(angleFor(i))) < 0.25 ? 'middle' : (Math.cos(angleFor(i)) > 0 ? 'start' : 'end');
+      const c = components[key];
+      const meta = _GFS_LABELS[key];
+      const valStr = key === 'discipline' ? meta.fmt(c.value) : meta.fmt(c.value);
+      return `<text class="gfs-axis-label" x="${x}" y="${y}" text-anchor="${anchor}">${meta.label} (${valStr})</text>`;
+    }).join('');
+    return `
+      <svg class="gfs-radar-svg" viewBox="0 0 320 300" width="100%" height="300">
+        ${grid}${spokes}
+        <polygon class="gfs-fill" points="${fillPts}" />
+        ${dots}
+        ${labels}
+      </svg>`;
+  }
+
+  function _scoreCard() {
+    const gfs = DB.getFreeScore(DB.getTrades());
+    if (!gfs.ready) {
+      const pct = Math.min(100, (gfs.closedCount / gfs.minTrades) * 100);
+      return `
+        <div class="card" style="margin-bottom:18px">
+          <div class="section-title" style="margin-bottom:10px">🏆 Get Free Score</div>
+          <p class="text-sub text-sm" style="margin-bottom:14px">Collecting data — ${gfs.closedCount}/${gfs.minTrades} closed trades needed before a score is reliable.</p>
+          <div style="height:8px;background:var(--border-sub,rgba(127,127,127,.18));border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div>
+          </div>
+        </div>`;
+    }
+    const c = gfs.components;
+    const scoreCol = _gfsColor(gfs.score);
+    const notes = [];
+    if (c.discipline.value.estimated) notes.push(`${c.discipline.value.estimated} Discipline input estimated from post-grade (no rule ticks yet)`);
+    return `
+      <div class="card" style="margin-bottom:18px">
+        <div class="section-title" style="margin-bottom:4px">🏆 Get Free Score</div>
+        <p class="text-sub text-sm" style="margin-bottom:10px">One number summarizing your overall trading performance — profitability, risk management, consistency, and (unique to this dashboard) discipline. Backward-looking, not a prediction.</p>
+        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
+          <div style="flex:1;min-width:280px">${_radarSVG(c)}</div>
+          <div style="flex:1;min-width:240px">
+            <div class="gfs-label">GET FREE SCORE</div>
+            <div class="gfs-num" style="color:${scoreCol}">${gfs.score}</div>
+            <div class="gfs-gradient-bar">
+              <div class="gfs-gradient-marker" style="left:${gfs.score}%"></div>
+            </div>
+            <div class="gfs-gradient-ticks"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+              ${_GFS_ORDER.map(key => {
+                const comp = c[key];
+                const col = _gfsColor(comp.subScore);
+                return `
+                  <div class="gfs-row">
+                    <div>
+                      <div style="font-size:.82rem;font-weight:600">${_GFS_LABELS[key].label}</div>
+                      <div class="text-xs text-dim">weight ${(comp.weight * 100).toFixed(0)}%</div>
+                    </div>
+                    <div style="font-size:.82rem;font-weight:700;color:${col}">${comp.subScore}</div>
+                    <div class="conf-score-bar"><span class="${comp.subScore >= 60 ? 'pos' : comp.subScore >= 40 ? 'flat' : 'neg'}" style="width:${comp.subScore}%"></span></div>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-dim" style="margin-top:14px;line-height:1.6">
+          ℹ️ Profit Factor, Avg Win/Loss, Trade Win %, and Recovery Factor thresholds follow TradeZella's
+          published Zella Score methodology. Consistency's scaling and Recovery Factor's interior curve
+          are our own reasonable choice (not published by TradeZella). Discipline (rule adherence +
+          grading + tagging) has no TradeZella equivalent — it's this dashboard's own metric.
+          ${notes.length ? `<br>${notes.join(' · ')}.` : ''}
+        </div>
+      </div>`;
+  }
+
+  function _renderScore(wrap) {
+    wrap.innerHTML = _scoreCard();
+  }
+
   function renderCatalogue(wrap) {
     const setups = DB.recomputePlaybookStats();
     wrap.innerHTML = `
@@ -401,6 +522,12 @@ const CoachTab = (() => {
     _renderAlerts:    renderAlerts,
     _renderGrading:   renderGrading,
     _renderCatalogue: renderCatalogue,
+    _renderScore:     _renderScore,
+    // Raw HTML string versions, for embedding inside another tab's own render
+    // (PlaybookTab.render() is the actual reachable "Setup Catalogue" page —
+    // it has its own setup-card grid, so only the summary cards are reused here).
+    _adherenceCardHTML: _adherenceCard,
+    _scoreCardHTML:     _scoreCard,
     _getAlerts:       computeAlerts,
     _alertCount:      () => computeAlerts().length,
     _saveReview: () => {

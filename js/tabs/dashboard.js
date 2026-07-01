@@ -174,7 +174,7 @@ const DashboardTab = (() => {
     const netPL       = stats.totalPL;
     const winRate     = stats.closed ? stats.winRate : 0;
     const avgR        = stats.closed ? stats.avgR : 0;
-    const pf          = stats.losses ? (stats.wins / Math.max(stats.losses, 1)) : stats.wins;
+    const pf          = DB.profitFactor(pnlTrades).pf; // real gross-$ profit factor (was win/loss-count ratio before 2026-07-01)
     const monthTrades = DB.filterByRange(allTrades, '30');
     const monthPL     = DB.calcStats(monthTrades).totalPL;
 
@@ -213,7 +213,7 @@ const DashboardTab = (() => {
           `<div class="kpi-delta ${winRate>=50?'up':'down'}"><span>${stats.wins}W / ${stats.losses}L</span></div>`)}
         ${kpiCard(4, ICO.layers,
           (stats.closed ? (avgR>=0?'+':'') + avgR.toFixed(2) : '—') + 'R', 'Avg R-multiple',
-          `<div class="kpi-delta ${pf>=1?'up':'down'}">${pf>=1?ICO.arrowUp:ICO.arrowDn}<span>PF ${pf.toFixed(2)}</span></div>`)}
+          `<div class="kpi-delta ${pf===null?'':(pf>=1?'up':'down')}">${pf===null?'':(pf>=1?ICO.arrowUp:ICO.arrowDn)}<span>PF ${pf===null?'—':(pf===Infinity?'∞':pf.toFixed(2))}</span></div>`)}
       </div>
 
       ${goalsStripHTML}

@@ -815,6 +815,138 @@ const DB = (() => {
     return { followed: fin(F), broke: fin(B), unscored, estimated };
   }
 
+  /* ══════════════════════════════════════════════════════
+     GET FREE SCORE — composite 0-100 performance score.
+     7 weighted components: 6 inspired by TradeZella's published
+     Zella Score methodology (help.tradezella.com/en/articles/10305642,
+     verified 2026-07-01) + a 7th "Discipline" component built from
+     this dashboard's own data (rule adherence, grading, tagging) that
+     TradeZella has no equivalent of. Proprietary metric — not a clone.
+  ══════════════════════════════════════════════════════ */
+
+  /* Real profit factor: gross win $ / gross loss $.
+     → { grossProfit, grossLoss, pf }  pf is null with no trades either side, Infinity if grossLoss=0 and grossProfit>0 */
+  function profitFactor(trades) {
+    const closed = trades.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+    const grossProfit = closed.filter(t => parseFloat(t.result) > 0).reduce((s, t) => s + parseFloat(t.result), 0);
+    const grossLoss   = Math.abs(closed.filter(t => parseFloat(t.result) < 0).reduce((s, t) => s + parseFloat(t.result), 0));
+    const pf = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? Infinity : null);
+    return { grossProfit, grossLoss, pf };
+  }
+
+  /* Avg win $ / avg loss $ ratio. → { avgWin, avgLoss, ratio } */
+  function avgWinLossRatio(trades) {
+    const closed = trades.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+    const wins   = closed.filter(t => parseFloat(t.result) > 0);
+    const losses = closed.filter(t => parseFloat(t.result) < 0);
+    const avgWin  = wins.length ? wins.reduce((s, t) => s + parseFloat(t.result), 0) / wins.length : 0;
+    const avgLoss = losses.length ? Math.abs(losses.reduce((s, t) => s + parseFloat(t.result), 0)) / losses.length : 0;
+    const ratio = avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? Infinity : null);
+    return { avgWin, avgLoss, ratio };
+  }
+
+  /* Max drawdown as % of the equity peak it dropped from (calcStats only gives a $ figure).
+     → { maxDDDollar, peakDollar, maxDDPct } */
+  function maxDrawdownPct(trades) {
+    const closed = trades.filter(t => t.result !== undefined && t.result !== null && t.result !== '')
+      .slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    let peak = 0, equity = 0, maxDD = 0, peakAtMaxDD = 0;
+    closed.forEach(t => {
+      equity += parseFloat(t.result || 0);
+      if (equity > peak) peak = equity;
+      const dd = peak - equity;
+      if (dd > maxDD) { maxDD = dd; peakAtMaxDD = peak; }
+    });
+    const maxDDPct = peakAtMaxDD > 0 ? (maxDD / peakAtMaxDD) * 100 : 0;
+    return { maxDDDollar: maxDD, peakDollar: peakAtMaxDD, maxDDPct };
+  }
+
+  /* Recovery factor: net profit / max drawdown $. → { netProfit, maxDDDollar, rf } */
+  function recoveryFactor(trades) {
+    const stats = calcStats(trades);
+    const { maxDDDollar } = maxDrawdownPct(trades);
+    const rf = maxDDDollar > 0 ? stats.totalPL / maxDDDollar : (stats.totalPL > 0 ? Infinity : null);
+    return { netProfit: stats.totalPL, maxDDDollar, rf };
+  }
+
+  /* Consistency inputs: mean + stdev of daily P&L (built on existing dailyPLMap).
+     → { n, mean, stdev, cv }  cv = coefficient of variation, null when mean is 0 and stdev isn't */
+  function dailyPLConsistency(trades) {
+    const map = dailyPLMap(trades);
+    const vals = Object.values(map);
+    const n = vals.length;
+    if (!n) return { n: 0, mean: 0, stdev: 0, cv: null };
+    const mean = vals.reduce((s, v) => s + v, 0) / n;
+    const variance = vals.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / n;
+    const stdev = Math.sqrt(variance);
+    const cv = mean !== 0 ? stdev / Math.abs(mean) : (stdev === 0 ? 0 : null);
+    return { n, mean, stdev, cv };
+  }
+
+  /* Discipline component (7th "Get Free Score" input, no TradeZella equivalent):
+     50% rule-adherence % + 30% grading completion rate + 20% setup-tag completeness.
+     Scoped to manual ('new') trades so imported history can't distort it (mirrors adherenceSplit's own scoping).
+     → { score, adherencePct, gradingPct, tagPct, estimated } */
+  function disciplineSubScore(trades) {
+    const closed = filterByMode(trades, 'new').filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+    if (!closed.length) return { score: 0, adherencePct: null, gradingPct: 0, tagPct: 0, estimated: 0 };
+    const split = adherenceSplit(closed);
+    const totalScored = split.followed.n + split.broke.n;
+    const adherencePct = totalScored ? (split.followed.n / totalScored) * 100 : null;
+    const gradingPct = (closed.filter(t => t.preGrade && t.postGrade).length / closed.length) * 100;
+    const tagPct = (closed.filter(t => (t.setupTypes || []).length > 0).length / closed.length) * 100;
+    const score = (adherencePct ?? 50) * 0.5 + gradingPct * 0.3 + tagPct * 0.2;
+    return { score, adherencePct, gradingPct, tagPct, estimated: split.estimated };
+  }
+
+  /* Master composite — "Get Free Score". Gated on minTrades closed trades (default 20) so the
+     noisiest component (consistency) isn't shown on a misleadingly small sample.
+     → { ready, closedCount, minTrades, score, components:{ pf, maxDrawdown, winLossRatio, winRate, recovery, consistency, discipline } }
+     Each component: { value, subScore, weight }. Threshold curves below: PF/win-loss-ratio/win%/recovery
+     anchors are TradeZella-published; consistency's K=20 scaling and recovery's interior interpolation
+     are our own reasonable choice (TradeZella doesn't publish those curves); discipline has no
+     TradeZella equivalent at all — flag all three as such in the UI. */
+  function getFreeScore(allTrades, minTrades = 20) {
+    const closed = allTrades.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+    const closedCount = closed.length;
+    if (closedCount < minTrades) {
+      return { ready: false, closedCount, minTrades, score: null, components: null };
+    }
+    const stats = calcStats(closed);
+    const { pf }         = profitFactor(closed);
+    const { maxDDPct }   = maxDrawdownPct(closed);
+    const { ratio }      = avgWinLossRatio(closed);
+    const { rf }         = recoveryFactor(closed);
+    const { cv }         = dailyPLConsistency(closed);
+    const disc           = disciplineSubScore(allTrades);
+
+    const scorePF   = pf === null ? 20 : pf >= 4 ? 100 : pf >= 2.5 ? 80 : pf >= 1.5 ? 60 : pf >= 1.0 ? 40 : 20;
+    const scoreDD   = Math.max(0, Math.min(100, 100 - maxDDPct));
+    const scoreWL   = ratio === null ? 20 : ratio >= 2.6 ? 100 : ratio >= 2.0 ? 80 : ratio >= 1.8 ? 60 : 20;
+    const scoreWR   = Math.max(0, Math.min(100, (stats.winRate / 60) * 100));
+    const scoreRF   = rf === null ? 0 : rf >= 3.5 ? 100 : rf < 1.0 ? 0 : 20 + ((rf - 1.0) / (3.5 - 1.0)) * 80;
+    const scoreCons = cv === null ? 50 : Math.max(0, Math.min(100, 100 - cv * 20)); // K=20 — our own scaling, not published
+    const scoreDisc = Math.max(0, Math.min(100, disc.score));
+
+    const weights = { pf: .20, maxDrawdown: .15, winLossRatio: .15, winRate: .10, recovery: .10, consistency: .10, discipline: .20 };
+    const score = scorePF * weights.pf + scoreDD * weights.maxDrawdown + scoreWL * weights.winLossRatio
+                + scoreWR * weights.winRate + scoreRF * weights.recovery + scoreCons * weights.consistency
+                + scoreDisc * weights.discipline;
+
+    return {
+      ready: true, closedCount, minTrades, score: Math.round(score),
+      components: {
+        pf:           { value: pf,           subScore: Math.round(scorePF),   weight: weights.pf },
+        maxDrawdown:  { value: maxDDPct,      subScore: Math.round(scoreDD),   weight: weights.maxDrawdown },
+        winLossRatio: { value: ratio,         subScore: Math.round(scoreWL),   weight: weights.winLossRatio },
+        winRate:      { value: stats.winRate, subScore: Math.round(scoreWR),   weight: weights.winRate },
+        recovery:     { value: rf,            subScore: Math.round(scoreRF),   weight: weights.recovery },
+        consistency:  { value: cv,            subScore: Math.round(scoreCons), weight: weights.consistency },
+        discipline:   { value: disc,          subScore: Math.round(scoreDisc), weight: weights.discipline },
+      }
+    };
+  }
+
   /* Recompute playbook stats from trades */
   function recomputePlaybookStats() {
     const trades = getTrades().filter(t => t.result !== undefined && t.result !== '');
@@ -1345,6 +1477,8 @@ const DB = (() => {
     getPlaybook, addSetup, updateSetup, deleteSetup,
     recomputePlaybookStats, getSetupNames,
     getAdherenceThreshold, setAdherenceThreshold, tradeAdherence, adherenceSplit,
+    profitFactor, avgWinLossRatio, maxDrawdownPct, recoveryFactor, dailyPLConsistency,
+    disciplineSubScore, getFreeScore,
     // Mistakes & Strengths
     getMistakes, addMistake, updateMistake, deleteMistake, bumpMistake,
     getStrengths, addStrength, updateStrength, deleteStrength, bumpStrength,
