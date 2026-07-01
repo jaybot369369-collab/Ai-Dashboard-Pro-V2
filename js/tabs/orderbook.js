@@ -828,13 +828,13 @@ const OrderBookTab = (() => {
         <!-- 2. FUNDING + OI — two columns -->
         <div class="ob-two-col">
           <div class="ob-card">
-            <div class="ob-card-h">💰 Funding Rate <span class="ob-sub">Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
+            <div class="ob-card-h">💰 Funding Rate <span class="ob-plain">(crowded longs or shorts)</span> <span class="ob-sub">Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
             ${_winPills('funding')}
             <div id="ob-fund" class="ob-fund-panel"></div>
             ${_matrixHTML('funding')}
           </div>
           <div class="ob-card">
-            <div class="ob-card-h">📦 Open Interest <span class="ob-sub">Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
+            <div class="ob-card-h">📦 Open Interest <span class="ob-plain">(new conviction vs unwinding)</span> <span class="ob-sub">Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
             ${_winPills('oi')}
             <div id="ob-oi" class="ob-fund-panel"></div>
             ${_matrixHTML('oi')}
@@ -843,7 +843,7 @@ const OrderBookTab = (() => {
 
         <!-- 3. CVD BARS -->
         <div class="ob-card">
-          <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-sub">Binance taker flow</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
+          <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-plain">(order flow pressure)</span> <span class="ob-sub">Binance taker flow</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
           ${_winPills('cvd')}
           <div id="ob-cvd" class="ob-cvd-wrap"></div>
           ${_matrixHTML('cvd')}
@@ -851,7 +851,7 @@ const OrderBookTab = (() => {
 
         <!-- 4. DEPTH / WALLS -->
         <div class="ob-card">
-          <div class="ob-card-h">🧱 Order-Book Walls <span class="ob-sub">live depth ±2% · Binance spot · ✓ = held ≥10 min</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
+          <div class="ob-card-h">🧱 Order-Book Walls <span class="ob-plain">(where stops are clustered)</span> <span class="ob-sub">live depth ±2% · Binance spot · ✓ = held ≥10 min</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
           <div id="ob-walls"></div>
           ${_matrixHTML('walls')}
         </div>
