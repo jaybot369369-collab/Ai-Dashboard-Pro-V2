@@ -6959,6 +6959,34 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .ob-card-h { font-size:.92rem; font-weight:700; color:var(--text); margin-bottom:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .ob-sub { font-size:.72rem; font-weight:400; color:var(--muted); }
 .ob-plain { font-size:.82rem; font-weight:400; color:var(--muted); font-style:italic; }
+
+/* ── Setup Confluence (top panel) ───────────────────────── */
+.ob-cf-card { border-width:2px; }
+.ob-cf-head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.ob-cf-title { font-weight:700; font-size:.98rem; }
+.ob-cf-badge { font-size:.74rem; font-weight:800; letter-spacing:.02em; padding:4px 10px; border-radius:999px; border:1px solid; white-space:nowrap; }
+.ob-cf-setup { font-size:1.35rem; font-weight:800; margin:8px 0 2px; }
+.ob-cf-look { font-size:.86rem; color:var(--text); opacity:.85; line-height:1.45; margin-bottom:10px; }
+.ob-cf-chips { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.ob-cf-chip { display:flex; flex-direction:column; gap:2px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:var(--surface,var(--bg-card)); opacity:.6; transition:opacity .15s,border-color .15s; }
+.ob-cf-chip.on { opacity:1; border-width:2px; }
+.ob-cf-chip-k { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; }
+.ob-cf-chip-v { font-size:.82rem; font-weight:700; }
+@media (max-width:640px){ .ob-cf-chips { grid-template-columns:repeat(2,1fr); } .ob-cf-setup { font-size:1.15rem; } }
+
+/* aligned-panel glow (set by the confluence engine) */
+.ob-aligned-bull { border-color:var(--good,#22c55e) !important; box-shadow:0 0 0 1px var(--good,#22c55e), 0 0 18px -6px var(--good,#22c55e); }
+.ob-aligned-bear { border-color:var(--bad,#ef4444) !important; box-shadow:0 0 0 1px var(--bad,#ef4444), 0 0 18px -6px var(--bad,#ef4444); }
+
+/* ── Setup Playbook (bottom reference) ──────────────────── */
+.ob-sg-rows { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+.ob-sg-row { display:flex; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface,var(--bg-card)); }
+.ob-sg-ico { font-size:1.4rem; line-height:1.2; }
+.ob-sg-body { flex:1; }
+.ob-sg-name { font-weight:700; font-size:.92rem; margin-bottom:3px; }
+.ob-sg-when, .ob-sg-do { font-size:.82rem; line-height:1.4; color:var(--text); opacity:.85; }
+.ob-sg-when b, .ob-sg-do b { color:var(--muted); font-weight:700; }
+.ob-sg-foot { margin-top:10px; font-size:.76rem; color:var(--muted); line-height:1.45; font-style:italic; }
 .ob-empty { color:var(--muted); font-size:.82rem; padding:20px 4px; text-align:center; }
 .ob-fund-loading { color:var(--muted); font-size:.82rem; padding:14px 4px; text-align:center; }
 

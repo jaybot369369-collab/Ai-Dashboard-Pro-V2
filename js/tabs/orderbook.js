@@ -640,6 +640,7 @@ const OrderBookTab = (() => {
     _paintOI();
     _paintCVDBars();
     _paintWalls();
+    _paintConfluence();
   }
 
   function _paintStatus() {
@@ -650,17 +651,162 @@ const OrderBookTab = (() => {
     el.innerHTML = `<span style="color:${col}">${txt}</span>`;
   }
 
-  function _paintFunding() {
-    const el = document.getElementById('ob-fund'); if (!el) return;
-    if (!_fundingData && !_fundHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
-    const rate = _fundingData ? _fundingData.rate : (_fundHist && _fundHist.length ? _fundHist[_fundHist.length-1].rate : 0);
+  /* ══════════════════════════════════════════════════════
+     SIGNAL EXTRACTION — pure classifiers (no DOM).
+     Single source of truth: both the panels and the top
+     Setup Confluence read these, so they can never disagree.
+     dir: +1 bullish · −1 bearish · 0 neutral/mixed.
+  ══════════════════════════════════════════════════════ */
+  const _DIR = { bull: 1, bear: -1, warn: 0, flat: 0 };
 
+  function _sigFunding() {
+    if (!_fundingData && !_fundHist) return { ready:false, tone:'flat', lbl:'—', sub:'', dir:0 };
+    const rate = _fundingData ? _fundingData.rate
+      : (_fundHist && _fundHist.length ? _fundHist[_fundHist.length-1].rate : 0);
     let tone, lbl, sub;
     if      (rate >=  0.0003)  { tone='bear'; lbl='Crowded LONG';  sub='longs paying hard → flush risk'; }
     else if (rate >=  0.00005) { tone='warn'; lbl='Leaning long';  sub='mild long bias'; }
     else if (rate <= -0.0003)  { tone='bull'; lbl='Crowded SHORT'; sub='shorts paying hard → squeeze fuel'; }
     else if (rate <= -0.00005) { tone='bull'; lbl='Leaning short'; sub='mild short bias'; }
     else                       { tone='flat'; lbl='Neutral';       sub='no positioning bias'; }
+    return { ready:true, tone, lbl, sub, rate, dir:_DIR[tone] };
+  }
+
+  function _sigOI() {
+    if (!_oiHist || _oiHist.length < 4 || !_oiPxHist || _oiPxHist.length < 4)
+      return { ready:false, tone:'flat', lbl:'—', sub:'', dir:0 };
+    const oN = _oiHist.length, pN = _oiPxHist.length;
+    const oiChg = (_oiHist[oN-1].oiUsd - _oiHist[oN-4].oiUsd) / (_oiHist[oN-4].oiUsd || 1);
+    const pxChg = (_oiPxHist[pN-1].close - _oiPxHist[pN-4].close) / (_oiPxHist[pN-4].close || 1);
+    const oiUp = oiChg > 0.01, oiDn = oiChg < -0.01, pxUp = pxChg > 0;
+    let tone='flat', lbl='Flat', sub='no new money — range / chop';
+    if      (oiUp && pxUp)  { tone='bull'; lbl='New longs';      sub='OI↑ price↑ — trend has fuel'; }
+    else if (oiUp && !pxUp) { tone='bear'; lbl='New shorts';     sub='OI↑ price↓ — bearish conviction'; }
+    else if (oiDn && pxUp)  { tone='warn'; lbl='Short covering'; sub='OI↓ price↑ — weak rally'; }
+    else if (oiDn)          { tone='warn'; lbl='Longs bailing';  sub='OI↓ price↓ — selloff exhausting'; }
+    return { ready:true, tone, lbl, sub, dir:_DIR[tone] };
+  }
+
+  function _sigCVD() {
+    const bkts = _cvdBuckets.slice(-_cvdMax);
+    if (bkts.length < 3) return { ready:false, tone:'flat', lbl:'—', sub:'', dir:0 };
+    const deltas = bkts.map(b => b.buy - b.sell);
+    const runCVD = deltas.reduce((a, d, i) => { a.push((a[i-1] || 0) + d); return a; }, []);
+    const total  = runCVD[runCVD.length - 1];
+    const recent = deltas.slice(-5).reduce((a, b) => a + b, 0);
+    let tone, lbl, sub;
+    if      (total > 0 && recent > 0) { tone='bull'; lbl='Buyers in control';  sub='net buying, momentum up'; }
+    else if (total < 0 && recent < 0) { tone='bear'; lbl='Sellers in control'; sub='net selling, momentum down'; }
+    else if (total > 0 && recent < 0) { tone='warn'; lbl='Buying fading';      sub='net buy but sellers stepping in'; }
+    else if (total < 0 && recent > 0) { tone='warn'; lbl='Selling absorbed';   sub='net sell but buyers stepping in'; }
+    else                              { tone='flat'; lbl='Balanced';           sub='no dominant aggressor — chop'; }
+    return { ready:true, tone, lbl, sub, dir:_DIR[tone] };
+  }
+
+  function _sigWalls() {
+    if (!_depthLevels || (!_depthLevels.bids.length && !_depthLevels.asks.length))
+      return { ready:false, tone:'flat', lbl:'—', sub:'', dir:0 };
+    const ratio = _depthLevels.bidTot / (_depthLevels.askTot || 1);
+    let tone, lbl, sub;
+    if      (ratio > 1.3)  { tone='bull'; lbl='Bids stacked';  sub='heavier support below — buyers defending'; }
+    else if (ratio < 0.77) { tone='bear'; lbl='Asks stacked';  sub='heavier supply above — sellers capping'; }
+    else                   { tone='flat'; lbl='Balanced book'; sub='no strong wall bias'; }
+    return { ready:true, tone, lbl, sub, dir:_DIR[tone] };
+  }
+
+  /* ── Confluence: fold the 4 signals into an ICT setup call ── */
+  function _confluence() {
+    const parts = { funding:_sigFunding(), oi:_sigOI(), cvd:_sigCVD(), walls:_sigWalls() };
+    const d = k => parts[k].dir;
+    const bull = ['cvd','funding','oi','walls'].filter(k => parts[k].dir > 0);
+    const bear = ['cvd','funding','oi','walls'].filter(k => parts[k].dir < 0);
+    const ready = parts.funding.ready && (parts.cvd.ready || parts.oi.ready);
+
+    let side='none', setup='No alignment', look='Signals are mixed — stand aside until at least 3 line up in one direction.', aligned=[];
+
+    if (d('cvd') < 0 && d('funding') < 0 && (d('oi') < 0 || d('walls') < 0)) {
+      side='short'; setup='Liquidity Sweep → Short';
+      look='Longs are crowded and taker flow is selling. Look for a sweep of a recent high (BSL) then a bearish displacement / CISD to short — the trapped longs are the fuel.';
+      aligned = ['cvd','funding', ...(d('oi')<0?['oi']:[]), ...(d('walls')<0?['walls']:[])];
+    } else if (d('cvd') > 0 && d('funding') > 0 && (d('oi') > 0 || d('walls') > 0)) {
+      side='long'; setup='Liquidity Sweep → Long';
+      look='Shorts are crowded and taker flow is buying. Look for a sweep of a recent low (SSL) into bid support then a bullish reclaim / CISD to long — short covering is the fuel.';
+      aligned = ['cvd','funding', ...(d('oi')>0?['oi']:[]), ...(d('walls')>0?['walls']:[])];
+    } else if (d('oi') > 0 && parts.cvd.tone === 'flat') {
+      side='wait'; setup='Distribution — wait';
+      look='Open interest is building but taker flow is flat: new money with no clear aggressor. Let CVD pick a side before committing.';
+      aligned = ['oi'];
+    } else if (d('walls') !== 0 && Math.sign(d('walls')) === Math.sign(d('cvd')) && d('funding') === 0) {
+      side = d('walls') > 0 ? 'long' : 'short'; setup='Wall reaction';
+      look = (d('walls')>0
+        ? 'Bids are stacked and flow is buying with neutral funding — the wall should hold. Look for price to test the bid wall and reject up.'
+        : 'Asks are stacked and flow is selling with neutral funding — the wall should cap. Look for price to test the ask wall and reject down.');
+      aligned = ['walls','cvd'];
+    } else if (bull.length >= 3) {
+      side='long'; setup='Lean long'; aligned = bull;
+      look=`${bull.length}/4 signals lean bullish — a developing long bias, but no clean sweep trigger yet. Wait for a discount sweep to time entry.`;
+    } else if (bear.length >= 3) {
+      side='short'; setup='Lean short'; aligned = bear;
+      look=`${bear.length}/4 signals lean bearish — a developing short bias, but no clean sweep trigger yet. Wait for a premium sweep to time entry.`;
+    }
+    return { ready, parts, side, setup, look, aligned, bull, bear, conf: aligned.length };
+  }
+
+  function _paintConfluence() {
+    const el = document.getElementById('ob-confluence'); if (!el) return;
+    const cf = _confluence();
+    const glow = cf.side === 'short' ? 'ob-aligned-bear' : 'ob-aligned-bull';
+    ['funding','oi','cvd','walls'].forEach(k => {
+      const card = document.getElementById('ob-card-' + k); if (!card) return;
+      card.classList.remove('ob-aligned-bull', 'ob-aligned-bear');
+      if ((cf.side === 'long' || cf.side === 'short') && cf.aligned.includes(k)) card.classList.add(glow);
+    });
+    const col = cf.side==='long'?C_BULL : cf.side==='short'?C_BEAR : cf.side==='wait'?C_WARN : C_FLAT;
+    const badge = cf.side==='long'?'LONG setup' : cf.side==='short'?'SHORT setup' : cf.side==='wait'?'WAIT' : 'NO SETUP';
+    const chip = (k, label) => {
+      const p = cf.parts[k], on = cf.aligned.includes(k);
+      const c = p.dir>0?C_BULL : p.dir<0?C_BEAR : C_FLAT;
+      const arrow = p.dir>0?'▲' : p.dir<0?'▼' : '•';
+      return `<div class="ob-cf-chip${on?' on':''}" ${on?`style="border-color:${col}"`:''}>
+        <span class="ob-cf-chip-k">${label}</span>
+        <span class="ob-cf-chip-v" style="color:${c}">${arrow} ${esc(p.ready?p.lbl:'—')}</span></div>`;
+    };
+    el.innerHTML = `
+      <div class="ob-cf-head">
+        <div class="ob-cf-title">🎯 Setup Confluence <span class="ob-plain">(what the 4 signals add up to)</span></div>
+        <div class="ob-cf-badge" style="background:${col}1a;border-color:${col};color:${col}">${badge} · ${cf.conf}/4</div>
+      </div>
+      <div class="ob-cf-setup" style="color:${col}">${esc(cf.setup)}</div>
+      <div class="ob-cf-look">${esc(cf.look)}</div>
+      <div class="ob-cf-chips">${chip('cvd','CVD')}${chip('funding','Funding')}${chip('oi','OI')}${chip('walls','Walls')}</div>`;
+  }
+
+  /* ── Bottom Setup Playbook (static reference) ── */
+  function _setupGuideHTML() {
+    const rows = [
+      ['📉','Sweep → Short','CVD selling + funding crowded-long + OI new-shorts (or asks stacked)','Trapped longs. Sweep a recent high, then short the bearish displacement.'],
+      ['📈','Sweep → Long','CVD buying + funding crowded-short + OI new-longs (or bids stacked)','Short-squeeze fuel. Sweep a recent low into bids, then long the reclaim.'],
+      ['⏳','Distribution — wait','OI rising while CVD stays flat','New money, no aggressor. Let CVD pick a side before committing.'],
+      ['🧱','Wall reaction','A stacked wall + CVD pushing the same way + funding neutral','Fade into the wall — it should hold and reject.'],
+    ];
+    return `<div class="ob-card ob-setup-guide">
+      <div class="ob-card-h">🧭 Setup Playbook <span class="ob-plain">(how the signals combine)</span></div>
+      <div class="ob-sg-rows">${rows.map(r => `
+        <div class="ob-sg-row"><div class="ob-sg-ico">${r[0]}</div>
+          <div class="ob-sg-body"><div class="ob-sg-name">${esc(r[1])}</div>
+            <div class="ob-sg-when"><b>When:</b> ${esc(r[2])}</div>
+            <div class="ob-sg-do"><b>Look for:</b> ${esc(r[3])}</div></div></div>`).join('')}
+      </div>
+      <div class="ob-sg-foot">Live read-helper — not an auto-trade signal. Confirm the sweep + entry on your chart. Walls are live-only; historical wall data is being recorded on the server for a future backtest.</div>
+    </div>`;
+  }
+
+  function _paintFunding() {
+    const el = document.getElementById('ob-fund'); if (!el) return;
+    if (!_fundingData && !_fundHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
+    const rate = _fundingData ? _fundingData.rate : (_fundHist && _fundHist.length ? _fundHist[_fundHist.length-1].rate : 0);
+
+    const { tone, lbl, sub } = _sigFunding();
 
     const wl = WIN_LABELS[_pwin.funding] || '30D';
     let chart = `<div class="ob-fund-loading">Loading ${wl} history…</div>`, stat = '';
@@ -682,17 +828,7 @@ const OrderBookTab = (() => {
     const el = document.getElementById('ob-oi'); if (!el) return;
     if (!_fundingData && !_oiHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
 
-    let tone='flat', lbl='Flat', sub='no new money — range / chop';
-    if (_oiHist && _oiHist.length >= 4 && _oiPxHist && _oiPxHist.length >= 4) {
-      const oN = _oiHist.length, pN = _oiPxHist.length;
-      const oiChg = (_oiHist[oN-1].oiUsd - _oiHist[oN-4].oiUsd) / (_oiHist[oN-4].oiUsd || 1);
-      const pxChg = (_oiPxHist[pN-1].close - _oiPxHist[pN-4].close) / (_oiPxHist[pN-4].close || 1);
-      const oiUp = oiChg > 0.01, oiDn = oiChg < -0.01, pxUp = pxChg > 0;
-      if      (oiUp && pxUp)  { tone='bull'; lbl='New longs';      sub='OI↑ price↑ — trend has fuel'; }
-      else if (oiUp && !pxUp) { tone='bear'; lbl='New shorts';     sub='OI↑ price↓ — bearish conviction'; }
-      else if (oiDn && pxUp)  { tone='warn'; lbl='Short covering'; sub='OI↓ price↑ — weak rally'; }
-      else if (oiDn)          { tone='warn'; lbl='Longs bailing';  sub='OI↓ price↓ — selloff exhausting'; }
-    }
+    const { tone, lbl, sub } = _sigOI();
 
     const wl = WIN_LABELS[_pwin.oi] || '30D';
     let chart = `<div class="ob-fund-loading">Loading ${wl} history…</div>`, stat = '';
@@ -725,13 +861,7 @@ const OrderBookTab = (() => {
     const cvdMin  = Math.min(...runCVD), cvdMax = Math.max(...runCVD, 1), cvdRng = (cvdMax - cvdMin) || 1;
     const total   = runCVD[runCVD.length - 1];
 
-    const recent = deltas.slice(-5).reduce((a, b) => a + b, 0);
-    let tone, lbl, sub;
-    if      (total > 0 && recent > 0) { tone='bull'; lbl='Buyers in control';  sub='net buying, momentum up'; }
-    else if (total < 0 && recent < 0) { tone='bear'; lbl='Sellers in control'; sub='net selling, momentum down'; }
-    else if (total > 0 && recent < 0) { tone='warn'; lbl='Buying fading';      sub='net buy but sellers stepping in'; }
-    else if (total < 0 && recent > 0) { tone='warn'; lbl='Selling absorbed';   sub='net sell but buyers stepping in'; }
-    else                              { tone='flat'; lbl='Balanced';           sub='no dominant aggressor — chop'; }
+    const { tone, lbl, sub } = _sigCVD();
 
     const W = 600, H = 110, bSlot = W / bkts.length, bW = bSlot * 0.8, baseY = 92, lineTop = 12;
     let bars = '', linePts = '';
@@ -768,11 +898,7 @@ const OrderBookTab = (() => {
     const { mid, bids, asks, bidTot, askTot } = _depthLevels;
     const maxUsd = Math.max(...[...bids, ...asks].map(l => l.usd), 1);
 
-    let tone, lbl, sub;
-    const ratio = bidTot / (askTot || 1);
-    if      (ratio > 1.3)  { tone='bull'; lbl='Bids stacked';  sub='heavier support below — buyers defending'; }
-    else if (ratio < 0.77) { tone='bear'; lbl='Asks stacked';  sub='heavier supply above — sellers capping'; }
-    else                   { tone='flat'; lbl='Balanced book'; sub='no strong wall bias'; }
+    const { tone, lbl, sub } = _sigWalls();
 
     const row = l => {
       const w    = Math.max(l.usd / maxUsd * 100, 4);
@@ -807,6 +933,9 @@ const OrderBookTab = (() => {
       <div id="ob-root" class="ob-wrap">
         ${_headHTML()}
 
+        <!-- 0. SETUP CONFLUENCE — top, folds the 4 signals into a setup call -->
+        <div id="ob-confluence" class="ob-card ob-cf-card"></div>
+
         <!-- 1. LIQUIDATION HEATMAP — full width -->
         <div class="ob-card">
           <div class="ob-card-h">
@@ -827,13 +956,13 @@ const OrderBookTab = (() => {
 
         <!-- 2. FUNDING + OI — two columns -->
         <div class="ob-two-col">
-          <div class="ob-card">
+          <div class="ob-card" id="ob-card-funding">
             <div class="ob-card-h">💰 Funding Rate <span class="ob-plain">(crowded longs or shorts)</span> <span class="ob-sub">Bybit 8h</span><button class="ob-howto-btn" data-howto="funding">ℹ️ How to read</button></div>
             ${_winPills('funding')}
             <div id="ob-fund" class="ob-fund-panel"></div>
             ${_matrixHTML('funding')}
           </div>
-          <div class="ob-card">
+          <div class="ob-card" id="ob-card-oi">
             <div class="ob-card-h">📦 Open Interest <span class="ob-plain">(new conviction vs unwinding)</span> <span class="ob-sub">Bybit perp</span><button class="ob-howto-btn" data-howto="oi">ℹ️ How to read</button></div>
             ${_winPills('oi')}
             <div id="ob-oi" class="ob-fund-panel"></div>
@@ -842,7 +971,7 @@ const OrderBookTab = (() => {
         </div>
 
         <!-- 3. CVD BARS -->
-        <div class="ob-card">
+        <div class="ob-card" id="ob-card-cvd">
           <div class="ob-card-h">📈 CVD — Cumulative Volume Delta <span class="ob-plain">(order flow pressure)</span> <span class="ob-sub">Binance taker flow</span><button class="ob-howto-btn" data-howto="cvd">ℹ️ How to read</button></div>
           ${_winPills('cvd')}
           <div id="ob-cvd" class="ob-cvd-wrap"></div>
@@ -850,11 +979,14 @@ const OrderBookTab = (() => {
         </div>
 
         <!-- 4. DEPTH / WALLS -->
-        <div class="ob-card">
+        <div class="ob-card" id="ob-card-walls">
           <div class="ob-card-h">🧱 Order-Book Walls <span class="ob-plain">(where stops are clustered)</span> <span class="ob-sub">live depth ±2% · Binance spot · ✓ = held ≥10 min</span><button class="ob-howto-btn" data-howto="walls">ℹ️ How to read</button></div>
           <div id="ob-walls"></div>
           ${_matrixHTML('walls')}
         </div>
+
+        <!-- 5. SETUP PLAYBOOK — how the signals combine -->
+        ${_setupGuideHTML()}
 
         <!-- GUIDE (collapsed by default) -->
         ${_guideHTML()}
