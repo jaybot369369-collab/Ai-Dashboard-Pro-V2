@@ -5160,7 +5160,7 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
 }
 .gfs-radar-svg .gfs-axis-label {
   fill: var(--text-sub, var(--muted));
-  font-size: 8px;
+  font-size: 12px;
 }
 .gfs-label {
   font-size: .72rem;
@@ -5205,7 +5205,27 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
   padding: 6px 0;
   border-bottom: 1px solid var(--border-sub, rgba(127,127,127,.12));
 }
-.gfs-row:last-child { border-bottom: none; }
+.gfs-row-wrap:last-child .gfs-row { border-bottom: none; }
+.gfs-row-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.gfs-row-label:hover { color: var(--accent); }
+.gfs-info-ic {
+  font-size: .74rem;
+  color: var(--muted);
+  opacity: .7;
+}
+.gfs-row-desc {
+  display: none;
+  font-size: .78rem;
+  color: var(--text-sub, var(--muted));
+  line-height: 1.5;
+  padding: 0 0 10px;
+}
+.gfs-row-desc.open { display: block; }
 
 .conf-count {
   font-weight: 700;

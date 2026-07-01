@@ -350,13 +350,34 @@ const CoachTab = (() => {
      2026-07-01), 7 axes: 6 financial metrics + 1 Discipline metric unique
      to this dashboard. ─────────────────────────────────────────────── */
   const _GFS_LABELS = {
-    pf:           { label: 'Profit Factor',    fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
-    maxDrawdown:  { label: 'Max Drawdown',     fmt: v => v.toFixed(1) + '%' },
-    winLossRatio: { label: 'Avg Win/Loss',     fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
-    winRate:      { label: 'Win Rate',         fmt: v => v.toFixed(1) + '%' },
-    recovery:     { label: 'Recovery Factor',  fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)) },
-    consistency:  { label: 'Consistency',      fmt: v => v === null ? '—' : v.toFixed(2) },
-    discipline:   { label: '🧠 Discipline',    fmt: v => Math.round(v.score) + '/100' },
+    pf: {
+      label: 'Profit Factor', fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)),
+      desc: 'Gross profit ÷ gross loss — for every $1 you\'ve lost, how many $ have you made? Above 1.0 means you\'re net profitable overall.',
+    },
+    maxDrawdown: {
+      label: 'Max Drawdown', fmt: v => v.toFixed(1) + '%',
+      desc: 'The biggest drop from a peak account balance to a low point, as a % of that peak. Lower is better — it shows how deep your worst losing stretch got before recovering.',
+    },
+    winLossRatio: {
+      label: 'Avg Win/Loss', fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)),
+      desc: 'Your average winning trade\'s $ size compared to your average losing trade\'s $ size. Above 1.0 means your typical win is bigger than your typical loss.',
+    },
+    winRate: {
+      label: 'Win Rate', fmt: v => v.toFixed(1) + '%',
+      desc: '% of your closed trades that were profitable. Capped at 60% in this score — a high win rate alone doesn\'t guarantee profitability if losses are much bigger than wins.',
+    },
+    recovery: {
+      label: 'Recovery Factor', fmt: v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2)),
+      desc: 'Net profit ÷ your worst drawdown. Shows how well you bounce back — the higher this is, the faster your winners make up for your worst losing stretch.',
+    },
+    consistency: {
+      label: 'Consistency', fmt: v => v === null ? '—' : v.toFixed(2),
+      desc: 'How steady your day-to-day P&L is. Wildly swingy days (big wins mixed with big losses) score lower than steady, repeatable results — even at the same total P&L.',
+    },
+    discipline: {
+      label: '🧠 Discipline', fmt: v => Math.round(v.score) + '/100',
+      desc: 'This dashboard\'s own metric (no TradeZella equivalent) — blends how often you followed your playbook rules (50%), graded your trades (30%), and tagged setups (20%).',
+    },
   };
   const _GFS_ORDER = ['pf', 'maxDrawdown', 'winLossRatio', 'winRate', 'recovery', 'consistency', 'discipline'];
 
@@ -369,7 +390,11 @@ const CoachTab = (() => {
      7 here) rather than a circular gauge. */
   function _radarSVG(components) {
     const n = _GFS_ORDER.length;
-    const cx = 160, cy = 150, R = 108;
+    // R is 50% bigger than the original 108px radius. cx/cy carry extra margin beyond
+    // R*1.24 (the label anchor distance) so long labels like "Discipline (53/100)" —
+    // drawn with text-anchor="end" extending leftward from their anchor point — don't
+    // get clipped past the viewBox edge.
+    const cx = 310, cy = 240, R = 162;
     const angleFor = i => (Math.PI * 2 * i / n) - Math.PI / 2;
     const pt = (i, frac) => {
       const a = angleFor(i);
@@ -386,7 +411,7 @@ const CoachTab = (() => {
     const fillPts = _GFS_ORDER.map((key, i) => pt(i, (components[key].subScore || 0) / 100).join(',')).join(' ');
     const dots = _GFS_ORDER.map((key, i) => {
       const [x, y] = pt(i, (components[key].subScore || 0) / 100);
-      return `<circle class="gfs-dot" cx="${x}" cy="${y}" r="3.5" fill="${_gfsColor(components[key].subScore)}" />`;
+      return `<circle class="gfs-dot" cx="${x}" cy="${y}" r="5" fill="${_gfsColor(components[key].subScore)}" />`;
     }).join('');
     const labels = _GFS_ORDER.map((key, i) => {
       const [x, y] = pt(i, 1.24);
@@ -397,7 +422,7 @@ const CoachTab = (() => {
       return `<text class="gfs-axis-label" x="${x}" y="${y}" text-anchor="${anchor}">${meta.label} (${valStr})</text>`;
     }).join('');
     return `
-      <svg class="gfs-radar-svg" viewBox="0 0 320 300" width="100%" height="300">
+      <svg class="gfs-radar-svg" viewBox="0 0 620 480" width="100%" height="480" preserveAspectRatio="xMidYMid meet">
         ${grid}${spokes}
         <polygon class="gfs-fill" points="${fillPts}" />
         ${dots}
@@ -426,30 +451,33 @@ const CoachTab = (() => {
       <div class="card" style="margin-bottom:18px">
         <div class="section-title" style="margin-bottom:4px">🏆 Get Free Score</div>
         <p class="text-sub text-sm" style="margin-bottom:10px">One number summarizing your overall trading performance — profitability, risk management, consistency, and (unique to this dashboard) discipline. Backward-looking, not a prediction.</p>
-        <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
-          <div style="flex:1;min-width:280px">${_radarSVG(c)}</div>
-          <div style="flex:1;min-width:240px">
+        <div style="max-width:620px;margin:0 auto">${_radarSVG(c)}</div>
+        <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin-top:8px">
+          <div style="flex:0 0 180px">
             <div class="gfs-label">GET FREE SCORE</div>
             <div class="gfs-num" style="color:${scoreCol}">${gfs.score}</div>
             <div class="gfs-gradient-bar">
               <div class="gfs-gradient-marker" style="left:${gfs.score}%"></div>
             </div>
             <div class="gfs-gradient-ticks"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
-            <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-              ${_GFS_ORDER.map(key => {
-                const comp = c[key];
-                const col = _gfsColor(comp.subScore);
-                return `
+          </div>
+          <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:2px">
+            ${_GFS_ORDER.map(key => {
+              const comp = c[key];
+              const col = _gfsColor(comp.subScore);
+              return `
+                <div class="gfs-row-wrap">
                   <div class="gfs-row">
                     <div>
-                      <div style="font-size:.82rem;font-weight:600">${_GFS_LABELS[key].label}</div>
+                      <div class="gfs-row-label" onclick="CoachTab._toggleGfsDesc('${key}')">${_GFS_LABELS[key].label} <span class="gfs-info-ic">ⓘ</span></div>
                       <div class="text-xs text-dim">weight ${(comp.weight * 100).toFixed(0)}%</div>
                     </div>
                     <div style="font-size:.82rem;font-weight:700;color:${col}">${comp.subScore}</div>
                     <div class="conf-score-bar"><span class="${comp.subScore >= 60 ? 'pos' : comp.subScore >= 40 ? 'flat' : 'neg'}" style="width:${comp.subScore}%"></span></div>
-                  </div>`;
-              }).join('')}
-            </div>
+                  </div>
+                  <div id="gfsDesc_${key}" class="gfs-row-desc">${_GFS_LABELS[key].desc}</div>
+                </div>`;
+            }).join('')}
           </div>
         </div>
         <div class="text-xs text-dim" style="margin-top:14px;line-height:1.6">
@@ -464,6 +492,12 @@ const CoachTab = (() => {
 
   function _renderScore(wrap) {
     wrap.innerHTML = _scoreCard();
+  }
+
+  function _toggleGfsDesc(key) {
+    const el = document.getElementById('gfsDesc_' + key);
+    if (!el) return;
+    el.classList.toggle('open');
   }
 
   function renderCatalogue(wrap) {
@@ -528,6 +562,7 @@ const CoachTab = (() => {
     // it has its own setup-card grid, so only the summary cards are reused here).
     _adherenceCardHTML: _adherenceCard,
     _scoreCardHTML:     _scoreCard,
+    _toggleGfsDesc:     _toggleGfsDesc,
     _getAlerts:       computeAlerts,
     _alertCount:      () => computeAlerts().length,
     _saveReview: () => {

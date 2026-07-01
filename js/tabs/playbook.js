@@ -1291,13 +1291,8 @@ const PlaybookTab = (() => {
     const setups  = DB.recomputePlaybookStats();
     const sorted  = [...setups].sort((a, b) => (b.winRate ?? -999) - (a.winRate ?? -999));
 
-    let summaryCards = '';
-    try {
-      if (typeof CoachTab !== 'undefined') {
-        summaryCards = (CoachTab._scoreCardHTML ? CoachTab._scoreCardHTML() : '')
-                     + (CoachTab._adherenceCardHTML ? CoachTab._adherenceCardHTML() : '');
-      }
-    } catch (e) { summaryCards = `<div class="text-dim">Score/Adherence unavailable: ${e.message}</div>`; }
+    // Get Free Score + Rule Adherence summary cards live on the Dashboard tab
+    // (see js/tabs/dashboard.js) — moved there 2026-07-01 for visibility.
 
     content.innerHTML = `
       <div class="page-head">
@@ -1310,7 +1305,6 @@ const PlaybookTab = (() => {
           <span style="font-size:18px;line-height:1;margin-top:-1px">+</span> New setup
         </button>
       </div>
-      ${summaryCards}
       <div id="playbookGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start"></div>
     `;
 

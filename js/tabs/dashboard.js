@@ -218,6 +218,14 @@ const DashboardTab = (() => {
 
       ${goalsStripHTML}
 
+      ${(() => {
+        try {
+          if (typeof CoachTab === 'undefined') return '';
+          return (CoachTab._scoreCardHTML ? CoachTab._scoreCardHTML() : '')
+               + (CoachTab._adherenceCardHTML ? CoachTab._adherenceCardHTML() : '');
+        } catch (e) { return `<div class="text-dim">Score/Adherence unavailable: ${e.message}</div>`; }
+      })()}
+
       <div class="row row-12-8">
         <div class="card">
           <div class="card-head">

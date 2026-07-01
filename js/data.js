@@ -857,7 +857,11 @@ const DB = (() => {
       const dd = peak - equity;
       if (dd > maxDD) { maxDD = dd; peakAtMaxDD = peak; }
     });
-    const maxDDPct = peakAtMaxDD > 0 ? (maxDD / peakAtMaxDD) * 100 : 0;
+    // If cumulative equity has never posted a positive peak (account has been underwater
+    // since its very first trade), dividing by a $0 peak would wrongly show 0% drawdown —
+    // treat any real dollar decline against a non-positive peak as maximal (100%) rather
+    // than silently reporting a misleadingly reassuring number (RULE #2).
+    const maxDDPct = peakAtMaxDD > 0 ? (maxDD / peakAtMaxDD) * 100 : (maxDD > 0 ? 100 : 0);
     return { maxDDDollar: maxDD, peakDollar: peakAtMaxDD, maxDDPct };
   }
 
