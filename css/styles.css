@@ -6973,6 +6973,13 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .ob-cf-chip-k { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; }
 .ob-cf-chip-v { font-size:.82rem; font-weight:700; }
 @media (max-width:640px){ .ob-cf-chips { grid-template-columns:repeat(2,1fr); } .ob-cf-setup { font-size:1.15rem; } }
+.ob-cf-foot { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:10px; padding-top:9px; border-top:1px solid var(--border); }
+.ob-cf-steady-lbl { font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; }
+.ob-steady-row { display:inline-flex; gap:4px; }
+.ob-steady-pill { font-size:.74rem; font-weight:600; padding:3px 10px; border:1px solid var(--border); border-radius:999px; background:var(--surface,var(--bg-card)); color:var(--muted); cursor:pointer; transition:all .12s; }
+.ob-steady-pill:hover { color:var(--text); }
+.ob-steady-pill.active { background:var(--text,#111); border-color:var(--text,#111); color:var(--bg-card,#fff); font-weight:700; }
+.ob-cf-steady-hint { font-size:.74rem; color:var(--muted); font-style:italic; }
 
 /* aligned-panel glow (set by the confluence engine) */
 .ob-aligned-bull { border-color:var(--good,#22c55e) !important; box-shadow:0 0 0 1px var(--good,#22c55e), 0 0 18px -6px var(--good,#22c55e); }

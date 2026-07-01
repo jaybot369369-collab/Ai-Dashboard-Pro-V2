@@ -57,9 +57,20 @@ const OrderBookTab = (() => {
 
   /* ── Persistence keys ─────────────────────────────────── */
   const LS_SYM = 'jb_ob_symbol';
+  // Confluence steadiness — how many 10s cycles a new setup call must hold
+  // before it replaces the one on screen (anti-flicker / hysteresis).
+  const LS_STEADY = 'jb_ob_steady';
+  const STEADY_CYCLES = { fast: 1, balanced: 3, smooth: 6 };
+  const STEADY_LABELS = { fast: 'Fast', balanced: 'Balanced', smooth: 'Smooth' };
 
   /* ── State ────────────────────────────────────────────── */
   let _sym = (localStorage.getItem(LS_SYM) || 'BTC').toUpperCase();
+  // Confluence sticky-confirm buffer (see _paintConfluence)
+  let _steady      = localStorage.getItem(LS_STEADY) || 'balanced';
+  let _cfCommitted = null;   // the setup call currently shown (sticky)
+  let _cfPending   = null;   // a candidate new call awaiting confirmation
+  let _cfPendingN  = 0;      // how many consecutive cycles it's held
+  let _cfRenderSig = null;   // signature of what's on screen (render-on-change)
   // Per-panel windows (each independently clickable + persisted)
   let _pwin = {
     liq:     localStorage.getItem('ob_w_liq')     || '30d',
@@ -752,15 +763,53 @@ const OrderBookTab = (() => {
     return { ready, parts, side, setup, look, aligned, bull, bear, conf: aligned.length };
   }
 
+  // A stable fingerprint of a confluence call — changes only when the
+  // *meaning* changes, not when underlying numbers jitter within a state.
+  function _cfSig(cf) {
+    return cf ? cf.setup + '|' + cf.side + '|' + cf.aligned.slice().sort().join(',') : '';
+  }
+
+  function _setSteady(mode) {
+    if (!STEADY_CYCLES[mode] || mode === _steady) return;
+    _steady = mode;
+    localStorage.setItem(LS_STEADY, mode);
+    _cfCommitted = null; _cfPending = null; _cfPendingN = 0; _cfRenderSig = null;
+    _paintConfluence();
+  }
+
   function _paintConfluence() {
     const el = document.getElementById('ob-confluence'); if (!el) return;
-    const cf = _confluence();
+    const raw  = _confluence();
+    const need = STEADY_CYCLES[_steady] || 3;
+
+    // ── Sticky confirm buffer: a new call must hold `need` cycles before it
+    //    replaces the committed one. Kills threshold-chatter flicker. ──
+    if (!_cfCommitted) {
+      _cfCommitted = raw; _cfPending = null; _cfPendingN = 0;
+    } else if (_cfSig(raw) === _cfSig(_cfCommitted)) {
+      _cfPending = null; _cfPendingN = 0;                 // back to current → cancel pending
+    } else if (_cfPending && _cfSig(raw) === _cfSig(_cfPending)) {
+      _cfPendingN++;                                       // candidate persisting
+      if (_cfPendingN >= need) { _cfCommitted = raw; _cfPending = null; _cfPendingN = 0; }
+    } else {
+      _cfPending = raw; _cfPendingN = 1;                  // new candidate
+    }
+    const cf = _cfCommitted;
+
+    // Glow is idempotent + cheap — always reflect the committed call.
     const glow = cf.side === 'short' ? 'ob-aligned-bear' : 'ob-aligned-bull';
     ['funding','oi','cvd','walls'].forEach(k => {
       const card = document.getElementById('ob-card-' + k); if (!card) return;
       card.classList.remove('ob-aligned-bull', 'ob-aligned-bear');
       if ((cf.side === 'long' || cf.side === 'short') && cf.aligned.includes(k)) card.classList.add(glow);
     });
+
+    // ── Render-on-change: skip the DOM rewrite entirely when nothing the eye
+    //    would notice has changed (committed call + steadiness unchanged). ──
+    const renderSig = _cfSig(cf) + '|' + _steady;
+    if (renderSig === _cfRenderSig) return;
+    _cfRenderSig = renderSig;
+
     const col = cf.side==='long'?C_BULL : cf.side==='short'?C_BEAR : cf.side==='wait'?C_WARN : C_FLAT;
     const badge = cf.side==='long'?'LONG setup' : cf.side==='short'?'SHORT setup' : cf.side==='wait'?'WAIT' : 'NO SETUP';
     const chip = (k, label) => {
@@ -771,6 +820,9 @@ const OrderBookTab = (() => {
         <span class="ob-cf-chip-k">${label}</span>
         <span class="ob-cf-chip-v" style="color:${c}">${arrow} ${esc(p.ready?p.lbl:'—')}</span></div>`;
     };
+    const steadyPills = Object.keys(STEADY_CYCLES).map(m =>
+      `<button class="ob-steady-pill${m === _steady ? ' active' : ''}" data-steady="${m}" title="confirm over ${STEADY_CYCLES[m]*10}s">${STEADY_LABELS[m]}</button>`
+    ).join('');
     el.innerHTML = `
       <div class="ob-cf-head">
         <div class="ob-cf-title">🎯 Setup Confluence <span class="ob-plain">(what the 4 signals add up to)</span></div>
@@ -778,7 +830,12 @@ const OrderBookTab = (() => {
       </div>
       <div class="ob-cf-setup" style="color:${col}">${esc(cf.setup)}</div>
       <div class="ob-cf-look">${esc(cf.look)}</div>
-      <div class="ob-cf-chips">${chip('cvd','CVD')}${chip('funding','Funding')}${chip('oi','OI')}${chip('walls','Walls')}</div>`;
+      <div class="ob-cf-chips">${chip('cvd','CVD')}${chip('funding','Funding')}${chip('oi','OI')}${chip('walls','Walls')}</div>
+      <div class="ob-cf-foot">
+        <span class="ob-cf-steady-lbl">Steadiness</span>
+        <div class="ob-steady-row">${steadyPills}</div>
+        <span class="ob-cf-steady-hint">holds a new call ${STEADY_CYCLES[_steady]*10}s before switching</span>
+      </div>`;
   }
 
   /* ── Bottom Setup Playbook (static reference) ── */
@@ -1030,6 +1087,7 @@ const OrderBookTab = (() => {
     _cvdBucketMs = cc.ms; _cvdMax = cc.count;
     _status = 'idle'; _lastMsg = 0; _reconDelay = 1000;
     _cgNoKey = false; _cgState = 'idle'; _cg = {};
+    _cfCommitted = null; _cfPending = null; _cfPendingN = 0; _cfRenderSig = null;
   }
 
   // Per-panel window pill row (7D / 30D / 60D / 90D)
@@ -1058,6 +1116,12 @@ const OrderBookTab = (() => {
     document.querySelectorAll('#ob-root .ob-win-pill').forEach(b => b.addEventListener('click', () => _setWin(b.dataset.panel, b.dataset.win)));
     document.querySelectorAll('#ob-root .ob-guide-h').forEach(h => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
     document.querySelectorAll('#ob-root .ob-howto-btn').forEach(b => b.addEventListener('click', () => _toggleHowto(b.dataset.howto)));
+    // steadiness pills are re-rendered dynamically → delegate on the container
+    const cfEl = document.getElementById('ob-confluence');
+    if (cfEl) cfEl.addEventListener('click', e => {
+      const p = e.target.closest('.ob-steady-pill');
+      if (p) _setSteady(p.dataset.steady);
+    });
   }
   function _toggleHowto(key) {
     const m = document.getElementById('ob-matrix-' + key);
