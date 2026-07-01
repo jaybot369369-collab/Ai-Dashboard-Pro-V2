@@ -296,7 +296,80 @@ const App = (() => {
     if (!_pendingSetups.includes(name)) {
       _pendingSetups.push(name);
       renderSetupChips();
+      renderSetupRulesChecklist();
     }
+  }
+
+  /* ── Setup-rules (playbook adherence) helpers ─────────
+     For each tagged setup that maps to a playbook entry with a checklist,
+     render its rule items as ticks. Feeds trade.setupRuleChecks → the
+     followed-vs-broke discipline stat (mirrors the global rules pattern). */
+  function _findSetup(pb, name) {
+    return pb.find(s => s.name === name || s.id === name);
+  }
+  function renderSetupRulesChecklist() {
+    const body = $('fSetupRulesBody');
+    const fs   = $('fSetupRulesFieldset');
+    if (!body) return;
+    const pb = DB.getPlaybook();
+    const blocks = [];
+    _pendingSetups.forEach(name => {
+      const setup = _findSetup(pb, name);
+      const list  = (setup && setup.checklist) || [];
+      if (!setup || !list.length) return;
+      const rows = list.map((item, i) => `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-sub)">
+          <input type="checkbox" id="fSetupRuleCheck_${setup.id}_${i}" onchange="App._updateSetupRuleCount('${setup.id}')"
+                 style="accent-color:var(--accent);width:14px;height:14px;flex-shrink:0;margin-top:2px;cursor:pointer" />
+          <label for="fSetupRuleCheck_${setup.id}_${i}" style="font-size:.8rem;line-height:1.35;cursor:pointer">${item.label}</label>
+        </div>`).join('');
+      blocks.push(`<div style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:.72rem;font-weight:700;letter-spacing:.05em;color:var(--accent);text-transform:uppercase">${setup.name}</span>
+          <span id="fSetupRuleCount_${setup.id}" style="font-size:.7rem;color:var(--text-dim)"></span>
+        </div>
+        ${rows}
+      </div>`);
+    });
+    if (!blocks.length) {
+      body.innerHTML = '<div style="font-size:.78rem;color:var(--text-dim);padding:2px 0">Tag a playbook setup above to check off its rules.</div>';
+      if (fs) fs.style.display = 'none';
+      return;
+    }
+    if (fs) fs.style.display = '';
+    body.innerHTML = blocks.join('');
+    _pendingSetups.forEach(name => {
+      const setup = _findSetup(pb, name);
+      if (setup) updateSetupRuleCount(setup.id);
+    });
+  }
+
+  function updateSetupRuleCount(setupId) {
+    const body = $('fSetupRulesBody');
+    if (!body) return;
+    const boxes = body.querySelectorAll(`input[id^="fSetupRuleCheck_${setupId}_"]`);
+    const el = document.getElementById(`fSetupRuleCount_${setupId}`);
+    if (!el || !boxes.length) return;
+    const done = [...boxes].filter(c => c.checked).length;
+    const pct  = done / boxes.length;
+    const thr  = DB.getAdherenceThreshold();
+    el.textContent = `${done}/${boxes.length} · ${(pct * 100).toFixed(0)}%`;
+    el.style.color = pct >= thr ? '#22c55e' : done > 0 ? '#f59e0b' : 'var(--text-dim)';
+  }
+
+  function collectSetupRuleChecks() {
+    const out = {};
+    const pb = DB.getPlaybook();
+    _pendingSetups.forEach(name => {
+      const setup = _findSetup(pb, name);
+      const list  = (setup && setup.checklist) || [];
+      if (!setup || !list.length) return;
+      out[setup.id] = list.map((_, i) => {
+        const cb = document.getElementById(`fSetupRuleCheck_${setup.id}_${i}`);
+        return cb ? cb.checked : false;
+      });
+    });
+    return out;
   }
 
   /* ── Rules checklist helpers ────────────────────────── */
@@ -629,6 +702,7 @@ const App = (() => {
     if (d.setupTypes && d.setupTypes.length) {
       _pendingSetups = [...d.setupTypes];
       renderSetupChips();
+      renderSetupRulesChecklist();
     }
     // Apply fields
     const setVal = (id, v) => {
@@ -711,6 +785,7 @@ const App = (() => {
     $('fSetupCustomGroup').classList.add('hidden');
     $('fSetupCustom').value = '';
     renderSetupChips();
+    renderSetupRulesChecklist();
 
     // Wire setup Add buttons (re-wire each open to avoid stale closures)
     const setupAddBtn = $('fSetupAdd');
@@ -797,6 +872,17 @@ const App = (() => {
     // Load setup chips
     _pendingSetups = t.setupTypes || (t.setupType ? [t.setupType] : []);
     renderSetupChips();
+    // Render setup-rule ticks and restore saved state
+    renderSetupRulesChecklist();
+    if (t.setupRuleChecks) {
+      Object.entries(t.setupRuleChecks).forEach(([sid, arr]) => {
+        (arr || []).forEach((checked, i) => {
+          const cb = document.getElementById(`fSetupRuleCheck_${sid}_${i}`);
+          if (cb) cb.checked = !!checked;
+        });
+        updateSetupRuleCount(sid);
+      });
+    }
     // Stash AI critique if present so a re-save preserves it
     const form = $('tradeForm');
     if (form) {
@@ -866,6 +952,7 @@ const App = (() => {
       screenshotUrl: '',   // clear legacy field on save
       date: f('fDate'),
       ruleChecks: collectRuleChecks(),
+      setupRuleChecks: collectSetupRuleChecks(),
       aiCritique, scanConfidence,
     };
 
@@ -1413,6 +1500,7 @@ Please analyse:
       if (r.setup_type && _pendingSetups && !_pendingSetups.includes(r.setup_type)) {
         _pendingSetups.push(r.setup_type);
         renderSetupChips();
+        renderSetupRulesChecklist();
       }
       if (typeof toast === 'function') toast('Applied AI suggestions', 'success');
     },
@@ -1478,7 +1566,9 @@ Please analyse:
     _removeSetup: (idx) => {
       _pendingSetups.splice(idx, 1);
       renderSetupChips();
+      renderSetupRulesChecklist();
     },
+    _updateSetupRuleCount: (sid) => updateSetupRuleCount(sid),
     openTradeModal,
     openTradeModalPrefilled,
     closeTradeModal,

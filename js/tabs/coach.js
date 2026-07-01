@@ -289,6 +289,62 @@ const CoachTab = (() => {
   /* ═══════════════════════════════════════════════════════
      SETUP CATALOGUE
   ═══════════════════════════════════════════════════════ */
+  /* Signed money, no decimals: +$120 / -$45 */
+  function _money(v) {
+    const n = Number(v) || 0;
+    return (n < 0 ? '-$' : '+$') + Math.abs(n).toFixed(0);
+  }
+
+  /* Headline "followed the rules vs broke them" card + configurable threshold.
+     Scoped to manual ('new') trades so imported history can't distort it. */
+  function _adherenceCard() {
+    const split  = DB.adherenceSplit(DB.filterByMode(DB.getTrades(), 'new'));
+    const F = split.followed, B = split.broke;
+    const thrPct = (DB.getAdherenceThreshold() * 100).toFixed(0);
+    const thrInput = `<label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-sub)">Followed = met ≥
+        <input type="number" min="5" max="100" step="5" value="${thrPct}" onchange="CoachTab._setAdherenceThr(this.value)"
+               style="width:56px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:6px;font-size:.8rem;text-align:center" /> % of rules</label>`;
+
+    const bucket = (label, ico, o, col) => `
+      <div style="border:1px solid var(--border);border-left:4px solid ${col};border-radius:10px;padding:12px 14px">
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${col};margin-bottom:8px">${ico} ${label} · ${o.n} trade${o.n === 1 ? '' : 's'}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div><div class="rs-label">Win rate</div><div style="font-size:1.15rem;font-weight:700;color:${col}">${o.n ? o.wr.toFixed(0) + '%' : '—'}</div></div>
+          <div><div class="rs-label">Avg R</div><div style="font-size:1.15rem;font-weight:700">${o.n ? o.avgR.toFixed(2) + 'R' : '—'}</div></div>
+          <div><div class="rs-label">Total P&L</div><div style="font-size:1.15rem;font-weight:700">${o.n ? _money(o.pl) : '—'}</div></div>
+        </div>
+      </div>`;
+
+    let verdict = '';
+    if (F.n && B.n) {
+      const wrD = F.wr - B.wr, rD = F.avgR - B.avgR;
+      const good = wrD >= 0;
+      verdict = `<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:var(--bg);font-size:.85rem;line-height:1.5">
+        <strong style="color:${good ? 'var(--green)' : 'var(--red)'}">Following your rules is worth ${wrD >= 0 ? '+' : ''}${wrD.toFixed(0)}% win rate and ${rD >= 0 ? '+' : ''}${rD.toFixed(2)}R per trade.</strong>
+        ${good ? '' : ' ⚠️ Broken-rule trades are currently outperforming — small sample, or your rules need review.'}</div>`;
+    } else {
+      verdict = `<div style="margin-top:12px;font-size:.82rem;color:var(--text-dim);line-height:1.5">Not enough scored trades on both sides yet. Log a trade with its setup rules ticked — or grade a trade A–D — to fill this in.</div>`;
+    }
+
+    const notes = [];
+    if (split.estimated) notes.push(`${split.estimated} estimated from post-grade (no rule ticks yet)`);
+    if (split.unscored)  notes.push(`${split.unscored} closed trade${split.unscored === 1 ? '' : 's'} with no rules or grade excluded`);
+
+    return `
+      <div class="card" style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+          <div class="section-title" style="margin:0">🎯 Rule Adherence — did you follow your playbook?</div>
+          ${thrInput}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${bucket('Followed', '✓', F, 'var(--green)')}
+          ${bucket('Broke rules', '✗', B, 'var(--red)')}
+        </div>
+        ${verdict}
+        ${notes.length ? `<div class="text-xs text-dim" style="margin-top:10px">ℹ️ ${notes.join(' · ')}. Estimated rows are a rough proxy, not confirmed rule adherence.</div>` : ''}
+      </div>`;
+  }
+
   function renderCatalogue(wrap) {
     const setups = DB.recomputePlaybookStats();
     wrap.innerHTML = `
@@ -296,6 +352,7 @@ const CoachTab = (() => {
       <p class="text-sub text-sm" style="margin-bottom:16px">
         Live stats for every setup in your playbook. This data will eventually power setup prediction and suggestions.
       </p>
+      ${_adherenceCard()}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
         ${setups.map(s => {
           const wr = s.winRate !== null ? s.winRate.toFixed(0) + '%' : 'No data';
@@ -303,6 +360,13 @@ const CoachTab = (() => {
           const color = s.winRate !== null ? (s.winRate >= 50 ? 'var(--green)' : 'var(--red)') : 'var(--text-sub)';
           const desc = s.description || '';
           const truncDesc = desc.length > 120 ? esc(desc.slice(0, 120)) + '…' : esc(desc);
+          const adh = (o, col, ico) => o ? `<span style="color:${col}">${ico} ${o.n}t · ${o.wr.toFixed(0)}% · ${o.avgR.toFixed(2)}R</span>` : '';
+          const adhLine = (s.adhFollowed || s.adhBroke) ? `
+              <div class="text-xs" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-sub);display:flex;gap:12px;flex-wrap:wrap">
+                <span class="text-dim">Rules:</span>
+                ${adh(s.adhFollowed, 'var(--green)', '✓') || '<span class="text-dim">✓ —</span>'}
+                ${adh(s.adhBroke, 'var(--red)', '✗') || '<span class="text-dim">✗ —</span>'}
+              </div>` : '';
           return `
             <div class="card">
               <div style="font-size:1rem;font-weight:700;color:var(--accent);margin-bottom:8px">${esc(s.name)}</div>
@@ -317,6 +381,7 @@ const CoachTab = (() => {
                 </div>
               </div>
               <div class="text-xs text-sub">${s.tradeCount} trades logged</div>
+              ${adhLine}
               ${desc ? `<div class="text-xs text-dim" style="margin-top:6px;line-height:1.5">${truncDesc}</div>` : ''}
             </div>
           `;
@@ -329,6 +394,7 @@ const CoachTab = (() => {
   return {
     render,
     _sub: id => { activeSubTab = id; render(); },
+    _setAdherenceThr: (v) => { DB.setAdherenceThreshold(v); renderSub(); },
     // v1.1 (2026-05-10): exposed so AI Coach can include these
     // sections after the tabs were merged. Each takes a wrap element
     // and writes innerHTML into it.

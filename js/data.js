@@ -23,6 +23,7 @@ const DB = (() => {
     rules:    'jb_rules',
     checklist:'jb_checklist',
     reviews:  'jb_ai_reviews',
+    adherenceThr: 'jb_adherence_threshold',
   };
 
   /* ── Core helpers ────────────────────────────────────── */
@@ -744,9 +745,80 @@ const DB = (() => {
   }
   function deleteSetup(id) { savePlaybook(getPlaybook().filter(s => s.id !== id)); }
 
+  /* ── Rule-adherence (playbook discipline) ─────────────────
+     "Followed the rules vs broke them" — the TradeZella mechanic.
+     Threshold configurable (default 0.80). Cold-start proxies from post-grade. */
+  function getAdherenceThreshold() {
+    const v = parseFloat(load(KEYS.adherenceThr));
+    return (isFinite(v) && v > 0 && v <= 1) ? v : 0.80;
+  }
+  function setAdherenceThreshold(v) {
+    let n = parseFloat(v);
+    if (!isFinite(n)) return getAdherenceThreshold();
+    if (n > 1) n = n / 100;                       // accept 80 → 0.80
+    n = Math.max(0.05, Math.min(1, n));
+    save(KEYS.adherenceThr, n);
+    return n;
+  }
+
+  /* Per-trade adherence verdict.
+     → { scored, source:'rules'|'proxy'|'none', met, total, pct, followed }
+     source 'rules'  = real per-setup checklist ticks were recorded for this trade.
+     source 'proxy'  = no rule data, fall back to post-grade (A/B followed, C/D broke) — ESTIMATED.
+     source 'none'   = neither → excluded from the split. */
+  function tradeAdherence(trade) {
+    const none = { scored: false, source: 'none', met: 0, total: 0, pct: null, followed: false };
+    if (!trade) return none;
+    const tagged = trade.setupTypes || (trade.setupType ? [trade.setupType] : []);
+    const rc = trade.setupRuleChecks || {};
+    let met = 0, total = 0, haveRules = false;
+    getPlaybook().forEach(setup => {
+      const isTagged = tagged.includes(setup.name) || tagged.includes(setup.id);
+      if (!isTagged) return;
+      const list = setup.checklist || [];
+      if (!list.length) return;
+      const checks = rc[setup.id];
+      if (!Array.isArray(checks)) return;         // no per-trade record for this setup
+      haveRules = true;
+      list.forEach((_, i) => { total++; if (checks[i]) met++; });
+    });
+    if (haveRules && total > 0) {
+      const pct = met / total;
+      return { scored: true, source: 'rules', met, total, pct, followed: pct >= getAdherenceThreshold() };
+    }
+    const pg = (trade.postGrade || '').toUpperCase();
+    if (pg === 'A' || pg === 'B' || pg === 'C' || pg === 'D') {
+      return { scored: true, source: 'proxy', met: 0, total: 0, pct: null, followed: (pg === 'A' || pg === 'B') };
+    }
+    return none;
+  }
+
+  /* Followed-vs-broke split across a trade set (closed only).
+     → { followed:{n,wr,avgR,pl}, broke:{n,wr,avgR,pl}, unscored, estimated } */
+  function adherenceSplit(trades) {
+    const closed = trades.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+    const mk = () => ({ n: 0, wins: 0, rSum: 0, pl: 0 });
+    const F = mk(), B = mk();
+    let unscored = 0, estimated = 0;
+    closed.forEach(t => {
+      const a = tradeAdherence(t);
+      if (!a.scored) { unscored++; return; }
+      if (a.source === 'proxy') estimated++;
+      const bucket = a.followed ? F : B;
+      const r = parseFloat(t.result || 0);
+      bucket.n++;
+      if (r > 0) bucket.wins++;
+      bucket.rSum += parseFloat(t.rMultiple || 0);
+      bucket.pl += r;
+    });
+    const fin = (o) => ({ n: o.n, wr: o.n ? (o.wins / o.n) * 100 : 0, avgR: o.n ? o.rSum / o.n : 0, pl: o.pl });
+    return { followed: fin(F), broke: fin(B), unscored, estimated };
+  }
+
   /* Recompute playbook stats from trades */
   function recomputePlaybookStats() {
     const trades = getTrades().filter(t => t.result !== undefined && t.result !== '');
+    const thr = getAdherenceThreshold();
     const pb = getPlaybook().map(setup => {
       const matching = trades.filter(t => {
         const setups = t.setupTypes || (t.setupType ? [t.setupType] : []);
@@ -756,11 +828,28 @@ const DB = (() => {
       const avgR  = matching.length
         ? matching.reduce((s, t) => s + parseFloat(t.rMultiple || 0), 0) / matching.length
         : null;
+      // Per-setup followed-vs-broke — rules-sourced only, using THIS setup's checklist.
+      const list = setup.checklist || [];
+      const mkA = () => ({ n: 0, wins: 0, rSum: 0, pl: 0 });
+      const fA = mkA(), bA = mkA();
+      if (list.length) {
+        matching.forEach(t => {
+          const checks = (t.setupRuleChecks || {})[setup.id];
+          if (!Array.isArray(checks)) return;
+          let met = 0; list.forEach((_, i) => { if (checks[i]) met++; });
+          const bk = (met / list.length) >= thr ? fA : bA;
+          const r = parseFloat(t.result || 0);
+          bk.n++; if (r > 0) bk.wins++; bk.rSum += parseFloat(t.rMultiple || 0); bk.pl += r;
+        });
+      }
+      const finA = (o) => o.n ? { n: o.n, wr: (o.wins / o.n) * 100, avgR: o.rSum / o.n, pl: o.pl } : null;
       return {
         ...setup,
         tradeCount: matching.length,
         winRate: matching.length ? (wins.length / matching.length) * 100 : null,
-        avgR
+        avgR,
+        adhFollowed: finA(fA),
+        adhBroke: finA(bA)
       };
     });
     savePlaybook(pb);
@@ -1255,6 +1344,7 @@ const DB = (() => {
     // Playbook
     getPlaybook, addSetup, updateSetup, deleteSetup,
     recomputePlaybookStats, getSetupNames,
+    getAdherenceThreshold, setAdherenceThreshold, tradeAdherence, adherenceSplit,
     // Mistakes & Strengths
     getMistakes, addMistake, updateMistake, deleteMistake, bumpMistake,
     getStrengths, addStrength, updateStrength, deleteStrength, bumpStrength,
