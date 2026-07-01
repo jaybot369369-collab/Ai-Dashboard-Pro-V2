@@ -432,6 +432,70 @@ const CoachTab = (() => {
       </svg>`;
   }
 
+  /* Specific, actionable copy per component — references the real computed value,
+     not generic advice. Discipline branches on whichever of its 3 sub-inputs
+     (adherence/grading/tagging) is weakest. */
+  function _focusMessage(key, comp) {
+    const fmtVal = v => v === null ? '—' : (v === Infinity ? '∞' : v.toFixed(2));
+    switch (key) {
+      case 'pf':
+        return `Profit Factor is ${fmtVal(comp.value)} — you're losing more than you're making overall. Focus on cutting losers faster or tightening stops so losses shrink relative to wins.`;
+      case 'maxDrawdown':
+        return `Max Drawdown is ${comp.value.toFixed(1)}% — that's how far your account has dropped from its peak. Review position sizing on losing streaks; consider sizing down after 2-3 losses in a row.`;
+      case 'winLossRatio':
+        return `Avg Win/Loss ratio is ${fmtVal(comp.value)} — your average winner isn't much bigger than your average loser. Let winners run to your full TP, or tighten stops so losses are smaller.`;
+      case 'winRate':
+        return `Win Rate is ${comp.value.toFixed(1)}% — revisit your entry criteria. Are you only taking A/B-grade setups, or forcing marginal ones?`;
+      case 'recovery':
+        return `Recovery Factor is ${fmtVal(comp.value)} — you haven't recovered from your worst drawdown yet. Prioritize consistency over the next several trades rather than trying to win it back fast.`;
+      case 'consistency':
+        return `Your daily P&L swings widely day to day (this measures spread, not direction). Consider capping position size or your daily trade count to smooth results out.`;
+      case 'discipline': {
+        const d = comp.value;
+        const fixes = [];
+        if (d.adherencePct === null || d.adherencePct < 60) fixes.push('tick your setup rules checklist before every trade');
+        if (d.gradingPct < 70) fixes.push('grade every trade (pre + post)');
+        if (d.tagPct < 70) fixes.push('tag a setup type on every trade');
+        const lead = d.adherencePct !== null
+          ? `Rule adherence is only ${d.adherencePct.toFixed(0)}%`
+          : `You have no rule-ticked trades yet (grading is filling in as a rough proxy)`;
+        return `${lead} — this is your highest-leverage fix since it's 20% of the score. Start with: ${fixes.join('; ') || 'keep it up'}.`;
+      }
+      default: return '';
+    }
+  }
+
+  /* Small card below the score: the 3 components dragging it down the most,
+     ranked by weight × room-to-improve, so it points at what actually moves
+     the number rather than everything at once. */
+  function _focusAreasCard(gfs) {
+    const c = gfs.components;
+    const items = _GFS_ORDER
+      .map(key => ({ key, comp: c[key], opportunity: c[key].weight * (100 - c[key].subScore) }))
+      .filter(o => o.comp.subScore < 70)
+      .sort((a, b) => b.opportunity - a.opportunity)
+      .slice(0, 3);
+    if (!items.length) {
+      return `
+        <div class="card" style="margin-bottom:18px">
+          <div class="section-title" style="margin-bottom:4px">🎯 Focus Areas</div>
+          <p class="text-sub text-sm">No major weak spots right now — every component is scoring reasonably well. Keep logging trades to keep this sharp.</p>
+        </div>`;
+    }
+    return `
+      <div class="card" style="margin-bottom:18px">
+        <div class="section-title" style="margin-bottom:4px">🎯 Focus Areas — what to watch on your next trades</div>
+        <p class="text-sub text-sm" style="margin-bottom:14px">Ranked by how much each is dragging your Get Free Score down (its weight × how much room it has to improve).</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${items.map(({ key, comp }) => `
+            <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-left:4px solid ${_gfsColor(comp.subScore)};border-radius:8px">
+              <div style="font-weight:700;font-size:.82rem;flex-shrink:0;min-width:130px;color:${_gfsColor(comp.subScore)}">${_GFS_LABELS[key].label}</div>
+              <div style="font-size:.83rem;line-height:1.55;color:var(--text)">${_focusMessage(key, comp)}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
   function _scoreCard() {
     // Scoped to manually-logged ('new') trades only — same scoping as _adherenceCard()
     // above — so imported Notion/Binance history doesn't dilute your real trade log.
@@ -493,7 +557,8 @@ const CoachTab = (() => {
           tagging) has no TradeZella equivalent — it's this dashboard's own metric.
           ${notes.length ? `<br>${notes.join(' · ')}.` : ''}
         </div>
-      </div>`;
+      </div>
+      ${_focusAreasCard(gfs)}`;
   }
 
   function _renderScore(wrap) {
