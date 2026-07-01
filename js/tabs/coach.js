@@ -391,15 +391,18 @@ const CoachTab = (() => {
   function _radarSVG(components) {
     const n = _GFS_ORDER.length;
     // R is 50% bigger than the original 108px radius. cx/cy carry extra margin beyond
-    // R*1.24 (the label anchor distance) so long labels like "Discipline (53/100)" —
-    // drawn with text-anchor="end" extending leftward from their anchor point — don't
-    // get clipped past the viewBox edge.
-    const cx = 310, cy = 240, R = 162;
+    // R*1.22 (the label anchor distance) so long labels like "Recovery Factor (-0.55)" —
+    // drawn with text-anchor="end"/"start" extending away from their anchor point — don't
+    // get clipped past the viewBox edge, however wide or narrow the rendered column is
+    // (the SVG scales uniformly via viewBox, so a fit that works at these units works at
+    // any container width).
+    const cx = 350, cy = 240, R = 162, labelFrac = 1.22;
     const angleFor = i => (Math.PI * 2 * i / n) - Math.PI / 2;
     const pt = (i, frac) => {
       const a = angleFor(i);
       return [cx + Math.cos(a) * R * frac, cy + Math.sin(a) * R * frac];
     };
+    const outerPts = _GFS_ORDER.map((_, i) => pt(i, 1).join(',')).join(' ');
     const grid = [0.25, 0.5, 0.75, 1].map(frac => {
       const pts = _GFS_ORDER.map((_, i) => pt(i, frac).join(',')).join(' ');
       return `<polygon class="gfs-grid" points="${pts}" />`;
@@ -414,7 +417,7 @@ const CoachTab = (() => {
       return `<circle class="gfs-dot" cx="${x}" cy="${y}" r="5" fill="${_gfsColor(components[key].subScore)}" />`;
     }).join('');
     const labels = _GFS_ORDER.map((key, i) => {
-      const [x, y] = pt(i, 1.24);
+      const [x, y] = pt(i, labelFrac);
       const anchor = Math.abs(Math.cos(angleFor(i))) < 0.25 ? 'middle' : (Math.cos(angleFor(i)) > 0 ? 'start' : 'end');
       const c = components[key];
       const meta = _GFS_LABELS[key];
@@ -422,7 +425,15 @@ const CoachTab = (() => {
       return `<text class="gfs-axis-label" x="${x}" y="${y}" text-anchor="${anchor}">${meta.label} (${valStr})</text>`;
     }).join('');
     return `
-      <svg class="gfs-radar-svg" viewBox="0 0 620 480" width="100%" height="480" preserveAspectRatio="xMidYMid meet">
+      <svg class="gfs-radar-svg" viewBox="0 0 700 480" width="100%" height="480" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <radialGradient id="gfsHeatGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#ef4444" />
+            <stop offset="100%" stop-color="#22c55e" />
+          </radialGradient>
+          <clipPath id="gfsHeatClip"><polygon points="${outerPts}" /></clipPath>
+        </defs>
+        <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#gfsHeatGrad)" fill-opacity="0.5" clip-path="url(#gfsHeatClip)" />
         ${grid}${spokes}
         <polygon class="gfs-fill" points="${fillPts}" />
         ${dots}
@@ -451,33 +462,33 @@ const CoachTab = (() => {
       <div class="card" style="margin-bottom:18px">
         <div class="section-title" style="margin-bottom:4px">🏆 Get Free Score</div>
         <p class="text-sub text-sm" style="margin-bottom:10px">One number summarizing your overall trading performance — profitability, risk management, consistency, and (unique to this dashboard) discipline. Backward-looking, not a prediction.</p>
-        <div style="max-width:620px;margin:0 auto">${_radarSVG(c)}</div>
-        <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin-top:8px">
-          <div style="flex:0 0 180px">
+        <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+          <div style="flex:1.3;min-width:360px">${_radarSVG(c)}</div>
+          <div style="flex:1;min-width:260px">
             <div class="gfs-label">GET FREE SCORE</div>
             <div class="gfs-num" style="color:${scoreCol}">${gfs.score}</div>
             <div class="gfs-gradient-bar">
               <div class="gfs-gradient-marker" style="left:${gfs.score}%"></div>
             </div>
             <div class="gfs-gradient-ticks"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
-          </div>
-          <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:2px">
-            ${_GFS_ORDER.map(key => {
-              const comp = c[key];
-              const col = _gfsColor(comp.subScore);
-              return `
-                <div class="gfs-row-wrap">
-                  <div class="gfs-row">
-                    <div>
-                      <div class="gfs-row-label" onclick="CoachTab._toggleGfsDesc('${key}')">${_GFS_LABELS[key].label} <span class="gfs-info-ic">ⓘ</span></div>
-                      <div class="text-xs text-dim">weight ${(comp.weight * 100).toFixed(0)}%</div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:2px">
+              ${_GFS_ORDER.map(key => {
+                const comp = c[key];
+                const col = _gfsColor(comp.subScore);
+                return `
+                  <div class="gfs-row-wrap">
+                    <div class="gfs-row">
+                      <div>
+                        <div class="gfs-row-label" onclick="CoachTab._toggleGfsDesc('${key}')">${_GFS_LABELS[key].label} <span class="gfs-info-ic">ⓘ</span></div>
+                        <div class="text-xs text-dim">weight ${(comp.weight * 100).toFixed(0)}%</div>
+                      </div>
+                      <div style="font-size:.82rem;font-weight:700;color:${col}">${comp.subScore}</div>
+                      <div class="conf-score-bar"><span class="${comp.subScore >= 60 ? 'pos' : comp.subScore >= 40 ? 'flat' : 'neg'}" style="width:${comp.subScore}%"></span></div>
                     </div>
-                    <div style="font-size:.82rem;font-weight:700;color:${col}">${comp.subScore}</div>
-                    <div class="conf-score-bar"><span class="${comp.subScore >= 60 ? 'pos' : comp.subScore >= 40 ? 'flat' : 'neg'}" style="width:${comp.subScore}%"></span></div>
-                  </div>
-                  <div id="gfsDesc_${key}" class="gfs-row-desc">${_GFS_LABELS[key].desc}</div>
-                </div>`;
-            }).join('')}
+                    <div id="gfsDesc_${key}" class="gfs-row-desc">${_GFS_LABELS[key].desc}</div>
+                  </div>`;
+              }).join('')}
+            </div>
           </div>
         </div>
         <div class="text-xs text-dim" style="margin-top:14px;line-height:1.6">
