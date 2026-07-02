@@ -275,6 +275,14 @@ const DashboardTab = (() => {
           ${topSetupsHtml(pnlTrades)}
         </div>
       </div>
+
+      ${(() => {
+        // Day × Time P&L heatmap (roadmap #5) — owned by TendenciesTab, rendered here
+        try {
+          return (typeof TendenciesTab !== 'undefined' && TendenciesTab._heatmapCardHTML)
+            ? TendenciesTab._heatmapCardHTML() : '';
+        } catch (e) { console.warn('[dashboard] heatmap card failed:', e); return ''; }
+      })()}
     `;
 
     /* ── CHARTS ── */

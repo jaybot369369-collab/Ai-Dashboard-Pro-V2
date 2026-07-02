@@ -354,8 +354,6 @@ const TendenciesTab = (() => {
       </div>` : `<div class="text-dim" style="font-size:.8rem">No direction data yet</div>`;
 
     return { html: `
-      ${_heatmapCard()}
-
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
 
         <!-- P&L by Day of Week -->
@@ -759,5 +757,7 @@ Rules for analysis:
     _rerenderCurrent();
   }
 
-  return { render, renderInto, _edit, _add, _delete, _inc, _autoAnalyze, _hmSetMode, _hmCell };
+  // _heatmapCardHTML: raw-HTML helper — the Day × Time heatmap renders at the
+  // bottom of the Dashboard tab (js/tabs/dashboard.js), not in Patterns.
+  return { render, renderInto, _edit, _add, _delete, _inc, _autoAnalyze, _hmSetMode, _hmCell, _heatmapCardHTML: _heatmapCard };
 })();
