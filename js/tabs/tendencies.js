@@ -6,6 +6,7 @@
 const TendenciesTab = (() => {
 
   let _sub = localStorage.getItem('jb_tend_sub') || 'mistakes';
+  let _hmMode = localStorage.getItem('jb_tend_hm_mode') || 'session';  // 'session' | 'hour'
   const _safeId = id => /^[A-Za-z0-9_-]+$/.test(id) ? id : '';
 
   // Chart instances — destroyed before recreating
@@ -75,6 +76,159 @@ const TendenciesTab = (() => {
 
   function fmtPL(n) {
     return (n >= 0 ? '+$' : '-$') + Math.abs(n).toFixed(2);
+  }
+  // compact money for tight heatmap cells: +$1.2k / -$340 / +$18
+  function fmtCompact(n) {
+    const a = Math.abs(n), s = n < 0 ? '-$' : '+$';
+    if (a >= 1000) return s + (a / 1000).toFixed(a >= 10000 ? 0 : 1) + 'k';
+    return s + Math.round(a);
+  }
+
+  /* ═══ Day × Time P&L heatmap (roadmap #5) ═══════════════════
+     Scoped to manually-logged closed trades — imported Notion/Binance
+     history has no session/time tags, so it would swamp the grid with a
+     single "Other" column (RULE #2). Rows = weekday (from the trade date),
+     columns = trading session (default, populated today) OR hour-of-day
+     block (fills in as trades get a Time logged). */
+  const _HM_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const _HM_DOW_IDX = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 0: 'Sun' };
+  const _HM_SESSIONS = ['Asian', 'London', 'NY', 'Other'];
+  const _HM_HOURS = ['00', '03', '06', '09', '12', '15', '18', '21']; // 3-hour UTC blocks
+
+  function _manualClosed() {
+    const raw = (typeof DB.filterByMode === 'function') ? DB.filterByMode(DB.getTrades(), 'new') : DB.getTrades();
+    return raw.filter(t => t.result !== undefined && t.result !== null && t.result !== '');
+  }
+
+  function _hmSessionCol(t) {
+    const s = (t.session || '').toLowerCase();
+    if (s.startsWith('asia')) return 'Asian';
+    if (s.startsWith('lond')) return 'London';
+    if (s === 'ny' || s.startsWith('new')) return 'NY';
+    return 'Other';
+  }
+  function _hmHourCol(t) {
+    const m = /^(\d{2}):/.exec(t.time || '');
+    if (!m) return null;
+    const h = parseInt(m[1], 10);
+    if (!(h >= 0 && h <= 23)) return null;
+    return _HM_HOURS[Math.floor(h / 3)];
+  }
+
+  // → { cols, cells:{day:{col:{pl,n,wins,rSum,rN}}}, maxAbs, counted, total }
+  function _heatData(mode) {
+    const cols = mode === 'hour' ? _HM_HOURS : _HM_SESSIONS;
+    const cells = {};
+    _HM_DAYS.forEach(d => { cells[d] = {}; cols.forEach(c => cells[d][c] = { pl: 0, n: 0, wins: 0, rSum: 0, rN: 0 }); });
+    let maxAbs = 0, counted = 0;
+    const trades = _manualClosed();
+    trades.forEach(t => {
+      if (!t.date) return;
+      const day = _HM_DOW_IDX[new Date(t.date + 'T12:00:00Z').getUTCDay()];
+      const col = mode === 'hour' ? _hmHourCol(t) : _hmSessionCol(t);
+      if (!day || !col || !cells[day] || !cells[day][col]) return;   // hour mode: skip trades with no Time
+      const c = cells[day][col];
+      const pl = parseFloat(t.result || 0);
+      c.pl += pl; c.n++; if (pl > 0) c.wins++;
+      const r = parseFloat(t.rMultiple);
+      if (isFinite(r)) { c.rSum += r; c.rN++; }
+      counted++;
+    });
+    _HM_DAYS.forEach(d => cols.forEach(c => { const v = cells[d][c]; if (v.n) maxAbs = Math.max(maxAbs, Math.abs(v.pl)); }));
+    return { cols, cells, maxAbs: maxAbs || 1, counted, total: trades.length };
+  }
+
+  function _heatColor(pl, n, maxAbs) {
+    if (!n) return 'rgba(127,127,127,0.05)';
+    if (pl === 0) return 'rgba(127,127,127,0.16)';
+    const ratio = Math.min(1, Math.abs(pl) / maxAbs);
+    const a = (0.14 + 0.6 * ratio).toFixed(3);
+    return pl > 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`;
+  }
+
+  function _heatmapCard() {
+    const mode = _hmMode;
+    const { cols, cells, maxAbs, counted, total } = _heatData(mode);
+
+    if (!total) {
+      return `<div id="tendHeatmap" class="card" style="padding:16px;margin-bottom:16px">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:2px">Day × Time P&amp;L Map</div>
+        <div class="text-dim" style="font-size:.82rem;padding:10px 0">Log some trades to see which day-and-time windows make you money.</div>
+      </div>`;
+    }
+
+    // best / worst populated cell
+    let best = null, worst = null;
+    _HM_DAYS.forEach(d => cols.forEach(c => {
+      const v = cells[d][c]; if (!v.n) return;
+      if (!best || v.pl > best.pl) best = { d, c, ...v };
+      if (!worst || v.pl < worst.pl) worst = { d, c, ...v };
+    }));
+
+    const colLabel = c => mode === 'hour' ? c : c;
+    const header = `<div class="hm-cell hm-corner"></div>` +
+      cols.map(c => `<div class="hm-cell hm-collabel">${esc(colLabel(c))}</div>`).join('');
+
+    const body = _HM_DAYS.map(d => {
+      const rowCells = cols.map(c => {
+        const v = cells[d][c];
+        const bg = _heatColor(v.pl, v.n, maxAbs);
+        const txt = v.n ? `<span class="hm-pl">${fmtCompact(v.pl)}</span><span class="hm-n">${v.n}</span>` : '';
+        const click = v.n ? `onclick="TendenciesTab._hmCell('${d}','${esc(c)}')"` : '';
+        return `<div class="hm-cell hm-data${v.n ? ' has' : ''}" style="background:${bg}" ${click} title="${esc(d)} · ${esc(c)}">${txt}</div>`;
+      }).join('');
+      return `<div class="hm-daylabel">${d}</div>${rowCells}`;
+    }).join('');
+
+    const modeBtns = `
+      <span class="hm-mode-group">
+        <button class="hm-mode-pill${mode === 'session' ? ' active' : ''}" onclick="TendenciesTab._hmSetMode('session')">Session</button>
+        <button class="hm-mode-pill${mode === 'hour' ? ' active' : ''}" onclick="TendenciesTab._hmSetMode('hour')">Hour (UTC)</button>
+      </span>`;
+
+    const note = mode === 'hour'
+      ? `Only ${counted}/${total} logged trades carry a Time — add a Time in the trade form to fill the hour grid in.`
+      : (counted < total ? `${total - counted} trade${total - counted === 1 ? '' : 's'} without a session fell into “Other”.` : `All ${total} logged trades placed.`);
+
+    const callout = (best && worst) ? `
+      <div class="hm-callout">
+        <span>🟢 Best window: <b>${best.d} · ${esc(best.c)}</b> ${fmtPL(best.pl)} <span class="hm-sub">(${best.n} trade${best.n === 1 ? '' : 's'})</span></span>
+        <span>🔴 Worst window: <b>${worst.d} · ${esc(worst.c)}</b> ${fmtPL(worst.pl)} <span class="hm-sub">(${worst.n} trade${worst.n === 1 ? '' : 's'})</span></span>
+      </div>` : '';
+
+    return `<div id="tendHeatmap" class="card" style="padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <div>
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:#666;margin-bottom:2px">Day × Time P&amp;L Map</div>
+          <div style="font-size:.85rem;font-weight:600;color:var(--text)">When your edge shows up — green makes money, red loses it</div>
+        </div>
+        ${modeBtns}
+      </div>
+      <div class="hm-grid" style="grid-template-columns:52px repeat(${cols.length}, 1fr)">
+        ${header}
+        ${body}
+      </div>
+      <div class="hm-detail" id="hmDetail">Click any coloured cell for its win rate, average R and trade count.</div>
+      ${callout}
+      <div class="hm-note">${note}</div>
+    </div>`;
+  }
+
+  function _hmSetMode(m) {
+    _hmMode = (m === 'hour') ? 'hour' : 'session';
+    localStorage.setItem('jb_tend_hm_mode', _hmMode);
+    const el = document.getElementById('tendHeatmap');
+    if (el) el.outerHTML = _heatmapCard();
+  }
+
+  function _hmCell(day, col) {
+    const { cells } = _heatData(_hmMode);
+    const v = cells[day] && cells[day][col];
+    const el = document.getElementById('hmDetail');
+    if (!el || !v || !v.n) return;
+    const wr = Math.round(v.wins / v.n * 100);
+    const avgR = v.rN ? (v.rSum / v.rN >= 0 ? '+' : '') + (v.rSum / v.rN).toFixed(2) + 'R' : '—';
+    el.innerHTML = `<b>${esc(day)} · ${esc(col)}</b> — ${v.n} trade${v.n === 1 ? '' : 's'} · ${wr}% WR · ${avgR} avg · <span style="color:${v.pl >= 0 ? 'var(--good,#22c55e)' : 'var(--bad,#ef4444)'};font-weight:700">${fmtPL(v.pl)}</span>`;
   }
 
   /* ── Chart renderers ────────────────────────────────────── */
@@ -200,6 +354,8 @@ const TendenciesTab = (() => {
       </div>` : `<div class="text-dim" style="font-size:.8rem">No direction data yet</div>`;
 
     return { html: `
+      ${_heatmapCard()}
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
 
         <!-- P&L by Day of Week -->
@@ -603,5 +759,5 @@ Rules for analysis:
     _rerenderCurrent();
   }
 
-  return { render, renderInto, _edit, _add, _delete, _inc, _autoAnalyze };
+  return { render, renderInto, _edit, _add, _delete, _inc, _autoAnalyze, _hmSetMode, _hmCell };
 })();
