@@ -25,7 +25,7 @@ const TradeView = (() => {
   // Lightweight Charts lifecycle
   let _lw = null;        // { chart, series, vol, canvas, ro }
   let _bars = [];        // chronological {t(ms),o,h,l,c,v}
-  let _anchors = null;   // { entryIdx, exitIdx, entry, sl, tp, dir }
+  let _anchors = null;   // { entryIdx (replay start), entryMk, exitMk (data-backed marker bars | null), entry, sl, tp, dir }
   let _zoneOn = false;   // rAF zone painter flag
   let _replay = null;    // { idx, timer } | null
 
@@ -506,18 +506,40 @@ const TradeView = (() => {
     }
     _bars = bars;
 
-    // ── anchors: snap entry/exit to bars ──
+    // ── anchors: pin entry/exit markers to bars the DATA actually supports ──
+    // Without a logged time, the old code snapped markers to the 00:00 bar —
+    // a guess that lands at prices far from the real levels and reads like an
+    // extra entry/exit (RULE #2). Now: exact bar when t.time exists, else the
+    // first/last bar INSIDE the trade window whose range contains the logged
+    // price. No supporting bar → no marker; the dashed price lines remain.
     const snap = ms => {
       let idx = 0;
       for (let i = 0; i < bars.length; i++) { if (bars[i].t <= ms) idx = i; else break; }
       return idx;
     };
-    const entryIdx = snap(anchor);
-    const exMs = exitMs(t);
-    let exitIdx = exMs !== null ? snap(exMs)
-      : (t.exitPrice || t.result ? snap(Date.parse(`${t.date}T23:59:00Z`)) : Math.min(entryIdx + 24, bars.length - 1));
-    if (exitIdx <= entryIdx) exitIdx = Math.min(entryIdx + 24, bars.length - 1);
-    _anchors = { entryIdx, exitIdx, entry: num(t.entry), sl: num(t.sl), tp: num(t.tp), dir: t.direction };
+    const entryPx = num(t.entry), exitPx = num(t.exitPrice);
+    const winStart = Date.parse(`${t.date}T00:00:00Z`);
+    const winEnd = Date.parse(`${(t.dateEnd || t.date)}T23:59:59Z`);
+    const hasTime = /^\d{2}:\d{2}/.test(t.time || '');
+    let entryMk = null, exitMk = null;
+    if (hasTime) entryMk = snap(anchor);
+    else if (entryPx !== null) {
+      for (let i = 0; i < bars.length; i++) {
+        if (bars[i].t < winStart || bars[i].t > winEnd) continue;
+        if (bars[i].l <= entryPx && entryPx <= bars[i].h) { entryMk = i; break; }
+      }
+    }
+    const closed = (t.exitPrice !== undefined && t.exitPrice !== '') || (t.result !== undefined && t.result !== '' && t.result !== null);
+    if (closed && exitPx !== null) {
+      for (let i = bars.length - 1; i >= 0; i--) {
+        if (bars[i].t > winEnd) continue;
+        if (bars[i].t < winStart || (entryMk !== null && i < entryMk)) break;
+        if (bars[i].l <= exitPx && exitPx <= bars[i].h) { exitMk = i; break; }
+      }
+    }
+    // replay still starts from the dated bar even when no entry marker is shown
+    const entryIdx = entryMk !== null ? entryMk : snap(anchor);
+    _anchors = { entryIdx, entryMk, exitMk, entry: entryPx, sl: num(t.sl), tp: num(t.tp), dir: t.direction };
 
     // ── build chart ──
     target.innerHTML = '';
@@ -600,25 +622,26 @@ const TradeView = (() => {
     vol.setData(bars.map(b => ({ time: b.t / 1000, value: b.v, color: b.c >= b.o ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' })));
   }
 
-  // Markers only up to `uptoT` (ms) so replay slices stay valid
+  // Markers only up to `uptoT` (ms) so replay slices stay valid.
+  // entryMk/exitMk are null when no bar supports the level — then no marker
+  // is drawn at all (the dashed price lines still carry the level).
   function applyMarkers(series, t, uptoT) {
     if (!_anchors) return;
-    const { entryIdx, exitIdx } = _anchors;
+    const { entryMk, exitMk } = _anchors;
     const long = t.direction === 'Long';
     const markers = [];
-    if (_bars[entryIdx] && _bars[entryIdx].t <= uptoT) {
+    if (entryMk !== null && _bars[entryMk] && _bars[entryMk].t <= uptoT) {
       markers.push({
-        time: _bars[entryIdx].t / 1000,
+        time: _bars[entryMk].t / 1000,
         position: long ? 'belowBar' : 'aboveBar',
         color: long ? '#22c55e' : '#ef4444',
         shape: long ? 'arrowUp' : 'arrowDown',
         text: 'Entry',
       });
     }
-    const closed = (t.exitPrice !== undefined && t.exitPrice !== '') || (t.result !== undefined && t.result !== '' && t.result !== null);
-    if (closed && _bars[exitIdx] && _bars[exitIdx].t <= uptoT && exitIdx > entryIdx) {
+    if (exitMk !== null && _bars[exitMk] && _bars[exitMk].t <= uptoT) {
       markers.push({
-        time: _bars[exitIdx].t / 1000,
+        time: _bars[exitMk].t / 1000,
         position: long ? 'aboveBar' : 'belowBar',
         color: '#f59e0b',
         shape: 'circle',
@@ -633,8 +656,10 @@ const TradeView = (() => {
     const { chart, series, canvas } = _lw;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const { entryIdx, exitIdx, entry, sl, tp } = _anchors;
-    if (entry === null) return;
+    const { entryMk, exitMk, entry, sl, tp } = _anchors;
+    // zones only when BOTH ends are pinned to real bars — a guessed span
+    // painted as a solid box misreads as a confirmed hold period
+    if (entry === null || entryMk === null || exitMk === null) return;
 
     const ts = chart.timeScale();
     const coordX = ms => {
@@ -646,8 +671,8 @@ const TradeView = (() => {
       return (ms / 1000 < vr.from) ? 0 : canvas.width;
     };
     // In replay, cap the zone at the last visible (replayed) bar
-    const lastIdx = _replay ? Math.min(_replay.idx, exitIdx) : exitIdx;
-    const x1 = coordX(_bars[entryIdx].t);
+    const lastIdx = _replay ? Math.min(_replay.idx, exitMk) : exitMk;
+    const x1 = coordX(_bars[entryMk].t);
     const x2 = coordX(_bars[lastIdx].t);
     if (x1 === null || x2 === null || x2 <= x1) return;
 
