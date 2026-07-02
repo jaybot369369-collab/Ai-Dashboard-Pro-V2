@@ -845,6 +845,7 @@ const App = (() => {
       fExitPrice: t.exitPrice, fResult: t.result, fRMultiple: t.rMultiple,
       fPostGrade: t.postGrade, fPostGradeNotes: t.postGradeNotes,
       fNotes: t.notes, fDate: t.date, fDateEnd: t.dateEnd || '',
+      fTime: t.time || '',
     };
     Object.entries(fields).forEach(([id, val]) => {
       const el = $(id);
@@ -951,6 +952,7 @@ const App = (() => {
       screenshotUrls: [..._pendingScreenshots],
       screenshotUrl: '',   // clear legacy field on save
       date: f('fDate'),
+      time: f('fTime'),    // optional HH:MM — anchors the Trade View chart to the exact bar
       ruleChecks: collectRuleChecks(),
       setupRuleChecks: collectSetupRuleChecks(),
       aiCritique, scanConfidence,

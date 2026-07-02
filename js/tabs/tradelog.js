@@ -15,6 +15,10 @@ const TradeLogTab = (() => {
   let page = 1;
   const PAGE_SIZE = 15;
 
+  // Ordered ids of the last-rendered (filtered+sorted) list — handed to
+  // TradeView so its ‹ › navigation walks the same order the table shows.
+  let _lastOrderedIds = [];
+
   // Complete ledger source: every manually-logged trade, decoupled from the
   // topbar date dropdown AND the data-mode toggle. DB.getTradesRaw is the
   // un-patched original set (assigned in app.js init); fall back to getTrades.
@@ -118,6 +122,8 @@ const TradeLogTab = (() => {
       if (ca > cb) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
+
+    _lastOrderedIds = filtered.map(t => t.id);
 
     if (!filtered.length) {
       wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No trades match the current filters.</p></div>`;
@@ -264,6 +270,9 @@ const TradeLogTab = (() => {
     `;
     row.addEventListener('click', e => {
       if (e.target.tagName === 'BUTTON') return;
+      // Trade View popup (details left, live TradingView chart right).
+      // Fall back to the old inline expand if the module didn't load.
+      if (typeof TradeView !== 'undefined') { TradeView.open(t.id, _lastOrderedIds); return; }
       expandedId = expandedId === t.id ? null : t.id;
       renderTable(tradesForLog());   // keep current page; expand toggles in place
     });
