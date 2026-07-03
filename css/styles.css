@@ -1619,6 +1619,11 @@ body.privacy-mode canvas:hover,
 body.privacy-mode .day-trade-row:hover {
   filter: blur(0);
 }
+/* Trade View: market candles are public data, not account info — exempt the
+   chart canvases from the blanket privacy blur. The popup's Net P&L hero IS
+   account money, so blur that instead. */
+body.privacy-mode .tv-view-chart canvas { filter: none; }
+body.privacy-mode .tvh-pl { filter: blur(8px); user-select: none; }
 #privacyToggle.active { color: var(--accent); }
 
 /* ═══════════════════════════════════════════════════════════
