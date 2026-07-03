@@ -33,7 +33,7 @@ const CryptoScannerTab = (() => {
     // It sits above #cs-mount in DOM order — iframe can never intercept chip clicks.
     body.innerHTML = `
       <div class="cs-header">
-        <h1 class="page-title" style="margin:0">🔍 Crypto Scanner</h1>
+        <h1 class="page-title" style="margin:0">🔍 Crypto Scanners</h1>
         <div class="cs-chip-bar">${_chipBar()}</div>
       </div>
       <div id="cs-mount"></div>`;

@@ -68,7 +68,7 @@ const DB = (() => {
     { id: 'orderbook',    label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
     { id: 'catalysts',    label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',  label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
-    { id: 'cryptoscanner',label: 'Crypto Scanner',  icon: '🔍', builtin: true, group: 'MARKETS'  },
+    { id: 'cryptoscanner',label: 'Crypto Scanners', icon: '🔍', builtin: true, group: 'MARKETS'  },
     { id: 'fund',         label: 'Bot Farm',         icon: '🏦', builtin: true, group: 'MARKETS'  },
     { id: 'protools',   label: 'Pro Tools',        icon: '🛠', builtin: true, group: 'TOOLS'    },
   ];
