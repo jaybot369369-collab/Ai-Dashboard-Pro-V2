@@ -100,8 +100,15 @@ const MarketIntelTab = (() => {
     _err = null;
     /* Prefer the live /api/market_intel endpoint (reads /data on Railway
        → updates instantly after a server-side refresh). Fall back to the
-       V2-bundled static JSON if the API isn't reachable (offline dev). */
+       V2-bundled static JSON if the API isn't reachable (offline dev).
+       On localhost, the local shim's GET /json comes FIRST — launchd runs the
+       pipeline from ~/.local/share/market-intel (macOS TCC blocks it from
+       writing into js/data/ under ~/Documents), so the freshest local run
+       only exists behind the shim. 404 there simply falls through. */
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const shimBase = (localStorage.getItem(LS_LOCAL_URL) || LOCAL_DEFAULT).replace(/\/$/, '');
     const sources = [
+      ...(isLocal ? [`${shimBase}/json?t=${Date.now()}`] : []),
       `${window.location.origin}/api/market_intel?t=${Date.now()}`,
       `js/data/market_intel.json?t=${Date.now()}`,
     ];

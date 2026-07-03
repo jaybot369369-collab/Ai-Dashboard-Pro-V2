@@ -66,7 +66,6 @@ const DB = (() => {
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
     { id: 'aicoach',       label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
     { id: 'orderbook',    label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
-    { id: 'liquidity',    label: 'Liquidity Watcher',icon: '🌊', builtin: true, group: 'MARKETS'  },
     { id: 'catalysts',    label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',  label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
     { id: 'cryptoscanner',label: 'Crypto Scanner',  icon: '🔍', builtin: true, group: 'MARKETS'  },
@@ -80,7 +79,9 @@ const DB = (() => {
   //   - reports  → AI Coach Weekly Review
   //   - playbook → AI Coach > Catalogue
   //   - rules    → AI Coach > Rules section
-  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies','dojo','goals','reports','playbook','rules','fcpscan','lowcap']);
+  // 2026-07-03: liquidity (Liquidity Watcher) hidden on request — module still
+  // loaded, standalone LW dashboard unaffected; re-add to DEFAULT_TABS to restore.
+  const RETIRED_TAB_IDS = new Set(['journal','analytics','mistakes','strengths','quickstats','watchlist','sbwatcher','scanner','sensei','coach','tendencies','dojo','goals','reports','playbook','rules','fcpscan','lowcap','liquidity']);
   function getTabs() {
     const stored = load(KEYS.tabs);
     // Always honor the canonical builtin order from DEFAULT_TABS;
