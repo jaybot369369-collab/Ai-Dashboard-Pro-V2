@@ -251,29 +251,14 @@ const DashboardTab = (() => {
         </div>
       </div>
 
-      <div class="row row-12-8">
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">Recent trades</div>
-              <div class="card-sub">Latest 8 entries</div>
-            </div>
-            <button class="pill-select" onclick="App.navigate('tradelog')">
-              <span>View all</span><span class="chev">→</span>
-            </button>
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Top setups</div>
+            <div class="card-sub">By P&amp;L contribution</div>
           </div>
-          ${recentTradesHtml(pnlTrades)}
         </div>
-
-        <div class="card">
-          <div class="card-head">
-            <div>
-              <div class="card-title">Top setups</div>
-              <div class="card-sub">By P&amp;L contribution</div>
-            </div>
-          </div>
-          ${topSetupsHtml(pnlTrades)}
-        </div>
+        ${topSetupsHtml(pnlTrades)}
       </div>
 
       ${(() => {
@@ -515,36 +500,6 @@ const DashboardTab = (() => {
       }
     });
     _charts.push(c);
-  }
-
-  function recentTradesHtml(trades) {
-    const recent = [...trades]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 8);
-    if (!recent.length) {
-      return `<div style="text-align:center;padding:30px;color:var(--muted)">No trades in this period.</div>`;
-    }
-    return `<div class="table-wrap"><table>
-      <thead><tr>
-        <th>Date</th><th>Symbol</th><th>Dir</th><th>Setup</th><th>R</th><th>P&amp;L</th>
-      </tr></thead>
-      <tbody>
-        ${recent.map(t => {
-          const r = parseFloat(t.result);
-          const setups = t.setupTypes && t.setupTypes.length ? t.setupTypes
-                       : (t.setupType ? [t.setupType] : []);
-          const setupLabel = setups[0] || '—';
-          return `<tr onclick="App.navigate('tradelog')" style="cursor:pointer">
-            <td>${esc((t.date || '').slice(0,10))}</td>
-            <td><strong>${esc(t.symbol || '—')}</strong></td>
-            <td>${dirChip(t.direction)}</td>
-            <td><span class="badge accent">${esc(setupLabel)}</span></td>
-            <td>${t.rMultiple !== '' && t.rMultiple !== undefined ? parseFloat(t.rMultiple).toFixed(2) + 'R' : '—'}</td>
-            <td class="${!isNaN(r) ? (r>=0 ? 'pnl-pos':'pnl-neg') : ''}">${!isNaN(r) ? fmt$(r) : '—'}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div>`;
   }
 
   /* ── CALENDAR (unchanged behaviour) ─────────────────── */
