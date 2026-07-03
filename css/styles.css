@@ -7699,3 +7699,14 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 }
 .hm-callout .hm-sub { color: var(--text-sub); font-weight: 400; }
 .hm-note { margin-top: 8px; font-size: 0.7rem; color: var(--text-dim); }
+.hm-hint { font-size: 0.68rem; color: var(--text-dim); }
+.hm-est { color: var(--text-dim); font-weight: 400; cursor: help; }
+.hm-trades { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.hm-trades th {
+  text-align: left; font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-dim); font-weight: 600; padding: 2px 8px 6px;
+}
+.hm-trades td { padding: 6px 8px; border-top: 1px solid var(--border-sub); color: var(--text); }
+.hm-trades tbody tr { cursor: pointer; transition: background .1s; }
+.hm-trades tbody tr:hover { background: rgba(127,127,127,0.08); }
+.hm-td-setup { color: var(--text-sub); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

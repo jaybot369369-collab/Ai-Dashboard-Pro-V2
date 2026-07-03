@@ -793,5 +793,8 @@ const TradeView = (() => {
     _setMode: setMode, _setTF: setTF,
     _replayToggle: replayToggle, _replayStep: replayStep, _replayReset: replayReset,
     _shot: showShot,
+    // shared helpers — the Dashboard heatmap estimates entry hours with the
+    // same pair-exact kline fetch + price-containment logic the chart uses
+    _klines: fetchKlinesRange,
   };
 })();

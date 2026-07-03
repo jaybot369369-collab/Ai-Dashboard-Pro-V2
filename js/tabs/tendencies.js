@@ -107,26 +107,80 @@ const TendenciesTab = (() => {
     if (s === 'ny' || s.startsWith('new')) return 'NY';
     return 'Other';
   }
-  function _hmHourCol(t) {
+
+  /* Hour column. A logged Time (HH:MM) wins. Otherwise use the cached
+     ESTIMATE: the UTC hour of the first bar in the trade's date window whose
+     range traded through the logged entry — same price-containment rule as
+     the Trade View chart markers. Estimates are computed lazily by
+     _hmFillHours() and cached in localStorage keyed by id:date:entry so an
+     edited trade re-estimates. 'na' = price never touched the entry that day
+     (bad datum) — excluded, never guessed. */
+  const _HM_CACHE_KEY = 'jb_hm_hours';
+  function _hmKey(t) { return `${t.id}:${t.date}:${t.entry}`; }
+  function _hmCache() { try { return JSON.parse(localStorage.getItem(_HM_CACHE_KEY) || '{}'); } catch { return {}; } }
+  function _hourFor(t) {
     const m = /^(\d{2}):/.exec(t.time || '');
-    if (!m) return null;
-    const h = parseInt(m[1], 10);
-    if (!(h >= 0 && h <= 23)) return null;
-    return _HM_HOURS[Math.floor(h / 3)];
+    if (m) {
+      const h = parseInt(m[1], 10);
+      if (h >= 0 && h <= 23) return { col: _HM_HOURS[Math.floor(h / 3)], est: false };
+    }
+    const v = _hmCache()[_hmKey(t)];
+    if (typeof v === 'number' && v >= 0 && v <= 23) return { col: _HM_HOURS[Math.floor(v / 3)], est: true };
+    return null;  // 'na' or not yet estimated
   }
 
-  // → { cols, cells:{day:{col:{pl,n,wins,rSum,rN}}}, maxAbs, counted, total }
+  let _hmFillBusy = false;
+  async function _hmFillHours() {
+    if (_hmFillBusy) return;
+    if (typeof TradeView === 'undefined' || !TradeView._klines) return;
+    _hmFillBusy = true;
+    try {
+      const cache = _hmCache();
+      const todo = _manualClosed().filter(t =>
+        t.date && isFinite(parseFloat(t.entry)) &&
+        !/^\d{2}:/.test(t.time || '') && cache[_hmKey(t)] === undefined);
+      let done = 0;
+      for (const t of todo) {
+        const start = Date.parse(t.date + 'T00:00:00Z');
+        const end = Date.parse((t.dateEnd || t.date) + 'T23:59:59Z');
+        try {
+          const res = await TradeView._klines(t.symbol, '1h', start, end);
+          const entry = parseFloat(t.entry);
+          const bar = (res.bars || []).find(b => b.t >= start && b.t <= end && b.l <= entry && entry <= b.h);
+          // no bar traded through the entry → stable data-level 'na';
+          // fetch FAILURES are not cached, so they retry next time
+          cache[_hmKey(t)] = bar ? new Date(bar.t).getUTCHours() : 'na';
+          localStorage.setItem(_HM_CACHE_KEY, JSON.stringify(cache));
+        } catch (e) { /* network/source failure — retry on a later pass */ }
+        done++;
+        const note = document.querySelector('#tendHeatmap .hm-note');
+        if (note && _hmMode === 'hour') note.textContent = `Estimating entry hours from price data… ${done}/${todo.length}`;
+      }
+      const el = document.getElementById('tendHeatmap');
+      if (el && _hmMode === 'hour') el.outerHTML = _heatmapCard();
+    } finally { _hmFillBusy = false; }
+  }
+
+  // → { cols, cells:{day:{col:{pl,n,wins,rSum,rN}}}, maxAbs, counted, total, estimated, pending }
   function _heatData(mode) {
     const cols = mode === 'hour' ? _HM_HOURS : _HM_SESSIONS;
     const cells = {};
     _HM_DAYS.forEach(d => { cells[d] = {}; cols.forEach(c => cells[d][c] = { pl: 0, n: 0, wins: 0, rSum: 0, rN: 0 }); });
-    let maxAbs = 0, counted = 0;
+    let maxAbs = 0, counted = 0, estimated = 0, pending = 0;
+    const cache = mode === 'hour' ? _hmCache() : null;
     const trades = _manualClosed();
     trades.forEach(t => {
       if (!t.date) return;
       const day = _HM_DOW_IDX[new Date(t.date + 'T12:00:00Z').getUTCDay()];
-      const col = mode === 'hour' ? _hmHourCol(t) : _hmSessionCol(t);
-      if (!day || !col || !cells[day] || !cells[day][col]) return;   // hour mode: skip trades with no Time
+      let col = null;
+      if (mode === 'hour') {
+        const h = _hourFor(t);
+        if (h) { col = h.col; if (h.est) estimated++; }
+        else if (cache[_hmKey(t)] === undefined) pending++;  // estimate not attempted yet
+      } else {
+        col = _hmSessionCol(t);
+      }
+      if (!day || !col || !cells[day] || !cells[day][col]) return;
       const c = cells[day][col];
       const pl = parseFloat(t.result || 0);
       c.pl += pl; c.n++; if (pl > 0) c.wins++;
@@ -135,7 +189,7 @@ const TendenciesTab = (() => {
       counted++;
     });
     _HM_DAYS.forEach(d => cols.forEach(c => { const v = cells[d][c]; if (v.n) maxAbs = Math.max(maxAbs, Math.abs(v.pl)); }));
-    return { cols, cells, maxAbs: maxAbs || 1, counted, total: trades.length };
+    return { cols, cells, maxAbs: maxAbs || 1, counted, total: trades.length, estimated, pending };
   }
 
   function _heatColor(pl, n, maxAbs) {
@@ -148,7 +202,9 @@ const TendenciesTab = (() => {
 
   function _heatmapCard() {
     const mode = _hmMode;
-    const { cols, cells, maxAbs, counted, total } = _heatData(mode);
+    const { cols, cells, maxAbs, counted, total, estimated, pending } = _heatData(mode);
+    // hour estimates are fetched lazily — kick the filler when needed
+    if (mode === 'hour' && pending > 0) setTimeout(_hmFillHours, 60);
 
     if (!total) {
       return `<div id="tendHeatmap" class="card" style="padding:16px;margin-bottom:16px">
@@ -186,9 +242,19 @@ const TendenciesTab = (() => {
         <button class="hm-mode-pill${mode === 'hour' ? ' active' : ''}" onclick="TendenciesTab._hmSetMode('hour')">Hour (UTC)</button>
       </span>`;
 
-    const note = mode === 'hour'
-      ? `Only ${counted}/${total} logged trades carry a Time — add a Time in the trade form to fill the hour grid in.`
-      : (counted < total ? `${total - counted} trade${total - counted === 1 ? '' : 's'} without a session fell into “Other”.` : `All ${total} logged trades placed.`);
+    let note;
+    if (mode === 'hour') {
+      if (pending > 0) note = `Estimating entry hours from price data (${pending} trade${pending === 1 ? '' : 's'} to go) — the grid fills in automatically…`;
+      else {
+        const na = total - counted;
+        note = `${counted}/${total} trades placed`
+          + (estimated ? ` — ${estimated} hour${estimated === 1 ? '' : 's'} estimated from the first bar that traded through the logged entry (log a Time on the trade form for exact placement)` : '')
+          + (na ? `; ${na} couldn't be placed (price never touched the logged entry that day — check those trades' data)` : '')
+          + '. Hours are UTC.';
+      }
+    } else {
+      note = counted < total ? `${total - counted} trade${total - counted === 1 ? '' : 's'} without a session fell into “Other”.` : `All ${total} logged trades placed.`;
+    }
 
     const callout = (best && worst) ? `
       <div class="hm-callout">
@@ -221,14 +287,52 @@ const TendenciesTab = (() => {
     if (el) el.outerHTML = _heatmapCard();
   }
 
+  // trades living behind one cell (same bucketing rules as _heatData)
+  function _hmTradesFor(day, col) {
+    return _manualClosed().filter(t => {
+      if (!t.date) return false;
+      if (_HM_DOW_IDX[new Date(t.date + 'T12:00:00Z').getUTCDay()] !== day) return false;
+      if (_hmMode === 'hour') { const h = _hourFor(t); return !!h && h.col === col; }
+      return _hmSessionCol(t) === col;
+    });
+  }
+
   function _hmCell(day, col) {
-    const { cells } = _heatData(_hmMode);
-    const v = cells[day] && cells[day][col];
+    const list = _hmTradesFor(day, col).sort((a, b) => new Date(b.date) - new Date(a.date));
     const el = document.getElementById('hmDetail');
-    if (!el || !v || !v.n) return;
-    const wr = Math.round(v.wins / v.n * 100);
-    const avgR = v.rN ? (v.rSum / v.rN >= 0 ? '+' : '') + (v.rSum / v.rN).toFixed(2) + 'R' : '—';
-    el.innerHTML = `<b>${esc(day)} · ${esc(col)}</b> — ${v.n} trade${v.n === 1 ? '' : 's'} · ${wr}% WR · ${avgR} avg · <span style="color:${v.pl >= 0 ? 'var(--good,#22c55e)' : 'var(--bad,#ef4444)'};font-weight:700">${fmtPL(v.pl)}</span>`;
+    if (!el || !list.length) return;
+
+    const n = list.length;
+    const wins = list.filter(t => parseFloat(t.result) > 0).length;
+    const pl = list.reduce((s, t) => s + parseFloat(t.result || 0), 0);
+    const rs = list.map(t => parseFloat(t.rMultiple)).filter(isFinite);
+    const avgR = rs.length ? ((rs.reduce((a, b) => a + b, 0) / rs.length >= 0 ? '+' : '') + (rs.reduce((a, b) => a + b, 0) / rs.length).toFixed(2) + 'R') : '—';
+    const colLabel = _hmMode === 'hour' ? `${col}:00–${(parseInt(col, 10) + 3) % 24}:00 UTC` : col;
+
+    const rows = list.map(t => {
+      const tpl = parseFloat(t.result || 0);
+      const setups = (t.setupTypes || (t.setupType ? [t.setupType] : [])).filter(Boolean).join(', ') || '—';
+      const est = _hmMode === 'hour' && !/^\d{2}:/.test(t.time || '') ? ' <span class="hm-est" title="hour estimated from price data">≈</span>' : '';
+      return `<tr onclick="TradeView.open('${esc(t.id)}')" title="Open trade">
+        <td>${esc(t.date)}${est}</td>
+        <td><b>${esc(t.symbol || '—')}</b></td>
+        <td><span style="color:${t.direction === 'Long' ? 'var(--good,#22c55e)' : 'var(--bad,#ef4444)'};font-weight:600">${esc(t.direction || '—')}</span></td>
+        <td class="hm-td-setup">${esc(setups)}</td>
+        <td>${t.rMultiple !== undefined && t.rMultiple !== '' && t.rMultiple !== null ? esc(t.rMultiple) + 'R' : '—'}</td>
+        <td style="text-align:right;font-weight:700;color:${tpl >= 0 ? 'var(--good,#22c55e)' : 'var(--bad,#ef4444)'}">${fmtPL(tpl)}</td>
+      </tr>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <span><b>${esc(day)} · ${esc(colLabel)}</b> — ${n} trade${n === 1 ? '' : 's'} · ${Math.round(wins / n * 100)}% WR · ${avgR} avg ·
+          <span style="color:${pl >= 0 ? 'var(--good,#22c55e)' : 'var(--bad,#ef4444)'};font-weight:700">${fmtPL(pl)}</span></span>
+        <span class="hm-hint">click a row to open the trade</span>
+      </div>
+      <table class="hm-trades">
+        <thead><tr><th>Date</th><th>Symbol</th><th>Dir</th><th>Setup</th><th>R</th><th style="text-align:right">P&amp;L</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
   }
 
   /* ── Chart renderers ────────────────────────────────────── */
