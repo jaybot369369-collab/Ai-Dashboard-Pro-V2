@@ -26,6 +26,18 @@ const CryptoRadarTab = (() => {
   const AUTO_MS     = 300_000;       // 5 min auto-refresh cadence
   const SORT_OPTS   = ['mcap', 'overbought', 'oversold'];
 
+  /* Swing signal engine (★ favorites → Telegram / email) */
+  const LS_FAVS      = 'jb_radar_favs';        // starred tickers that fire signals
+  const LS_SIG_ON    = 'jb_radar_sig_on';      // master toggle (default on)
+  const LS_SIG_TG    = 'jb_radar_sig_tg';      // Telegram channel toggle (default on)
+  const LS_SIG_EMAIL = 'jb_radar_sig_email';   // email channel toggle (default off — needs server SMTP)
+  const LS_SIG_OS    = 'jb_radar_sig_os';      // oversold threshold (default 30)
+  const LS_SIG_OB    = 'jb_radar_sig_ob';      // overbought threshold (default 70)
+  const LS_SIG_STATE = 'jb_radar_sig_state';   // per-sym episode state + last-alert timestamps
+  const LS_ADMIN     = 'mi_admin_secret';      // shared with Market Intel "Push to Railway"
+  const SIG_TFS      = ['1h', '4h', 'D'];      // swing cluster — same TFs as the SW badge
+  const SIG_COOLDOWN_MS = 6 * 3600 * 1000;     // max one re-alert per coin+direction per 6h
+
   /* USDT.D via CoinGecko tether market_chart (daily only; 4h = n/a) */
   const USDTD_ID    = '__USDTD__';
 
@@ -48,6 +60,10 @@ const CryptoRadarTab = (() => {
   let _mountId    = 'content';
   let _lastCgCoins = [];     // last fetched CG full non-stable list (for slicing + add validation)
   let _lastAllCoins = [];    // _lastCgCoins.slice(0,_topN) + custom additions (drives the grid)
+  let _favSyms    = null;    // ★ favorites (lazy-loaded from LS_FAVS)
+  let _lastSigCheckTs = 0;   // debounce for the background signal watcher
+  let _sigPanelOpen = false; // 🔔 settings panel visibility
+  let _emailSrvState = null; // /api/notify/email_status probe result (null = not probed)
 
   /* ── Kline fetcher (proxy on Railway, else Bybit → Binance → OKX) ── */
   const TF_BYBIT = { '5m':'5', '15m':'15', '1h':'60', '4h':'240', D:'D', W:'W', M:'M' };
@@ -505,6 +521,300 @@ const CryptoRadarTab = (() => {
     });
   }
 
+  /* ── Swing signal engine — ★ favorites → Telegram / email ──
+     SW Long  = 1h & 4h & D RSI(14) ALL ≤ oversold threshold (default 30)
+     SW Short = 1h & 4h & D RSI(14) ALL ≥ overbought threshold (default 70)
+     Same TF cluster as the SW badge, but stricter: every TF must be in
+     the zone, not just the average. Episode-based firing: alerts on
+     entering the zone, re-arms when the zone breaks, and never re-alerts
+     the same coin+direction more than once per SIG_COOLDOWN_MS.
+     Checks run after every pull AND on a module-level 5-min timer, so
+     signals keep flowing while the user is on other dashboard tabs —
+     the dashboard just has to be open somewhere. */
+  function _favs() {
+    if (_favSyms === null) {
+      try { _favSyms = JSON.parse(localStorage.getItem(LS_FAVS) || '[]'); }
+      catch (_) { _favSyms = []; }
+    }
+    return _favSyms;
+  }
+  function _isFav(sym) { return _favs().includes(sym); }
+  function _toggleFav(sym) {
+    const favs = _favs();
+    _favSyms = favs.includes(sym) ? favs.filter(s => s !== sym) : [...favs, sym];
+    localStorage.setItem(LS_FAVS, JSON.stringify(_favSyms));
+    _renderGrid();
+    _refreshSigPanel();
+  }
+
+  function _sigOn()       { return localStorage.getItem(LS_SIG_ON) !== '0'; }
+  function _sigChanOn(ch) {
+    if (ch === 'tg') return localStorage.getItem(LS_SIG_TG) !== '0';
+    return localStorage.getItem(LS_SIG_EMAIL) === '1';       // email is opt-in
+  }
+  function _sigThr(kind) {
+    const raw = parseFloat(localStorage.getItem(kind === 'os' ? LS_SIG_OS : LS_SIG_OB));
+    if (isFinite(raw)) return raw;
+    return kind === 'os' ? 30 : 70;
+  }
+
+  function _sigState() {
+    try { return JSON.parse(localStorage.getItem(LS_SIG_STATE) || '{}'); }
+    catch (_) { return {}; }
+  }
+  function _saveSigState(st) { localStorage.setItem(LS_SIG_STATE, JSON.stringify(st)); }
+
+  function _swingSignal(rsiMap) {
+    const vals = SIG_TFS.map(tf => rsiMap[tf]);
+    if (vals.some(v => v === null || v === undefined)) return null;
+    if (vals.every(v => v <= _sigThr('os'))) return 'long';
+    if (vals.every(v => v >= _sigThr('ob'))) return 'short';
+    return null;
+  }
+
+  async function _checkSignals(opts = {}) {
+    if (!_sigOn()) return;
+    const favs = _favs();
+    if (!favs.length) return;
+    // Debounce the background timer; pull-triggered checks ride the fresh
+    // 60s kline cache so they're free and always allowed.
+    if (!opts.viaPull && !opts.force
+        && Date.now() - _lastSigCheckTs < AUTO_MS - 30_000) return;
+    _lastSigCheckTs = Date.now();
+
+    const st = _sigState();
+    for (const sym of favs) {
+      try {
+        const kl = await Promise.all(SIG_TFS.map(tf => _fetchKlines(sym, tf)));
+        const rsiMap = {};
+        SIG_TFS.forEach((tf, i) => { rsiMap[tf] = _rsiForKlines(kl[i]); });
+        const kl1h = kl[0];
+        const price = kl1h && kl1h.length ? kl1h[kl1h.length - 1].c : null;
+
+        const sig = _swingSignal(rsiMap);
+        const cur = st[sym] || { state: null, alerts: {} };
+        if (!cur.alerts) cur.alerts = {};
+        if (sig && sig !== cur.state
+            && Date.now() - (cur.alerts[sig] || 0) > SIG_COOLDOWN_MS) {
+          _fireAlert(sym, sig, rsiMap, price);
+          cur.alerts[sig] = Date.now();
+        }
+        cur.state = sig;
+        st[sym] = cur;
+      } catch (e) {
+        console.warn('[radar-signal] check failed for', sym, e);
+      }
+    }
+    _saveSigState(st);
+  }
+
+  function _fmtRsiPlain(v) { return (v === null || v === undefined) ? '—' : v.toFixed(0); }
+
+  function _fireAlert(sym, dir, rsiMap, price) {
+    const isLong = dir === 'long';
+    const emoji  = isLong ? '🟢' : '🔴';
+    const word   = isLong ? 'LONG' : 'SHORT';
+    const cond   = isLong ? `all oversold (≤${_sigThr('os')})` : `all overbought (≥${_sigThr('ob')})`;
+    const rsiLine = `1h ${_fmtRsiPlain(rsiMap['1h'])} · 4h ${_fmtRsiPlain(rsiMap['4h'])} · D ${_fmtRsiPlain(rsiMap.D)}`;
+    const priceStr = price != null ? _fmtPrice(price) : '—';
+    console.info(`[radar-signal] ${sym} SWING ${word} — RSI ${rsiLine} @ ${priceStr}`);
+
+    // Telegram — existing integration, configured in Pro Tools → Telegram
+    if (_sigChanOn('tg') && typeof Telegram !== 'undefined' && Telegram.isEnabled?.()) {
+      const msg = `📡 *RADAR SWING ${word}* ${emoji}\n\n` +
+        `*${sym}* — 1h · 4h · D ${cond}\n` +
+        `RSI: ${rsiLine}\n` +
+        `Price: ${priceStr}\n\n` +
+        `_Crypto Scanners → Radar · ★ favorites signal_`;
+      Telegram.send(msg).catch(e => console.warn('[radar-signal] telegram failed:', e.message));
+    }
+
+    // Email — fund API relay (SMTP lives server-side)
+    if (_sigChanOn('email')) {
+      const subject = `📡 Radar swing ${word} — ${sym}`;
+      const body =
+`${sym} SWING ${word} signal ${emoji}
+
+1h, 4h and D RSI ${cond}:
+  1h: ${_fmtRsiPlain(rsiMap['1h'])}
+  4h: ${_fmtRsiPlain(rsiMap['4h'])}
+  D:  ${_fmtRsiPlain(rsiMap.D)}
+
+Price: ${priceStr}
+Time:  ${new Date().toISOString().replace('T', ' ').slice(0, 16)} UTC
+
+— Crypto Radar · AI Dashboard Pro V2
+${window.location.origin}`;
+      _sendEmail(subject, body).catch(e => console.warn('[radar-signal] email failed:', e.message));
+    }
+  }
+
+  /* Fund API base — same-origin on Railway; localhost falls back to the
+     local fund API (8767), honouring the fund_remote_url dev override. */
+  function _fundBase() {
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    if (!isLocal) return window.location.origin + '/';
+    const override = (localStorage.getItem('fund_remote_url') || '').trim();
+    if (override) return override.replace(/\/?$/, '/');
+    return 'http://127.0.0.1:8767/';
+  }
+
+  async function _sendEmail(subject, body) {
+    const secret = (localStorage.getItem(LS_ADMIN) || '').trim();
+    if (!secret) throw new Error('no admin secret cached — open 🔔 Signals and send a test email once');
+    const r = await fetch(_fundBase() + 'api/notify/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+      body: JSON.stringify({ subject, body }),
+      signal: AbortSignal.timeout(15000),
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || `HTTP ${r.status}`);
+    return j;
+  }
+
+  /* ── 🔔 Signals settings panel ───────────────────────────── */
+  function _ensureAdminSecret() {
+    let s = (localStorage.getItem(LS_ADMIN) || '').trim();
+    if (!s) {
+      s = (prompt('Enter the bot-farm admin secret (BOTFARM_KEY on Railway).\nCached locally after first use — needed so email alerts can authenticate.') || '').trim();
+      if (s) localStorage.setItem(LS_ADMIN, s);
+    }
+    return s;
+  }
+
+  async function _probeEmailServer() {
+    try {
+      const r = await fetch(_fundBase() + 'api/notify/email_status',
+        { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+      _emailSrvState = r.ok ? await r.json() : { ok: false, unreachable: true };
+    } catch (_) {
+      _emailSrvState = { ok: false, unreachable: true };
+    }
+    _refreshSigPanel();
+  }
+
+  function _sigPanelHTML() {
+    const favs = _favs();
+    const tgConfigured = (typeof Telegram !== 'undefined') && Telegram.isEnabled?.();
+    const tgChip = tgConfigured
+      ? '<span class="radar-sig-chip ok">✓ configured</span>'
+      : '<span class="radar-sig-chip bad">✗ not configured — Pro Tools → Telegram</span>';
+    const emailChip = _emailSrvState === null
+      ? '<span class="radar-sig-chip">server: checking…</span>'
+      : _emailSrvState.unreachable
+        ? '<span class="radar-sig-chip bad">✗ fund API unreachable</span>'
+        : _emailSrvState.configured
+          ? '<span class="radar-sig-chip ok">✓ server ready</span>'
+          : '<span class="radar-sig-chip bad">✗ SMTP not configured on server</span>';
+    const osThr = _sigThr('os'), obThr = _sigThr('ob');
+    const osOpts = [20, 25, 27, 30].map(v => `<option value="${v}" ${v === osThr ? 'selected' : ''}>≤ ${v}</option>`).join('');
+    const obOpts = [70, 73, 75, 80].map(v => `<option value="${v}" ${v === obThr ? 'selected' : ''}>≥ ${v}</option>`).join('');
+
+    return `
+      <div class="radar-sig-row">
+        <span class="radar-sig-title">🔔 Swing signals — ★ favorites only</span>
+        <label><input type="checkbox" ${_sigOn() ? 'checked' : ''}
+          onchange="CryptoRadarTab._sigSetToggle('on', this.checked)"/> Enabled</label>
+        <span class="muted">Oversold</span>
+        <select class="radar-sig-select" onchange="CryptoRadarTab._sigSetThr('os', this.value)">${osOpts}</select>
+        <span class="muted">Overbought</span>
+        <select class="radar-sig-select" onchange="CryptoRadarTab._sigSetThr('ob', this.value)">${obOpts}</select>
+      </div>
+      <div class="radar-sig-row">
+        <span style="min-width:72px">Telegram</span>
+        <label><input type="checkbox" ${_sigChanOn('tg') ? 'checked' : ''}
+          onchange="CryptoRadarTab._sigSetToggle('tg', this.checked)"/> on</label>
+        ${tgChip}
+        <button class="radar-sig-test" onclick="CryptoRadarTab._testTelegram()">Send test</button>
+      </div>
+      <div class="radar-sig-row">
+        <span style="min-width:72px">Email</span>
+        <label><input type="checkbox" ${_sigChanOn('email') ? 'checked' : ''}
+          onchange="CryptoRadarTab._sigSetToggle('email', this.checked)"/> on</label>
+        ${emailChip}
+        <button class="radar-sig-test" onclick="CryptoRadarTab._testEmail()">Send test</button>
+      </div>
+      <div class="radar-sig-row">
+        <span style="min-width:72px" class="muted">Favorites</span>
+        <span>${favs.length ? favs.join(' · ') : '<span class="muted">none — click ☆ on a card to star it</span>'}</span>
+      </div>
+      <div class="radar-sig-note">
+        Fires when a starred coin's <strong>1h, 4h and D</strong> RSI are ALL in the zone
+        (SW Long ${'≤ ' + osThr} / SW Short ${'≥ ' + obThr}). Checks every 5 min while the
+        dashboard is open in any tab · re-alerts max once per 6h per coin+direction.
+        Email needs SMTP_USER/SMTP_PASS set on Railway.
+      </div>
+      <div class="radar-sig-row"><span id="radarSigStatus" class="muted" style="font-size:11px"></span></div>`;
+  }
+
+  function _refreshSigPanel() {
+    const el = document.getElementById('radarSigPanel');
+    if (el && _sigPanelOpen) el.innerHTML = _sigPanelHTML();
+  }
+
+  function _toggleSigPanel() {
+    _sigPanelOpen = !_sigPanelOpen;
+    const el = document.getElementById('radarSigPanel');
+    if (!el) return;
+    el.style.display = _sigPanelOpen ? 'flex' : 'none';
+    if (_sigPanelOpen) {
+      el.innerHTML = _sigPanelHTML();
+      _probeEmailServer();          // fills the email server chip async
+    }
+  }
+
+  function _sigSetToggle(which, val) {
+    const key = which === 'on' ? LS_SIG_ON : which === 'tg' ? LS_SIG_TG : LS_SIG_EMAIL;
+    localStorage.setItem(key, val ? '1' : '0');
+    if (which === 'email' && val) _ensureAdminSecret();
+    _refreshSigPanel();
+    _updateSigBtn();
+  }
+
+  function _sigSetThr(kind, val) {
+    localStorage.setItem(kind === 'os' ? LS_SIG_OS : LS_SIG_OB, String(parseFloat(val)));
+    _refreshSigPanel();
+  }
+
+  function _updateSigBtn() {
+    const btn = document.getElementById('radarSigBtn');
+    if (btn) btn.classList.toggle('active', _sigOn());
+  }
+
+  function _sigStatus(msg) {
+    const el = document.getElementById('radarSigStatus');
+    if (el) el.textContent = msg;
+  }
+
+  async function _testTelegram() {
+    if (typeof Telegram === 'undefined' || !Telegram.isEnabled?.()) {
+      _sigStatus('Telegram not configured — set it up in Pro Tools → Telegram first.');
+      return;
+    }
+    _sigStatus('Sending Telegram test…');
+    try {
+      await Telegram.send('📡 *Radar swing signals* — test alert, wiring OK.');
+      _sigStatus('✓ Telegram test sent — check your phone.');
+    } catch (e) {
+      _sigStatus('✗ Telegram failed: ' + e.message);
+    }
+  }
+
+  async function _testEmail() {
+    const secret = _ensureAdminSecret();
+    if (!secret) { _sigStatus('✗ No admin secret — email alerts can\'t authenticate.'); return; }
+    _sigStatus('Sending test email…');
+    try {
+      const res = await _sendEmail('📡 Radar swing signals — test',
+        'Test alert from the Crypto Radar swing signal system. Wiring OK.\n\n' + window.location.origin);
+      _sigStatus(`✓ Test email sent to ${res.to}.`);
+    } catch (e) {
+      if (String(e.message).includes('X-Admin-Secret')) localStorage.removeItem(LS_ADMIN);
+      _sigStatus('✗ Email failed: ' + e.message);
+    }
+  }
+
   /* ── Trade-type score badges ────────────────────────────── */
   // Three overlapping TF clusters → one grade + direction each.
   // Grade: A = strong (avg RSI <35 or >65 AND TFs agree), B = moderate, C = mixed/neutral.
@@ -590,8 +900,15 @@ const CryptoRadarTab = (() => {
           ${_chgCell('7d', card.chg7)}
         </div>`;
 
+    // ★ favorite — starred coins fire swing signals (🔔 Signals panel)
+    const fav = !isUsdtD && _isFav(card.sym);
+    const favBtn = isUsdtD ? '' :
+      `<button class="radar-fav${fav ? ' active' : ''}" title="${fav ? 'Unstar — stop swing signals' : 'Star — get swing signals'}"
+        onclick="CryptoRadarTab._toggleFav('${card.sym}')">${fav ? '★' : '☆'}</button>`;
+
     return `<div class="radar-card" data-sym="${card.sym}">
       <div class="radar-card-head">
+        ${favBtn}
         <span class="radar-sym">${sym}</span>
         <span class="radar-name">${name}</span>
         ${rmAction ? `<button class="radar-rm" title="Remove" onclick="${rmAction}">✕</button>` : ''}
@@ -687,6 +1004,8 @@ const CryptoRadarTab = (() => {
       _renderGrid(allCoins);
       _lastPullTs = Date.now();
       _setStatus(_updatedStatus());
+      // Swing signals for ★ favorites — rides the fresh kline cache
+      _checkSignals({ viaPull: true }).catch(e => console.warn('[radar-signal]', e));
     } finally {
       _pulling = false;
       if (btn) { btn.disabled = false; btn.textContent = '⟳ Pull Data'; }
@@ -831,6 +1150,9 @@ const CryptoRadarTab = (() => {
           <strong>Grade badges</strong> — <strong style="color:var(--good)">A</strong> avg RSI &lt;30 or &gt;70, TFs agree → full size. <strong style="color:#5eead4">B</strong> &lt;38 or &gt;62 → half. <strong style="color:var(--muted)">C</strong> &lt;45 or &gt;55 → wait. <strong style="color:var(--muted)">D</strong> 45–55 → skip.<br>
           <span style="font-size:10px;color:var(--muted)"><strong>S</strong> 5m·15m·1h &nbsp;·&nbsp; <strong>SW</strong> 1h·4h·D &nbsp;·&nbsp; <strong>L</strong> D·W·M</span>
         </div>
+        <div>
+          <strong style="color:#facc15">★ + 🔔 Swing signals</strong> — star a coin, and when its <strong>1h · 4h · D</strong> RSI are ALL oversold (SW Long) or ALL overbought (SW Short) you get a Telegram / email alert. Configure in <strong>🔔 Signals</strong>; Telegram creds live in Pro Tools → Telegram.
+        </div>
       </div>
 
       <div style="margin-top:14px">
@@ -890,6 +1212,8 @@ const CryptoRadarTab = (() => {
           <button class="btn-ghost" id="radarAddBtn" style="font-size:12px">＋ Add</button>
           <button class="btn-ghost radar-auto-btn${_autoOn() ? ' active' : ''}" id="radarAutoBtn" style="font-size:12px"
             title="Auto-refresh every 5 minutes" onclick="CryptoRadarTab._toggleAuto()">Auto 5m ${_autoOn() ? '✓' : '✗'}</button>
+          <button class="btn-ghost radar-sig-btn${_sigOn() ? ' active' : ''}" id="radarSigBtn" style="font-size:12px"
+            title="Swing signal alerts for ★ favorites (Telegram / email)" onclick="CryptoRadarTab._toggleSigPanel()">🔔 Signals</button>
           <button class="btn-primary" id="radarPullBtn">⟳ Pull Data</button>
         </div>
       </div>
@@ -897,6 +1221,7 @@ const CryptoRadarTab = (() => {
         <span id="radarAddStatus" class="muted" style="font-size:11px"></span>
         <span class="radar-status muted" id="radarStatus"></span>
       </div>
+      <div id="radarSigPanel" class="radar-sig-panel" style="display:${_sigPanelOpen ? 'flex' : 'none'}">${_sigPanelOpen ? _sigPanelHTML() : ''}</div>
       <div class="radar-grid" id="radarGrid">
         <div class="radar-empty">Click <strong>⟳ Pull Data</strong> to load the radar.</div>
       </div>
@@ -978,5 +1303,17 @@ const CryptoRadarTab = (() => {
     document.getElementById('radarGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN, _toggleAuto };
+  /* ── Background signal watcher ───────────────────────────
+     Module-level timer so ★-favorite swing signals keep firing while the
+     user is on other dashboard tabs — only needs the dashboard open in
+     SOME browser tab. Favorites-only: 3 kline fetches per starred coin
+     per 5 min (60s cache dedupes with radar pulls). Note: browsers
+     throttle timers in fully backgrounded tabs, so cadence can stretch
+     when the dashboard window is hidden for long stretches. */
+  setTimeout(() => _checkSignals().catch(() => {}), 25_000);
+  setInterval(() => _checkSignals().catch(() => {}), AUTO_MS);
+
+  return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN, _toggleAuto,
+           _toggleFav, _toggleSigPanel, _sigSetToggle, _sigSetThr, _testTelegram, _testEmail,
+           _sigCheckNow: () => _checkSignals({ force: true }) };
 })();
