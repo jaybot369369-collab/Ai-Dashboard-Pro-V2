@@ -268,6 +268,14 @@ const DashboardTab = (() => {
             ? TendenciesTab._heatmapCardHTML() : '';
         } catch (e) { console.warn('[dashboard] heatmap card failed:', e); return ''; }
       })()}
+
+      ${(() => {
+        // Thesis Scorecards — owned by ThesisScorecard (js/tabs/thesis_scorecard.js)
+        try {
+          return (typeof ThesisScorecard !== 'undefined' && ThesisScorecard._cardHTML)
+            ? ThesisScorecard._cardHTML() : '';
+        } catch (e) { console.warn('[dashboard] thesis card failed:', e); return ''; }
+      })()}
     `;
 
     /* ── CHARTS ── */

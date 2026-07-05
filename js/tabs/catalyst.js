@@ -23,6 +23,26 @@ const CatalystTab = (() => {
   let _catSet        = new Set((localStorage.getItem('jb_cal_cat')    || 'All').split(',').filter(Boolean));
   let _rangeFilter   = localStorage.getItem('jb_cal_range') || '90';
   let _guideCollapsed = localStorage.getItem('jb_cal_guide_collapsed') !== 'off';
+  let _pastCollapsed  = localStorage.getItem('jb_cal_past_collapsed') !== 'off';
+  let _outcomeEditId  = null;   // event id whose outcome form is open
+
+  // ── Outcome log (localStorage overlay keyed by event id) ──
+  const OUTCOME_KEY = 'jb_cal_outcomes';
+  const OUTCOME_META = {
+    played_out: { ico: '✅', lbl: 'Played out' },
+    faded:      { ico: '❌', lbl: 'Faded / opposite' },
+    no_impact:  { ico: '➖', lbl: 'No impact' },
+    postponed:  { ico: '⏳', lbl: 'Postponed' },
+  };
+  function _outcomes() {
+    try { return JSON.parse(localStorage.getItem(OUTCOME_KEY) || '{}'); }
+    catch (_) { return {}; }
+  }
+  function _saveOutcomeRec(id, result, note) {
+    const o = _outcomes();
+    o[id] = { result, note, recorded: new Date().toISOString().slice(0, 10) };
+    localStorage.setItem(OUTCOME_KEY, JSON.stringify(o));
+  }
 
   // ── Helpers ──────────────────────────────────────────────
   function esc(s) {
@@ -359,6 +379,93 @@ const CatalystTab = (() => {
     `;
   }
 
+  /** Past catalysts + outcome recorder — the feedback loop the calendar was
+      missing: which catalyst types actually move price vs which are noise. */
+  function _renderPastSection() {
+    const now = new Date(); now.setUTCHours(0, 0, 0, 0);
+    const past = _events
+      .filter(ev => _resolveDate(ev) < now)
+      .sort((a, b) => _resolveDate(b) - _resolveDate(a));
+    if (!past.length) return '';
+
+    const outcomes = _outcomes();
+    const pending = past.filter(ev => !outcomes[ev.id]).length;
+
+    const rows = past.map(ev => {
+      const rec = outcomes[ev.id];
+      const editing = _outcomeEditId === ev.id;
+      let right;
+      if (editing) {
+        right = `
+          <span class="cal-outcome-form">
+            <select id="calOutcomeSel">
+              ${Object.entries(OUTCOME_META).map(([k, m]) =>
+                `<option value="${k}" ${rec && rec.result === k ? 'selected' : ''}>${m.ico} ${m.lbl}</option>`).join('')}
+            </select>
+            <input id="calOutcomeNote" type="text" placeholder="Price reaction / what actually happened"
+                   value="${rec ? esc(rec.note || '') : ''}" />
+            <button class="btn-primary cal-outcome-btn" data-oc-save="${esc(ev.id)}" type="button">Save</button>
+            <button class="btn-soft cal-outcome-btn" data-oc-cancel="1" type="button">✕</button>
+          </span>`;
+      } else if (rec) {
+        const m = OUTCOME_META[rec.result] || { ico: '❔', lbl: rec.result };
+        right = `
+          <span class="cal-outcome-badge oc-${esc(rec.result)}">${m.ico} ${m.lbl}</span>
+          ${rec.note ? `<span class="cal-outcome-note">${esc(rec.note)}</span>` : ''}
+          <button class="cal-outcome-edit" data-oc-edit="${esc(ev.id)}" title="Edit outcome" type="button">✏️</button>`;
+      } else {
+        right = `<button class="btn-soft cal-outcome-btn" data-oc-edit="${esc(ev.id)}" type="button">＋ Record outcome</button>`;
+      }
+      return `
+        <div class="cal-past-row ${rec ? '' : 'cal-past-pending'}">
+          <span class="cal-past-date">${esc(_displayDate(ev))}</span>
+          <span class="cal-past-assets">${(ev.assets || []).map(a => ASSET_ICON[a] || a).join(' ')}</span>
+          <span class="cal-past-title" title="${esc(ev.title)}">${esc(ev.title)}</span>
+          <span class="cal-past-right">${right}</span>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="cal-past-wrap">
+        <div class="cal-past-head" id="calPastToggle">
+          📜 Past catalysts &amp; outcomes
+          <span class="cal-past-count">${past.length} past${pending ? ` · ${pending} awaiting outcome` : ' · all recorded'}</span>
+          <span class="cal-past-chev">${_pastCollapsed ? '▸' : '▾'}</span>
+        </div>
+        ${_pastCollapsed ? '' : `
+          <div class="cal-past-sub">Record what each catalyst actually did — after ~10 outcomes you'll know which categories deserve position sizing and which are noise. Stored in this browser (jb_cal_outcomes).</div>
+          <div class="cal-past-rows">${rows}</div>`}
+      </div>`;
+  }
+
+  function _wirePast() {
+    const toggle = document.getElementById('calPastToggle');
+    if (toggle) toggle.addEventListener('click', () => {
+      _pastCollapsed = !_pastCollapsed;
+      localStorage.setItem('jb_cal_past_collapsed', _pastCollapsed ? 'on' : 'off');
+      _paint();
+    });
+    document.querySelectorAll('[data-oc-edit]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      _outcomeEditId = b.dataset.ocEdit;
+      _pastCollapsed = false;
+      _paint();
+    }));
+    document.querySelectorAll('[data-oc-cancel]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      _outcomeEditId = null;
+      _paint();
+    }));
+    document.querySelectorAll('[data-oc-save]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      const sel = document.getElementById('calOutcomeSel');
+      const note = document.getElementById('calOutcomeNote');
+      _saveOutcomeRec(b.dataset.ocSave, sel ? sel.value : 'no_impact', note ? note.value.trim() : '');
+      _outcomeEditId = null;
+      _paint();
+    }));
+  }
+
   function _renderKPIs(filtered) {
     const total = filtered.length;
     const high  = filtered.filter(e => e.impact === 'high').length;
@@ -477,12 +584,14 @@ const CatalystTab = (() => {
       ${_renderMonthStrip(filtered)}
       ${_renderFilterBar()}
       ${_renderTimeline(filtered)}
+      ${_renderPastSection()}
       ${_renderGuide()}
     `;
 
     _wireChips();
     _wireGuide();
     _wireStripScroll();
+    _wirePast();
   }
 
   // ── Event wiring ─────────────────────────────────────────
