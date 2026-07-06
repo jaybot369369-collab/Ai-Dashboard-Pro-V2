@@ -157,7 +157,7 @@
               <input type="number" id="fEntry" step="any" placeholder="0.00" required />
             </div>
             <div class="form-group">
-              <label>Stop Loss</label>
+              <label>Stop Loss <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
               <input type="number" id="fSl" step="any" placeholder="0.00" required />
             </div>
             <div class="form-group">
@@ -165,7 +165,7 @@
               <input type="number" id="fTp" step="any" placeholder="0.00" />
             </div>
             <div class="form-group">
-              <label>Position Size ($)</label>
+              <label>Position Size ($) <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
               <input type="number" id="fSize" step="any" placeholder="0.00" />
             </div>
           </div>
@@ -210,7 +210,7 @@
               </select>
             </div>
             <div class="form-group" style="flex:3">
-              <label>Setup Type(s) <span class="text-xs text-sub">— add multiple</span></label>
+              <label>Setup Type(s) <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span> <span class="text-xs text-sub">— add multiple</span></label>
               <div id="fSetupChips" class="setup-chips" style="margin-bottom:6px"></div>
               <div style="display:flex;gap:6px;align-items:center">
                 <select id="fSetupPicker" style="flex:1">
@@ -240,7 +240,7 @@
           <legend>Pre-Trade Grade (Plan Quality)</legend>
           <div class="form-row">
             <div class="form-group">
-              <label>Grade</label>
+              <label>Grade <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
               <select id="fPreGrade">
                 <option value="">— not graded —</option>
                 <option value="A">A — Textbook setup</option>
@@ -474,7 +474,7 @@
 <script src="js/tabs/tendencies.js?v=heatmap-0702c"></script>
 <script src="js/tabs/goals.js?v=goals2"></script>
 <script src="js/tabs/reports.js?v=rep4"></script>
-<script src="js/tabs/coach.js?v=getfreescore-0701f"></script>
+<script src="js/tabs/coach.js?v=charter-0706"></script>
 <script src="js/tabs/ai_coach.js?v=getfreescore-0701e"></script>
 <script src="js/tabs/dojo.js?v=dojo7"></script>
 <script src="js/tabs/quickstats.js"></script>
@@ -494,7 +494,7 @@
 <script src="js/tabs/crypto_scanner.js?v=scanners-0703"></script>
 <script src="js/tabs/fund.js?v=fund12sensei-local"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=tradechart-0702"></script>
+<script src="js/app.js?v=charter-0706"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

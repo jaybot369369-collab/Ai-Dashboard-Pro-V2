@@ -959,12 +959,38 @@ const App = (() => {
     };
 
     const editId = f('tradeId');
+
+    /* ── RISK CHARTER gate (2026-07-06) — NEW trades must carry the data
+       contract: live SL (One Rule), size, setup tag, pre-grade. Edits of
+       existing trades are exempt so historical fixes stay unblocked.
+       Override = typed reason, flagged charterOverride → weekly review. */
+    if (!editId) {
+      const missing = [];
+      if (!parseFloat(data.sl))   missing.push('Stop-loss (One Rule: no stop, no trade)');
+      if (!parseFloat(data.size)) missing.push('Size');
+      if (!setupTypes.length)     missing.push('Setup tag');
+      if (!['A', 'B', 'C', 'D'].includes(data.preGrade)) missing.push('Pre-grade');
+      if (missing.length) {
+        const reason = window.prompt(
+          '⛔ RISK CHARTER — missing:\n  • ' + missing.join('\n  • ') +
+          '\n\nCancel to go back and fill them in (recommended).\n' +
+          'To save anyway, type WHY — the override is flagged and appears in your weekly review.'
+        );
+        if (reason === null || !reason.trim()) {
+          toast('Charter: fill SL / size / setup / pre-grade (or type an override reason)', 'error');
+          return;
+        }
+        data.charterOverride = true;
+        data.overrideReason  = reason.trim();
+      }
+    }
+
     if (editId) {
       DB.updateTrade(editId, data);
       toast('Trade updated');
     } else {
       DB.addTrade(data);
-      toast('Trade saved');
+      toast(data.charterOverride ? '⚠️ Saved with charter override — flagged for review' : 'Trade saved');
     }
     window._jb_pendingEndDate = '';
     closeTradeModal();

@@ -58,6 +58,32 @@ const CoachTab = (() => {
     // Helper: last N trades (closed)
     const closed = trades.filter(t => t.result !== undefined && t.result !== '').sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    /* ── 0. RISK CHARTER — stop-loss + override watch (2026-07-06) ──
+       Manual trades only (imported history has no SL by nature). The single
+       most expensive behaviour on record: no-SL trades net −$1,229 vs +$268
+       with a stop (desk review 2026-07-06). */
+    const manual = (DB.filterByMode ? DB.filterByMode(trades, 'new') : trades)
+      .filter(t => !(t.notes || '').trim().toUpperCase().startsWith('PAPER'));
+    const openNoSl = manual.filter(t => (t.result === undefined || t.result === '') && !parseFloat(t.sl));
+    if (openNoSl.length) {
+      alerts.push({ type: 'danger', icon: '🛑',
+        title: `One Rule violation: ${openNoSl.length} open position${openNoSl.length > 1 ? 's' : ''} with NO stop-loss`,
+        desc: `${openNoSl.map(t => `${t.symbol} (${t.date})`).join(', ')} — RISK_CHARTER.md: no stop in the market, no trade. Place the stop or close the position today.` });
+    }
+    const since7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+    const recentClosedNoSl = manual.filter(t => t.date >= since7 && t.result !== undefined && t.result !== '' && !parseFloat(t.sl));
+    if (recentClosedNoSl.length) {
+      alerts.push({ type: 'danger', icon: '⛔',
+        title: `${recentClosedNoSl.length} trade${recentClosedNoSl.length > 1 ? 's' : ''} closed this week with no stop logged`,
+        desc: 'Every one of these is a charter breach — they will be named in the weekly review. If the stop existed on the exchange, log it; if it didn\'t, that\'s the leak that cost −$1,229 last quarter.' });
+    }
+    const overrides7 = manual.filter(t => t.charterOverride && t.date >= since7);
+    if (overrides7.length) {
+      alerts.push({ type: 'warning', icon: '✍️',
+        title: `${overrides7.length} charter override${overrides7.length > 1 ? 's' : ''} this week`,
+        desc: overrides7.map(t => `${t.symbol} (${t.date}): "${(t.overrideReason || '').slice(0, 80)}"`).join(' · ') + ' — overrides are reviewed Monday.' });
+    }
+
     /* ── 1. Losing streak ──────────────────────────────── */
     let streak = 0;
     for (const t of closed) {
