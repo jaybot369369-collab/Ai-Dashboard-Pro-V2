@@ -1346,26 +1346,46 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
     }
 
     try {
-      const trades = (typeof DB !== 'undefined' && DB.getTrades) ? DB.getTrades() : [];
+      // Manual ledger only — imported notion/binance history would pollute
+      // stats + "recent trades" (same fix as Trade Log / Weekly Review).
+      const all    = (typeof DB !== 'undefined' && DB.getTrades) ? DB.getTrades() : [];
+      const trades = (typeof DB !== 'undefined' && DB.filterByMode)
+        ? DB.filterByMode(all, 'new') : all;
+      trades.sort((a, b) =>
+        String(a.date || '').localeCompare(String(b.date || '')) ||
+        (a.createdAt || 0) - (b.createdAt || 0));
       const stats  = (typeof DB !== 'undefined' && DB.calcStats) ? DB.calcStats(trades) : {};
 
-      const system = `You are a trading coach analyzing a trader's journal data. Be direct, specific, and actionable.`;
+      const system = `You are a sharp, honest trading coach for a discretionary ICT crypto trader. Be direct, specific, and actionable — cite trades by date + symbol and rules by name. Substance over praise.
+
+THE TRADER'S RISK CHARTER (non-negotiable, from RISK_CHARTER.md):
+- 1R = $50 fixed. Sizing = 50 / |entry − stop|. Conviction via grade/selection, never size.
+- One Rule: no live stop in the market = no trade.
+- Tradeable = pre-grade A or B AND tagged with an existing playbook setup. C/D = paper only.
+- Breakers: day −2R = done · week −4R = flat until review · 3 straight losses = half size · any loss >1.5R = day off + post-mortem.
+- No new entries within 60 min before red-impact USD events (CPI, NFP, FOMC, PPI).
+
+THE TRADER'S PLAYBOOK (their actual catalogued setups):
+${_playbookPromptBlock()}`;
+
       const user   = `Trader question: "${question}"
 
-Trade stats summary: ${JSON.stringify({
+Account context (their rule book, recurring mistakes, strengths): ${JSON.stringify(_accountContext())}
+
+Trade stats summary (manual ledger only): ${JSON.stringify({
   totalTrades: trades.length,
   winRate: stats.winRate,
   avgR: stats.avgR,
   totalPL: stats.totalPL,
 })}
 
-Recent trades (last 20): ${JSON.stringify(trades.slice(-20).map(t => ({
+Recent trades (last 20, oldest→newest): ${JSON.stringify(trades.slice(-20).map(t => ({
   date: t.date, symbol: t.symbol, dir: t.direction,
   setup: (t.setupTypes||[t.setupType||'']).join('/'),
   pre: t.preGrade, post: t.postGrade, r: t.rMultiple, result: t.result,
 })), null, 2)}`;
 
-      const { text } = await callClaude({ system, user, maxTokens: 800 });
+      const { text } = await callClaude({ system, user, maxTokens: 1000 });
 
       if (respDiv) {
         respDiv.style.display = 'block';
