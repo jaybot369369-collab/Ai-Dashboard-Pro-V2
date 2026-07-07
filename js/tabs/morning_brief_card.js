@@ -12,8 +12,12 @@
 ═══════════════════════════════════════════════════════════ */
 const MorningBriefCard = (() => {
 
-  const SHIM = 'http://127.0.0.1:8769';
-  const STATIC = 'js/data/brief.json';   // optional pushed copy fallback
+  // Generation needs a TCC-capable process (reads ~/Documents) — the normal-context
+  // brief_server.py on :8772. The launchd :8769 shim can only serve a mirrored copy
+  // (it's TCC-blocked from generating). Static js/data/brief.json is the last resort.
+  const RUNNER = 'http://127.0.0.1:8773';
+  const SHIM   = 'http://127.0.0.1:8769';
+  const STATIC = 'js/data/brief.json';
 
   function esc(s) {
     if (s === undefined || s === null) return '';
@@ -36,13 +40,15 @@ const MorningBriefCard = (() => {
   }
 
   async function _fetchBrief() {
-    // Shim first (localhost only), then optional static pushed copy.
+    // Runner (:8772) → shim (:8769) → static file. Localhost-only for the servers.
     if (isLocal()) {
-      try {
-        const r = await fetch(SHIM + '/brief', { cache: 'no-store',
-          signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined });
-        if (r.ok) return await r.json();
-      } catch (_) {}
+      for (const base of [RUNNER, SHIM]) {
+        try {
+          const r = await fetch(base + '/brief', { cache: 'no-store',
+            signal: AbortSignal.timeout ? AbortSignal.timeout(2500) : undefined });
+          if (r.ok) return await r.json();
+        } catch (_) {}
+      }
     }
     try {
       const r = await fetch(STATIC, { cache: 'no-store' });
@@ -117,13 +123,22 @@ const MorningBriefCard = (() => {
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Generating…'; }
     if (body) body.innerHTML = `<div class="text-dim" style="padding:12px 4px;font-size:.85rem">⏳ Generating brief locally (~1–2 min)…</div>`;
     try {
-      const r = await fetch(SHIM + '/run-brief', { method: 'POST',
-        signal: AbortSignal.timeout ? AbortSignal.timeout(180000) : undefined });
-      if (!r.ok) throw new Error('shim ' + r.status);
+      const r = await fetch(RUNNER + '/run-brief', { method: 'POST',
+        signal: AbortSignal.timeout ? AbortSignal.timeout(300000) : undefined });
+      if (!r.ok) {
+        let msg = 'runner ' + r.status;
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch (_) {}
+        throw new Error(msg);
+      }
       const b = await r.json();
       _render(b.brief || b);
     } catch (e) {
-      if (body) body.innerHTML = `<div class="mb-banner mb-bad">Run failed: ${esc(e.message)}. Is the :8769 shim running?</div>`;
+      const offline = /Failed to fetch|NetworkError|aborted/i.test(e.message);
+      if (body) body.innerHTML = offline
+        ? `<div class="mb-banner mb-warn">The Morning Brief runner isn't running. Start it from a terminal:<br>
+             <code style="display:inline-block;margin-top:6px">cd ~/Documents/Claude/Q2_2026 &amp;&amp; python3 automation/brief_server.py</code><br>
+             <span style="font-size:.75rem">(It needs your normal login session — macOS blocks the always-on background service from reading your files.)</span></div>`
+        : `<div class="mb-banner mb-bad">Run failed: ${esc(e.message)}</div>`;
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '⟳ Run now'; }
     }
