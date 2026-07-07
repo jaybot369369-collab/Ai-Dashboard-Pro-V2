@@ -216,6 +216,14 @@ const DashboardTab = (() => {
           `<div class="kpi-delta ${pf===null?'':(pf>=1?'up':'down')}">${pf===null?'':(pf>=1?ICO.arrowUp:ICO.arrowDn)}<span>PF ${pf===null?'—':(pf===Infinity?'∞':pf.toFixed(2))}</span></div>`)}
       </div>
 
+      ${(() => {
+        // ☀️ Morning Brief — personal pre-market read (owned by MorningBriefCard)
+        try {
+          return (typeof MorningBriefCard !== 'undefined' && MorningBriefCard._cardHTML)
+            ? MorningBriefCard._cardHTML() : '';
+        } catch (e) { console.warn('[dashboard] morning brief card failed:', e); return ''; }
+      })()}
+
       ${goalsStripHTML}
 
       ${(() => {
@@ -302,6 +310,11 @@ const DashboardTab = (() => {
     drawSetupDonut('setupCanvas', _setupLast);
 
     renderCalendar(DB.dailyPLMap(sinceStart(allTrades)));
+
+    // ☀️ Morning Brief — async fetch + fill (shim GET /brief on localhost)
+    try {
+      if (typeof MorningBriefCard !== 'undefined' && MorningBriefCard._hydrate) MorningBriefCard._hydrate();
+    } catch (e) { console.warn('[dashboard] morning brief hydrate failed:', e); }
   }
 
   function kpiCard(idx, icon, value, label, deltaHtml) {

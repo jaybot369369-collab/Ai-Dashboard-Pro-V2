@@ -7824,3 +7824,21 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .ctx-ta { width: 100%; min-height: 360px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .78rem; line-height: 1.55; background: var(--surface, var(--bg-card)); color: var(--text-primary); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; resize: vertical; box-sizing: border-box; }
 .ctx-ta:focus { outline: none; border-color: var(--accent); }
 .ctx-doc-foot { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ── ☀️ Morning Brief card (morning_brief_card.js) ─────────── */
+.mb-card { margin-bottom: 16px; }
+.mb-banner { font-size: .74rem; padding: 6px 10px; border-radius: 8px; margin-bottom: 10px; }
+.mb-banner.mb-good { background: color-mix(in srgb, var(--good,#16a34a) 12%, transparent); color: var(--good,#16a34a); }
+.mb-banner.mb-warn { background: color-mix(in srgb, var(--warn,#d97706) 14%, transparent); color: var(--warn,#d97706); }
+.mb-banner.mb-bad  { background: color-mix(in srgb, var(--bad,#dc2626) 14%, transparent); color: var(--bad,#dc2626); }
+.mb-daytype { font-size: .9rem; padding: 8px 0 12px; line-height: 1.5; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.mb-sec { padding: 8px 0; }
+.mb-sec-h { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-dim); margin-bottom: 6px; }
+.mb-row { font-size: .84rem; line-height: 1.5; padding: 3px 0; }
+.mb-empty { font-size: .8rem; color: var(--text-dim); font-style: italic; padding: 2px 0; }
+.mb-bad-text { color: var(--bad,#dc2626); font-weight: 600; }
+.mb-pill { display: inline-block; font-size: .68rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-right: 4px; border: 1px solid var(--border); }
+.mb-pill.mb-good { color: var(--good,#16a34a); border-color: var(--good,#16a34a); }
+.mb-pill.mb-warn { color: var(--warn,#d97706); border-color: var(--warn,#d97706); }
+.mb-pill.mb-bad  { color: var(--bad,#dc2626); border-color: var(--bad,#dc2626); }
+.mb-foot { font-size: .68rem; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--border); }
