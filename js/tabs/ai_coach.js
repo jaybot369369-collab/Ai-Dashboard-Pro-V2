@@ -1356,14 +1356,23 @@ Bold key labels, use the emojis, keep bullets punchy. It's fine to write a short
         (a.createdAt || 0) - (b.createdAt || 0));
       const stats  = (typeof DB !== 'undefined' && DB.calcStats) ? DB.calcStats(trades) : {};
 
-      const system = `You are a sharp, honest trading coach for a discretionary ICT crypto trader. Be direct, specific, and actionable — cite trades by date + symbol and rules by name. Substance over praise.
-
-THE TRADER'S RISK CHARTER (non-negotiable, from RISK_CHARTER.md):
+      // Live trader profile from the 🧠 Context tab; condensed charter
+      // summary is the fallback if the Context module isn't loaded.
+      const profileDoc = (typeof ContextTab !== 'undefined' && ContextTab.getDoc)
+        ? ContextTab.getDoc('profile') : '';
+      const charterFallback = `THE TRADER'S RISK CHARTER (non-negotiable, from RISK_CHARTER.md):
 - 1R = $50 fixed. Sizing = 50 / |entry − stop|. Conviction via grade/selection, never size.
 - One Rule: no live stop in the market = no trade.
 - Tradeable = pre-grade A or B AND tagged with an existing playbook setup. C/D = paper only.
 - Breakers: day −2R = done · week −4R = flat until review · 3 straight losses = half size · any loss >1.5R = day off + post-mortem.
-- No new entries within 60 min before red-impact USD events (CPI, NFP, FOMC, PPI).
+- No new entries within 60 min before red-impact USD events (CPI, NFP, FOMC, PPI).`;
+      const traderBlock = profileDoc
+        ? 'THE TRADER (their own profile doc from the Context tab — style, risk summary, tendencies, and how they want to be spoken to):\n' + profileDoc
+        : charterFallback;
+
+      const system = `You are a sharp, honest trading coach for a discretionary ICT crypto trader. Be direct, specific, and actionable — cite trades by date + symbol and rules by name. Substance over praise.
+
+${traderBlock}
 
 THE TRADER'S PLAYBOOK (their actual catalogued setups):
 ${_playbookPromptBlock()}`;
