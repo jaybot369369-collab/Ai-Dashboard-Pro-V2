@@ -44,6 +44,7 @@ const App = (() => {
     catalysts:  () => CatalystTab.render(),
     coach:      () => CoachTab.render(),
     aicoach:    () => AICoachTab.render(),
+    context:    () => ContextTab.render(),
     goals:      () => GoalsTab.render(),
     reports:    () => ReportsTab.render(),
     liquidity:  () => LiquidityWatcherTab.render(),

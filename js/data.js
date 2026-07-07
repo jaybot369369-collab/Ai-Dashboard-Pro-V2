@@ -65,6 +65,7 @@ const DB = (() => {
     { id: 'confluence', label: 'Confluence',       icon: '🎯', builtin: true, group: 'TRADING'  },
     { id: 'tradelog',   label: 'Trade Log',        icon: '📋', builtin: true, group: 'TRADING'  },
     { id: 'aicoach',       label: 'AI Coach',         icon: '✨', builtin: true, group: 'INSIGHTS' },
+    { id: 'context',       label: 'Context',          icon: '🧠', builtin: true, group: 'INSIGHTS' },
     { id: 'orderbook',    label: 'Level 2',          icon: '📖', builtin: true, group: 'MARKETS'  },
     { id: 'catalysts',    label: 'Catalysts',        icon: '🗓', builtin: true, group: 'MARKETS'  },
     { id: 'marketintel',  label: 'Market Intel',     icon: '🛰', builtin: true, group: 'MARKETS'  },
@@ -131,11 +132,15 @@ const DB = (() => {
     return getTrades().find(t => t.id === id);
   }
 
-  /* Filter trades by data source mode: 'imported' | 'new' | 'all' */
+  /* Filter trades by data source mode: 'imported' | 'new' | 'all'
+     'new' = the real live account: hand-logged trades + round-trips imported
+     from the user's own Binance fills (source 'binance_api'). Bot paper
+     trades ('obxadx') and pre-inception history (notion/binance_order/
+     binance_tx) stay out so they can't dilute personal stats. */
   function filterByMode(trades, mode) {
     if (!mode || mode === 'all') return trades;
-    if (mode === 'new')      return trades.filter(t => !t.source || t.source === 'manual');
-    if (mode === 'imported') return trades.filter(t => t.source && t.source !== 'manual');
+    if (mode === 'new')      return trades.filter(t => !t.source || t.source === 'manual' || t.source === 'binance_api');
+    if (mode === 'imported') return trades.filter(t => t.source && t.source !== 'manual' && t.source !== 'binance_api');
     return trades;
   }
 
