@@ -297,6 +297,45 @@ const ConfluenceTab = (() => {
     } catch { return base; }
   }
 
+  /* ── hit-rate weight feedback (closed loop #3) ─────────
+     Checked calls (jb_conf_calls) now record which detector types fired
+     in the called direction. Per type: hr = hits/(hits+misses) over the
+     checked calls that contained it — 'expired' (chop) is excluded, as
+     no-follow-through isn't evidence against one specific detector.
+     Multiplier = 1 + (hr−50)/100, clamped to ±30%, and only active once
+     a type has ≥8 checked calls. Calls logged before 2026-07-07 have no
+     fired[] array and are skipped — the loop warms up as new calls are
+     checked. This closes the loop the hit-rate pill only measured. */
+  const HIT_FB_MIN_N = 8, HIT_FB_CLAMP = 0.30;
+  let _hitStatsMemo = null;
+  function _detectorHitStats() {
+    if (_hitStatsMemo) return _hitStatsMemo;
+    const stats = {};
+    try {
+      for (const c of _loadCalls()) {
+        if (!Array.isArray(c.fired) || !c.fired.length) continue;
+        if (c.status !== 'hit' && c.status !== 'miss') continue;
+        for (const t of c.fired) {
+          const s = stats[t] || (stats[t] = { n: 0, hits: 0 });
+          s.n += 1;
+          if (c.status === 'hit') s.hits += 1;
+        }
+      }
+    } catch { /* stats stay partial — weights fall back to base */ }
+    _hitStatsMemo = stats;
+    return stats;
+  }
+  function _hitFeedback(detectorType) {
+    const s = _detectorHitStats()[detectorType];
+    if (!s || s.n < HIT_FB_MIN_N) return 1.0;
+    const hr = (s.hits / s.n) * 100;
+    const f = 1 + (hr - 50) / 100;
+    return Math.max(1 - HIT_FB_CLAMP, Math.min(1 + HIT_FB_CLAMP, f));
+  }
+  function _adjustedWeight(detectorType) {
+    return _playbookAdjusted(detectorType) * _hitFeedback(detectorType);
+  }
+
   /* ── parse daily report levels for an asset ──────────── */
   function _levelsFromDaily(daily, sym) {
     if (!daily?.tickers) return [];
@@ -409,7 +448,7 @@ const ConfluenceTab = (() => {
     let bullSum = 0, bearSum = 0;
     detectors.forEach(d => {
       if (!d.fired || !d.dir) return;
-      let w = _playbookAdjusted(d.type || d.id);
+      let w = _adjustedWeight(d.type || d.id);
       // BTC correlation veto: alts that point opposite to BTC's recent shock get dimmed.
       // BTC itself is exempt. Bias detector exempt (it's already HTF context).
       if (btcShock && sym !== 'BTC' && d.type !== 'bias' && d.dir !== btcShock.dir) {
@@ -484,6 +523,7 @@ const ConfluenceTab = (() => {
     catch { return []; }
   }
   function _saveCalls(arr) {
+    _hitStatsMemo = null;   // weights re-read outcomes on next scoring pass
     try { localStorage.setItem('jb_conf_calls', JSON.stringify(arr.slice(-200))); }
     catch (e) { console.warn('[confluence] calls save failed', e); }
   }
@@ -673,6 +713,10 @@ const ConfluenceTab = (() => {
         ts: _lastRun.ts, sym: r.sym, anchor: _anchorTF,
         score: r.score, dir: r.dir, price: r.price,
         status: 'pending',
+        // Detector types that fired in the call's direction — the
+        // attribution that lets outcomes feed back into weights (loop #3).
+        fired: (r.fired || []).filter(d => d.dir === r.dir)
+                              .map(d => d.type || d.id),
       });
       added += 1;
     }
@@ -869,7 +913,7 @@ const ConfluenceTab = (() => {
     const rows = r.detectors.map(d => {
       const fired = d.fired ? '✓' : '✗';
       const cls = d.fired ? (d.dir === 'bull' ? 'fired-bull' : d.dir === 'bear' ? 'fired-bear' : 'fired-neutral') : 'missed';
-      const w = _playbookAdjusted(d.type || d.id).toFixed(2);
+      const w = _adjustedWeight(d.type || d.id).toFixed(2);
       const strBar = d.fired
         ? `<div class="conf-strength"><span style="width:${(d.strength*100).toFixed(0)}%"></span></div>`
         : `<div class="conf-strength"></div>`;
@@ -1765,6 +1809,6 @@ const ConfluenceTab = (() => {
   return {
     render, _refresh, _scoreAsset,
     _takeTrade, _pullAllTFs,
-    _hitRateSummary, _crossTFAgreement,
+    _hitRateSummary, _crossTFAgreement, _detectorHitStats, _hitFeedback,
   };
 })();
