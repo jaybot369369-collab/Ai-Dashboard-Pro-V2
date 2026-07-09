@@ -19,12 +19,17 @@ const TradeLogTab = (() => {
   // TradeView so its ‹ › navigation walks the same order the table shows.
   let _lastOrderedIds = [];
 
-  // Complete ledger source: every manually-logged trade, decoupled from the
-  // topbar date dropdown AND the data-mode toggle. DB.getTradesRaw is the
-  // un-patched original set (assigned in app.js init); fall back to getTrades.
+  // Bot view: flips the whole tab to browse imported OBxADX paper trades
+  // (source 'obxadx') instead of the real ledger. Never mixed.
+  let _botView = false;
+
+  // Complete ledger source: every real trade (manual + binance_api imports),
+  // decoupled from the topbar date dropdown AND the data-mode toggle.
+  // DB.getTradesRaw is the un-patched original set (assigned in app.js init).
   function tradesForLog() {
     const raw = (typeof DB.getTradesRaw === 'function') ? DB.getTradesRaw() : DB.getTrades();
-    return DB.filterByMode(raw, 'new');   // 'new' => !source || source === 'manual'
+    if (_botView) return raw.filter(t => t.source === 'obxadx');
+    return DB.filterByMode(raw, 'new');   // manual + binance_api
   }
 
   function render() {
@@ -40,9 +45,12 @@ const TradeLogTab = (() => {
           ${sortCol === 'date' && sortDir === 'desc' ? '<span class="badge badge-dim" style="font-size:.72rem;font-weight:400;margin-left:6px">Latest first ↓</span>' : ''}
         </div>
         <div style="display:flex;gap:8px">
+          <button class="btn-ghost btn-sm${_botView ? ' active' : ''}" onclick="TradeLogTab._toggleBotView()" title="Browse imported OBxADX bot paper trades (kept separate from your stats)">${_botView ? '👤 My trades' : '🤖 Bot trades'}</button>
+          <button class="btn-ghost btn-sm" onclick="TradeSync.open()" title="Auto-import round-trip trades from your Binance fills + the OBxADX bot ledger">⇄ Sync trades</button>
           <button class="btn-primary btn-sm" onclick="App.openTradeModal()">＋ New Trade</button>
         </div>
       </div>
+      ${_botView ? '<div class="text-xs" style="margin:-8px 0 12px;color:var(--warn,#b45309)">🤖 Viewing OBxADX bot paper trades — these never count toward your personal stats. Click "👤 My trades" to switch back.</div>' : ''}
 
       <!-- ═══ Scan-a-chart hero card (moved here from header per E14) ═══ -->
       <div class="scan-hero-card" onclick="App.openScanModal()">
@@ -497,6 +505,7 @@ const TradeLogTab = (() => {
 
   return {
     render,
+    _toggleBotView: () => { _botView = !_botView; page = 1; render(); },
     _sort: col => {
       _userSorted = true;
       if (sortCol === col) sortDir = sortDir === 'asc' ? 'desc' : 'asc';
