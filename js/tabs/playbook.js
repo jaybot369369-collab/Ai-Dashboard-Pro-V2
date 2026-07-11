@@ -20,8 +20,13 @@ const PlaybookTab = (() => {
     return '📋';
   }
 
-  function wrBadge(wr) {
+  /* Charter §3: setup verdicts need ≥20 closed trades. Below that a setup is
+     "collecting data" — never coloured green/red off a tiny sample. */
+  const VERDICT_MIN_N = 20;
+  function wrBadge(wr, n) {
     if (wr === null) return { color: '#6b7280', label: '—' };
+    if ((n || 0) < VERDICT_MIN_N)
+      return { color: '#6b7280', label: `collecting ${n}/${VERDICT_MIN_N} · ${wr.toFixed(0)}%` };
     if (wr >= 75)   return { color: '#22c55e', label: wr.toFixed(0) + '%' };
     if (wr >= 60)   return { color: '#f59e0b', label: wr.toFixed(0) + '%' };
     if (wr >= 50)   return { color: '#f97316', label: wr.toFixed(0) + '%' };
@@ -1289,7 +1294,13 @@ const PlaybookTab = (() => {
   function render() {
     const content = document.getElementById('content');
     const setups  = DB.recomputePlaybookStats();
-    const sorted  = [...setups].sort((a, b) => (b.winRate ?? -999) - (a.winRate ?? -999));
+    // Qualified setups (n≥20) rank by win rate; collecting-data setups sort below by sample size
+    const sorted  = [...setups].sort((a, b) => {
+      const qa = (a.tradeCount || 0) >= VERDICT_MIN_N, qb = (b.tradeCount || 0) >= VERDICT_MIN_N;
+      if (qa !== qb) return qa ? -1 : 1;
+      if (!qa) return (b.tradeCount || 0) - (a.tradeCount || 0);
+      return (b.winRate ?? -999) - (a.winRate ?? -999);
+    });
 
     // Get Free Score + Rule Adherence summary cards live on the Dashboard tab
     // (see js/tabs/dashboard.js) — moved there 2026-07-01 for visibility.
@@ -1298,7 +1309,7 @@ const PlaybookTab = (() => {
       <div class="page-head">
         <div>
           <h1>Playbook</h1>
-          <div class="sub">${sorted.length} approved setup${sorted.length !== 1 ? 's' : ''} · sorted by win rate</div>
+          <div class="sub">${sorted.length} approved setup${sorted.length !== 1 ? 's' : ''} · verdicts need ≥${VERDICT_MIN_N} trades (charter §3)</div>
         </div>
         <button onclick="PlaybookTab._addSetup()" style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap"
           onmouseenter="this.style.opacity='.88'" onmouseleave="this.style.opacity='1'">
@@ -1326,7 +1337,7 @@ const PlaybookTab = (() => {
   function setupCard(s) {
     const safeId = /^[A-Za-z0-9_-]+$/.test(s.id) ? s.id : '';
     const ar     = s.avgR !== null ? (s.avgR >= 0 ? '+' : '') + s.avgR.toFixed(2) + 'R' : '—';
-    const badge  = wrBadge(s.winRate);
+    const badge  = wrBadge(s.winRate, s.tradeCount);
     const icon   = setupIcon(s.name);
     const imgSrc = safeImgUrl(s.screenshotUrl);
     const hasEx  = !!findExamples(s.name);

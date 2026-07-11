@@ -272,6 +272,10 @@
               <label>R Multiple</label>
               <input type="number" id="fRMultiple" step="any" placeholder="e.g. 1.5" />
             </div>
+            <div class="form-group">
+              <label>Fees ($) <span class="text-xs text-sub" title="Commission + funding + slippage, one combined number">— all costs</span></label>
+              <input type="number" id="fFees" step="any" placeholder="0.00" />
+            </div>
           </div>
         </fieldset>
 
@@ -450,7 +454,7 @@
 <!-- ═══════════════════════════════════════════════
      SCRIPTS
 ════════════════════════════════════════════════ -->
-<script src="js/data.js?v=sync-0706"></script>
+<script src="js/data.js?v=deadacct-fees-0711"></script>
 <script src="js/data/macro_events.js"></script>
 <script src="js/integrations/telegram.js"></script>
 <script src="js/integrations/r2.js?v=r2_2"></script>
@@ -461,7 +465,8 @@
 <script src="js/charts.js"></script>
 <script src="js/tabs/thesis_scorecard.js?v=thesis-0705"></script>
 <script src="js/tabs/morning_brief_card.js?v=brief-0707b"></script>
-<script src="js/tabs/dashboard.js?v=privacy-0711"></script>
+<script src="js/tabs/regime_card.js?v=regime-0711"></script>
+<script src="js/tabs/dashboard.js?v=regime-0711"></script>
 <script src="js/tabs/daily_report.js?v=dr-live3"></script>
 <script src="js/lib/lightweight-charts.standalone.js?v=4.2.3"></script>
 <script src="js/tradeview.js?v=tradechart-0702f"></script>
@@ -471,10 +476,10 @@
 <script src="js/tabs/journal.js"></script>
 <script src="js/tabs/analytics.js"></script>
 <script src="js/tabs/watchlist.js"></script>
-<script src="js/tabs/playbook.js?v=getfreescore-0701e"></script>
+<script src="js/tabs/playbook.js?v=n20gate-0711"></script>
 <script src="js/tabs/mistakes.js"></script>
 <script src="js/tabs/strengths.js"></script>
-<script src="js/tabs/tendencies.js?v=heatmap-0702c"></script>
+<script src="js/tabs/tendencies.js?v=newera-0711"></script>
 <script src="js/tabs/goals.js?v=privacy-0711"></script>
 <script src="js/tabs/reports.js?v=rep4"></script>
 <script src="js/tabs/coach.js?v=privacy-0711"></script>
@@ -499,7 +504,7 @@
 <script src="js/tabs/crypto_scanner.js?v=scanners-0703"></script>
 <script src="js/tabs/fund.js?v=privacy-0711"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=charter-0706"></script>
+<script src="js/app.js?v=regime-fees-0711"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

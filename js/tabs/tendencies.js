@@ -817,7 +817,8 @@ Rules for analysis:
   }
 
   async function _autoAnalyze() {
-    const trades = DB.getTrades();
+    // New-era only — the imported dead account must never feed the analyzer (2026-07-11)
+    const trades = DB.newEraTrades ? DB.newEraTrades() : DB.getTrades();
     if (!trades.length) { App.toast('No trades to analyze yet — log some first.', 'error'); return; }
 
     // Show loading state on whichever button triggered this

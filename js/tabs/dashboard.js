@@ -270,6 +270,14 @@ const DashboardTab = (() => {
       </div>
 
       ${(() => {
+        // Regime & risk rules — owned by RegimeCard (js/tabs/regime_card.js, 2026-07-11)
+        try {
+          return (typeof RegimeCard !== 'undefined' && RegimeCard._cardHTML)
+            ? RegimeCard._cardHTML() : '';
+        } catch (e) { console.warn('[dashboard] regime card failed:', e); return ''; }
+      })()}
+
+      ${(() => {
         // Day × Time P&L heatmap (roadmap #5) — owned by TendenciesTab, rendered here
         try {
           return (typeof TendenciesTab !== 'undefined' && TendenciesTab._heatmapCardHTML)

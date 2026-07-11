@@ -132,6 +132,14 @@ const DB = (() => {
     return getTrades().find(t => t.id === id);
   }
 
+  /* Manual account restarted 2026-04-27 — everything before is the imported
+     dead account (reference only). AI/coach/stat layers use this filter so
+     old data never contaminates insights (Jay, 2026-07-11). */
+  const ACCOUNT_START = '2026-04-27';
+  function newEraTrades() {
+    return getTrades().filter(t => (((t.date || '') + '').slice(0, 10)) >= ACCOUNT_START);
+  }
+
   /* Filter trades by data source mode: 'imported' | 'new' | 'all'
      'new' = the real live account: hand-logged trades + round-trips imported
      from the user's own Binance fills (source 'binance_api'). Bot paper
@@ -183,8 +191,11 @@ const DB = (() => {
       if (dd > maxDD) maxDD = dd;
     });
 
+    // Combined transaction costs (fees + funding, one field per trade — 2026-07-11)
+    const totalFees = closed.reduce((s, t) => s + (parseFloat(t.fees) || 0), 0);
+
     return { total: trades.length, closed: closed.length, wins: wins.length, losses: losses.length,
-             totalPL, winRate, avgR, maxDD };
+             totalPL, winRate, avgR, maxDD, totalFees, netAfterFees: totalPL - totalFees };
   }
 
   /* Daily P&L map: { 'YYYY-MM-DD': number }
@@ -959,7 +970,8 @@ const DB = (() => {
 
   /* Recompute playbook stats from trades */
   function recomputePlaybookStats() {
-    const trades = getTrades().filter(t => t.result !== undefined && t.result !== '');
+    // New-era trades only — dead-account history must not shape setup verdicts.
+    const trades = newEraTrades().filter(t => t.result !== undefined && t.result !== '');
     const thr = getAdherenceThreshold();
     const pb = getPlaybook().map(setup => {
       const matching = trades.filter(t => {
@@ -1467,6 +1479,63 @@ const DB = (() => {
     return { added: toAdd.length, skipped: newTrades.length - toAdd.length };
   }
 
+  /* ══════════════════════════════════════════════════════
+     ONE-TIME MIGRATION — dead-account purge (2026-07-11)
+     Jay: "remove the dead account / all previous data so the AI coach
+     doesn't get confused." Removes the 2026-04-27 import-analysis batch of
+     auto-insights (their stats span the pre-inception history) and the
+     dead-account stat lines + impossible targets in Goals. Exact-match
+     only: anything Jay edited since no longer matches and is left alone.
+  ══════════════════════════════════════════════════════ */
+  function migrateDeadAccount() {
+    try {
+      if (localStorage.getItem('jb_migr_deadacct_v1')) return;
+      const fromImportBatch = it =>
+        it && it.dateAdded === '2026-04-27' &&
+        (((it.lastSeen || '') + '').slice(0, 10)) < '2026-04-29';
+
+      const mist = getMistakes(), str = getStrengths();
+      const m2 = mist.filter(it => !fromImportBatch(it));
+      const s2 = str.filter(it => !fromImportBatch(it));
+      if (m2.length !== mist.length) saveMistakes(m2);
+      if (s2.length !== str.length) saveStrengths(s2);
+
+      const g = load(KEYS.goals);
+      if (g) {
+        const norm = s => ((s || '') + '').replace(/\s+/g, ' ').trim().toLowerCase();
+        const DEAD_LINES = [
+          'current win rate = -40% @ 540 trades py',
+          'worse hrs = 8am-1pm uk. (90% losses)',
+          'best hrs = 1-5pm uk (nyc ldn overlap)',
+          'worse days - mon, fri',
+          'best days - weds, sun',
+          'icts best days = tues, weds, thurs',
+          '--------------------',
+        ].map(norm);
+        if (Array.isArray(g.disciplineRules))
+          g.disciplineRules = g.disciplineRules.filter(r => !DEAD_LINES.includes(norm(r.label)));
+        if (Array.isArray(g.coachGoals)) {
+          g.coachGoals = g.coachGoals.filter(cg => {
+            const t = parseFloat(cg.target);
+            // impossible: win-rate targets of 0/negative or >95%, or no metric+target at all
+            if (cg.metric === 'win_rate' && (!isFinite(t) || t <= 0 || t > 95)) return false;
+            return true;
+          });
+          if (!g.coachGoals.length) g.coachGoals = [
+            { label: '100% stop coverage — live SL on every trade (One Rule)',
+              metric: 'sl_coverage', target: 100, startValue: 0, deadline: '' },
+            { label: 'Win rate ≥ 55% on A/B playbook entries',
+              metric: 'win_rate', target: 55, startValue: 0, deadline: '' },
+          ];
+        }
+        save(KEYS.goals, g);
+      }
+      localStorage.setItem('jb_migr_deadacct_v1', new Date().toISOString());
+      console.info('[DB] dead-account purge v1 applied — pre-2026-04-27 auto-insights and stale goal lines removed');
+    } catch (e) { console.warn('[DB] dead-account migration failed:', e); }
+  }
+  migrateDeadAccount();
+
   /* ── Public API ──────────────────────────────────────── */
   return {
     // Settings
@@ -1475,6 +1544,7 @@ const DB = (() => {
     getTabs, saveTabs, addTab, deleteTab, DEFAULT_TABS,
     // Trades
     getTrades, addTrade, updateTrade, deleteTrade, getTradeById,
+    newEraTrades, ACCOUNT_START,
     filterByRange, filterByMode,
     calcStats, dailyPLMap, equityCurve, winRateBySetup,
     performanceBySession, rDistribution, streaks,

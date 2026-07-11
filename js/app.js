@@ -844,6 +844,7 @@ const App = (() => {
       fSession: t.session, fHtfBias: t.htfBias,
       fPreGrade: t.preGrade, fPreGradeNotes: t.preGradeNotes,
       fExitPrice: t.exitPrice, fResult: t.result, fRMultiple: t.rMultiple,
+      fFees: t.fees,
       fPostGrade: t.postGrade, fPostGradeNotes: t.postGradeNotes,
       fNotes: t.notes, fDate: t.date, fDateEnd: t.dateEnd || '',
       fTime: t.time || '',
@@ -948,6 +949,7 @@ const App = (() => {
       dateEnd: f('fDateEnd') || window._jb_pendingEndDate || '',
       preGrade: f('fPreGrade'), preGradeNotes: f('fPreGradeNotes'),
       exitPrice: f('fExitPrice'), result: f('fResult'), rMultiple,
+      fees: f('fFees'),   // combined transaction costs: commission + funding (2026-07-11)
       postGrade: f('fPostGrade'), postGradeNotes: f('fPostGradeNotes'),
       notes: f('fNotes'),
       screenshotUrls: [..._pendingScreenshots],
@@ -984,6 +986,23 @@ const App = (() => {
         data.charterOverride = true;
         data.overrideReason  = reason.trim();
       }
+
+      /* Regime gate (2026-07-11) — RegimeCard writes jb_regime; in RISK-OFF the
+         charter prescription is A-grade only at half size (1R = $25). Soft gate:
+         confirm + flag, never a silent block. */
+      try {
+        const reg = JSON.parse(localStorage.getItem('jb_regime') || 'null');
+        const freshH = reg && reg.ts ? (Date.now() - new Date(reg.ts)) / 36e5 : 99;
+        if (reg && reg.state === 'risk-off' && freshH < 24 && data.preGrade !== 'A') {
+          const ok = window.confirm(
+            '🌡️ REGIME: RISK-OFF\n' +
+            'Prescription: A-grade only · half size (1R = $25).\n' +
+            'This trade is graded "' + (data.preGrade || '—') + '".\n\nSave anyway? (flagged for weekly review)'
+          );
+          if (!ok) { toast('Regime gate: A-grade only while risk-off', 'error'); return; }
+          data.regimeOverride = 'risk-off';
+        }
+      } catch {}
     }
 
     if (editId) {
