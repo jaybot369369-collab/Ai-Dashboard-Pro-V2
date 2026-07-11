@@ -828,38 +828,48 @@ Rules for analysis:
     const stamp = new Date().toISOString().slice(0,10);
     let found = null;
 
+    // finally-guard: the button must come back on EVERY path (2026-07-11 fix —
+    // a dead AI shim/tunnel left it stuck on "Analysing…" forever)
     try {
-      found = await _aiAnalyze(trades);
-    } catch (e) {
-      console.warn('[tendencies] AI analysis failed, falling back to stats:', e.message);
-      found = null;
-    }
-
-    // Fall back to stats engine if AI failed / no key
-    if (!found || (!found.mistakes?.length && !found.strengths?.length)) {
-      found = DB.analyzePatterns(trades);
-      if (!found.mistakes.length && !found.strengths.length) {
-        App.toast('Not enough data yet — need 5+ trades per session/setup.', 'info');
-        btns.forEach(b => { b.disabled = false; b.textContent = '🧠 Auto-Analyze Trades'; });
-        return;
+      try {
+        // AI call can hang on a dead shim/tunnel — hard cap, then stats fallback
+        found = await Promise.race([
+          _aiAnalyze(trades),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('AI analysis timed out after 75s')), 75000)),
+        ]);
+      } catch (e) {
+        console.warn('[tendencies] AI analysis failed, falling back to stats:', e.message);
+        App.toast('AI unreachable — using the built-in stats engine instead', 'info');
+        found = null;
       }
+
+      // Fall back to stats engine if AI failed / no key
+      if (!found || (!found.mistakes?.length && !found.strengths?.length)) {
+        found = DB.analyzePatterns(trades);
+        if (!found.mistakes.length && !found.strengths.length) {
+          App.toast('Not enough data yet — need 5+ trades per session/setup.', 'info');
+          return;
+        }
+      }
+
+      // Merge into existing
+      const { merged: mergedM, addedCount: mA, refreshedCount: mR } = _mergeItems(DB.getMistakes(), found.mistakes || [], stamp);
+      const { merged: mergedS, addedCount: sA, refreshedCount: sR } = _mergeItems(DB.getStrengths(), found.strengths || [], stamp);
+
+      DB.saveMistakes(mergedM);
+      DB.saveStrengths(mergedS);
+
+      const parts = [];
+      if (mA) parts.push(`${mA} new mistake${mA===1?'':'s'}`);
+      if (mR) parts.push(`${mR} updated`);
+      if (sA) parts.push(`${sA} new strength${sA===1?'':'s'}`);
+      if (sR) parts.push(`${sR} refreshed`);
+      App.toast('Analysis complete — ' + (parts.join(', ') || 'no changes'), 'success');
+
+      _rerenderCurrent();
+    } finally {
+      btns.forEach(b => { b.disabled = false; b.textContent = '🧠 Auto-Analyze Trades'; });
     }
-
-    // Merge into existing
-    const { merged: mergedM, addedCount: mA, refreshedCount: mR } = _mergeItems(DB.getMistakes(), found.mistakes || [], stamp);
-    const { merged: mergedS, addedCount: sA, refreshedCount: sR } = _mergeItems(DB.getStrengths(), found.strengths || [], stamp);
-
-    DB.saveMistakes(mergedM);
-    DB.saveStrengths(mergedS);
-
-    const parts = [];
-    if (mA) parts.push(`${mA} new mistake${mA===1?'':'s'}`);
-    if (mR) parts.push(`${mR} updated`);
-    if (sA) parts.push(`${sA} new strength${sA===1?'':'s'}`);
-    if (sR) parts.push(`${sR} refreshed`);
-    App.toast('Analysis complete — ' + (parts.join(', ') || 'no changes'), 'success');
-
-    _rerenderCurrent();
   }
 
   // _heatmapCardHTML: raw-HTML helper — the Day × Time heatmap renders at the

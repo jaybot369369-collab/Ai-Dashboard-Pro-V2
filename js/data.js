@@ -1560,8 +1560,10 @@ const DB = (() => {
     profitFactor, avgWinLossRatio, maxDrawdownPct, recoveryFactor, dailyPLConsistency,
     disciplineSubScore, getFreeScore,
     // Mistakes & Strengths
-    getMistakes, addMistake, updateMistake, deleteMistake, bumpMistake,
-    getStrengths, addStrength, updateStrength, deleteStrength, bumpStrength,
+    // saveMistakes/saveStrengths were defined but never exported — tendencies.js
+    // Auto-Analyze crashed at the save step and hung the button (fixed 2026-07-11)
+    getMistakes, saveMistakes, addMistake, updateMistake, deleteMistake, bumpMistake,
+    getStrengths, saveStrengths, addStrength, updateStrength, deleteStrength, bumpStrength,
     // Goals
     getGoals, saveGoals,
     // Coach log
