@@ -512,7 +512,7 @@ const CoachTab = (() => {
       <div class="card" style="margin-bottom:18px">
         <div class="section-title" style="margin-bottom:4px">🎯 Focus Areas — what to watch on your next trades</div>
         <p class="text-sub text-sm" style="margin-bottom:14px">Ranked by how much each is dragging your Get Free Score down (its weight × how much room it has to improve).</p>
-        <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="privacy-mask" style="display:flex;flex-direction:column;gap:10px">
           ${items.map(({ key, comp }) => `
             <div style="display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--border);border-left:4px solid ${_gfsColor(comp.subScore)};border-radius:8px">
               <div style="font-weight:700;font-size:.82rem;flex-shrink:0;min-width:130px;color:${_gfsColor(comp.subScore)}">${_GFS_LABELS[key].label}</div>

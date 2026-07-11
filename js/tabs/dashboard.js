@@ -136,7 +136,7 @@ const DashboardTab = (() => {
       <div style="flex:1;min-width:180px">
         <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--text-secondary);margin-bottom:4px">
           <span style="font-weight:600">${label}</span>
-          <span style="color:var(--text-dim)">${valueStr}</span>
+          <span class="privacy-mask" style="color:var(--text-dim)">${valueStr}</span>
         </div>
         <div style="height:4px;background:var(--border-sub,rgba(127,127,127,.18));border-radius:2px;overflow:hidden">
           <div style="height:100%;width:${clamped}%;background:${col};border-radius:2px;transition:width .4s"></div>

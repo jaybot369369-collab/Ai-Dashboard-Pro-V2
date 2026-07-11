@@ -1607,7 +1607,56 @@ body.privacy-mode .equity-val,
 body.privacy-mode .privacy-mask,
 body.privacy-mode canvas,
 body.privacy-mode .chip,
-body.privacy-mode .day-trade-row {
+body.privacy-mode .day-trade-row,
+/* 2026-07-11 sweep — values the eye button previously missed */
+body.privacy-mode .kpi-num,           /* dashboard KPI numbers (balance, P&L, WR, avg R) */
+body.privacy-mode .kpi-delta,         /* W/L counts, PF, "Profitable/Unprofitable" labels */
+body.privacy-mode .donut-legend,      /* top-setups legend quotes per-setup $ */
+body.privacy-mode .donut-center,
+body.privacy-mode .big,               /* day drill-down modal totals */
+body.privacy-mode .list-row-val,
+body.privacy-mode .rs-value,          /* Reports/Analytics/Coach stats use inline colors, not .text-green */
+body.privacy-mode td.mono-num,        /* Trade Log + Journal entry/exit/R cells */
+body.privacy-mode .ef-val,            /* expanded-trade field values (SL/TP/size/result) */
+body.privacy-mode .gr-stat,           /* group-by rows: WR / total R / total $ */
+body.privacy-mode .gfs-num,           /* Get Free Score — radar is SVG, not canvas */
+body.privacy-mode .gfs-radar-svg,
+body.privacy-mode .gfs-row-wrap,
+body.privacy-mode .gfs-gradient-bar,
+body.privacy-mode .bf-kpi-value,      /* Bot Farm: 7d farm P&L + capital allocated */
+body.privacy-mode .bf-bot-pnl,        /* per-bot 7-day P&L */
+body.privacy-mode .qs-stat-val,       /* QuickStats backtest WR/expectancy/PF */
+body.privacy-mode .qs-stat-sub,
+body.privacy-mode .tv-lvl-val,        /* Trade View entry/SL/TP/exit/risk-$ */
+body.privacy-mode .tv-meta-row,       /* Trade View size/R meta rows */
+body.privacy-mode .ai-spend-val,
+body.privacy-mode .sn-meta-bar {
+  filter: blur(8px);
+  transition: filter 120ms ease;
+  user-select: none;
+}
+/* Larger tables / report bodies — blurred, peekable on hover (same pattern as canvas) */
+body.privacy-mode .bf-table,          /* Bot Farm open positions + recent trades */
+body.privacy-mode .bf-table-foot,     /* WR · wins · losses · net $ footer */
+body.privacy-mode .bf-feed,           /* live event feed quotes trade P&L */
+body.privacy-mode .qs-trades,
+body.privacy-mode .trade-expand-inner,
+body.privacy-mode .coach-alert,       /* streak / WR / overtrading alerts */
+body.privacy-mode .hm-grid,           /* Day×Time P&L heatmap is HTML, not canvas */
+body.privacy-mode .hm-detail,
+body.privacy-mode .hm-callout,
+body.privacy-mode .sn-body,           /* Sensei daily report quotes farm P&L */
+body.privacy-mode .sn-headline,
+body.privacy-mode .ai-review-body,    /* AI Coach weekly review quotes P&L */
+body.privacy-mode .ai-review-tbl,
+body.privacy-mode .ai-hist-row,       /* ask-coach Q&A history */
+body.privacy-mode .tv-crit-list,
+body.privacy-mode .tv-note-block,
+body.privacy-mode .tv-shot-grid,      /* per-trade screenshots */
+body.privacy-mode .mb-row,            /* morning brief open positions / theses */
+body.privacy-mode .ths-row,           /* thesis scorecard statements + evidence */
+body.privacy-mode .ths-closed-row,
+body.privacy-mode .ths-log {
   filter: blur(8px);
   transition: filter 120ms ease;
   user-select: none;
@@ -1616,7 +1665,28 @@ body.privacy-mode .stat-card .value:hover,
 body.privacy-mode .cal-pnl:hover,
 body.privacy-mode .streak-val:hover,
 body.privacy-mode canvas:hover,
-body.privacy-mode .day-trade-row:hover {
+body.privacy-mode .day-trade-row:hover,
+body.privacy-mode .bf-table:hover,
+body.privacy-mode .bf-table-foot:hover,
+body.privacy-mode .bf-feed:hover,
+body.privacy-mode .qs-trades:hover,
+body.privacy-mode .trade-expand-inner:hover,
+body.privacy-mode .coach-alert:hover,
+body.privacy-mode .hm-grid:hover,
+body.privacy-mode .hm-detail:hover,
+body.privacy-mode .hm-callout:hover,
+body.privacy-mode .sn-body:hover,
+body.privacy-mode .sn-headline:hover,
+body.privacy-mode .ai-review-body:hover,
+body.privacy-mode .ai-review-tbl:hover,
+body.privacy-mode .ai-hist-row:hover,
+body.privacy-mode .tv-crit-list:hover,
+body.privacy-mode .tv-note-block:hover,
+body.privacy-mode .tv-shot-grid:hover,
+body.privacy-mode .mb-row:hover,
+body.privacy-mode .ths-row:hover,
+body.privacy-mode .ths-closed-row:hover,
+body.privacy-mode .ths-log:hover {
   filter: blur(0);
 }
 /* Trade View: market candles are public data, not account info — exempt the

@@ -242,7 +242,7 @@ const FundTab = (() => {
     return `<div class="page-head">
       <div>
         <h1>Bot Farm  ${_connPillHTML()}</h1>
-        <p class="subtitle">${live} live · ${total} bots · ${cap} allocated · <span class="lw-dot ${dotCls}" style="display:inline-block;vertical-align:middle"></span> <span style="font-size:12px;color:var(--muted)">kill_state = ${esc(ks)}</span></p>
+        <p class="subtitle">${live} live · ${total} bots · <span class="privacy-mask">${cap}</span> allocated · <span class="lw-dot ${dotCls}" style="display:inline-block;vertical-align:middle"></span> <span style="font-size:12px;color:var(--muted)">kill_state = ${esc(ks)}</span></p>
       </div>
       <div class="page-head-right" style="display:flex;gap:8px;align-items:center">
         <button class="btn-ghost" id="fundRunSensei" title="Trigger Sensei AI coach report (~2 min)">🧠 Run Sensei</button>

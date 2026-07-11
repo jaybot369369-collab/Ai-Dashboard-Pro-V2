@@ -38,7 +38,7 @@ const GoalsTab = (() => {
       <div style="font-size:.8rem;font-weight:600;color:var(--text-secondary);margin-bottom:2px">${esc(name)}</div>
       <div style="font-size:.7rem;color:var(--text-dim);margin-bottom:10px">Target: ${esc(targetLabel)}</div>
       <!-- Current value -->
-      <div style="font-size:1.8rem;font-weight:800;line-height:1;color:var(--text-primary);margin-bottom:10px">
+      <div class="privacy-mask" style="font-size:1.8rem;font-weight:800;line-height:1;color:var(--text-primary);margin-bottom:10px">
         ${esc(currentFmt)}
       </div>
       <!-- Progress bar -->
@@ -46,7 +46,7 @@ const GoalsTab = (() => {
         <div style="height:100%;width:${clampedPct}%;background:${barColor};border-radius:2px;transition:width .4s"></div>
       </div>
       <!-- To-go or hit -->
-      <div style="font-size:.72rem;color:var(--text-dim)">
+      <div class="privacy-mask" style="font-size:.72rem;color:var(--text-dim)">
         ${hit ? '<span style="color:#22c55e;font-weight:600">Hit! 🎉</span>' : esc(toGoLabel)}
       </div>
     </div>`;

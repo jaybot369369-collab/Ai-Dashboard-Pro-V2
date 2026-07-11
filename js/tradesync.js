@@ -226,7 +226,7 @@ const TradeSync = (() => {
     return `
       <div class="text-xs text-sub" style="margin-bottom:8px">${esc(note)}</div>
       <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border-sub);border-radius:8px">
-      <table style="width:100%;border-collapse:collapse;font-size:.78rem">
+      <table class="privacy-mask" style="width:100%;border-collapse:collapse;font-size:.78rem">
         <thead><tr style="position:sticky;top:0;background:var(--surface,var(--bg-card))">
           <th style="padding:6px 8px"></th><th style="text-align:left;padding:6px 4px">Date · time</th>
           <th style="text-align:left">Symbol</th><th style="text-align:left">Dir</th>
