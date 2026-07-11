@@ -1661,34 +1661,8 @@ body.privacy-mode .ths-log {
   transition: filter 120ms ease;
   user-select: none;
 }
-body.privacy-mode .stat-card .value:hover,
-body.privacy-mode .cal-pnl:hover,
-body.privacy-mode .streak-val:hover,
-body.privacy-mode canvas:hover,
-body.privacy-mode .day-trade-row:hover,
-body.privacy-mode .bf-table:hover,
-body.privacy-mode .bf-table-foot:hover,
-body.privacy-mode .bf-feed:hover,
-body.privacy-mode .qs-trades:hover,
-body.privacy-mode .trade-expand-inner:hover,
-body.privacy-mode .coach-alert:hover,
-body.privacy-mode .hm-grid:hover,
-body.privacy-mode .hm-detail:hover,
-body.privacy-mode .hm-callout:hover,
-body.privacy-mode .sn-body:hover,
-body.privacy-mode .sn-headline:hover,
-body.privacy-mode .ai-review-body:hover,
-body.privacy-mode .ai-review-tbl:hover,
-body.privacy-mode .ai-hist-row:hover,
-body.privacy-mode .tv-crit-list:hover,
-body.privacy-mode .tv-note-block:hover,
-body.privacy-mode .tv-shot-grid:hover,
-body.privacy-mode .mb-row:hover,
-body.privacy-mode .ths-row:hover,
-body.privacy-mode .ths-closed-row:hover,
-body.privacy-mode .ths-log:hover {
-  filter: blur(0);
-}
+/* No hover-reveal — privacy mode stays fully blurred until the 👁 button is
+   pressed again (removed 2026-07-11 per Jay: hovering was exposing values). */
 /* Trade View: market candles are public data, not account info — exempt the
    chart canvases from the blanket privacy blur. The popup's Net P&L hero IS
    account money, so blur that instead. */
