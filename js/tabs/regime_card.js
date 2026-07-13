@@ -162,28 +162,18 @@ const RegimeCard = (() => {
   };
 
   function _cardHTML() {
-    // placeholder; filled async by _refresh()
+    // HEADLESS since 2026-07-13 (Jay) — the visible card slot went to
+    // ReversalRadar (see Q2_2026/ICT_Methodology/bots/REVERSAL_RADAR_SPEC.md).
+    // The engine still runs on the same schedule: jb_regime keeps feeding the
+    // app.js trade-save charter gate (risk-off ⇒ A-grade only, 1R=$25).
+    // To re-show the card, restore the markup from git (?v=regime-0711).
     setTimeout(_refresh, 0);
-    if (!_timer) _timer = setInterval(() => {
-      if (document.getElementById('regimeCardBody')) _refresh();
-    }, REFRESH_MS);
-    return `
-      <div class="card" id="regimeCard">
-        <div class="card-head">
-          <div>
-            <div class="card-title">🌡️ Regime &amp; risk rules</div>
-            <div class="card-sub">Gates manual size — same data the bot farm's veto uses</div>
-          </div>
-        </div>
-        <div id="regimeCardBody" style="padding:4px 18px 16px">
-          <div style="color:var(--text-2);font-size:13px;padding:12px 0">Reading market state…</div>
-        </div>
-      </div>`;
+    if (!_timer) _timer = setInterval(_refresh, REFRESH_MS);
+    return '';
   }
 
   async function _refresh() {
-    const el = document.getElementById('regimeCardBody');
-    if (!el) return;
+    const el = document.getElementById('regimeCardBody');   // null in headless mode
 
     const [lw, btc, usdtd] = await Promise.all([
       fetchLW().catch(() => null),
@@ -193,16 +183,19 @@ const RegimeCard = (() => {
 
     const reg = scoreRegime(btc, lw, usdtd);
     const rx  = PRESCRIPTION[reg.state];
-    const st  = STATE_STYLE[reg.state];
-    const alerts = buildAlerts(lw);
 
-    // persist for the app.js charter gate
+    // persist for the app.js charter gate — the whole point of headless mode
     try {
       localStorage.setItem('jb_regime', JSON.stringify({
         state: reg.state, oneR: rx.oneR, ts: new Date().toISOString(),
         why: reg.parts.map(p => `${p.pts >= 0 ? '+' : ''}${p.pts} ${p.text}`),
       }));
     } catch {}
+
+    if (!el) return;   // headless: gate updated, nothing to draw
+
+    const st  = STATE_STYLE[reg.state];
+    const alerts = buildAlerts(lw);
 
     const breakdown = reg.parts.map(p => `
       <div style="display:flex;gap:8px;font-size:12px;color:var(--text-2);padding:2px 0">
