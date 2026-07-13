@@ -35,6 +35,7 @@ const CryptoRadarTab = (() => {
   const LS_SIG_OB    = 'jb_radar_sig_ob';      // overbought threshold (default 70)
   const LS_SIG_STATE = 'jb_radar_sig_state';   // per-sym episode state + last-alert timestamps
   const LS_ADMIN     = 'mi_admin_secret';      // shared with Market Intel "Push to Railway"
+  const LS_SIG_SERVER= 'jb_radar_sig_server';  // 🛰️ server mode — radar-1 farm bot fires (off browser clock)
   const SIG_TFS      = ['1h', '4h', 'D'];      // swing cluster — same TFs as the SW badge
   const SIG_COOLDOWN_MS = 6 * 3600 * 1000;     // max one re-alert per coin+direction per 6h
 
@@ -545,6 +546,7 @@ const CryptoRadarTab = (() => {
     localStorage.setItem(LS_FAVS, JSON.stringify(_favSyms));
     _renderGrid();
     _refreshSigPanel();
+    _syncServerConfig();   // push the new watchlist to radar-1 (no-op unless server mode)
   }
 
   function _sigOn()       { return localStorage.getItem(LS_SIG_ON) !== '0'; }
@@ -564,6 +566,52 @@ const CryptoRadarTab = (() => {
   }
   function _saveSigState(st) { localStorage.setItem(LS_SIG_STATE, JSON.stringify(st)); }
 
+  /* ── 🛰️ server mode ────────────────────────────────────────
+     When on, the radar-1 farm bot on Railway fires the swing alerts
+     (off the browser clock — no background-tab throttling, no double-fire
+     across two open origins). The browser stops firing locally and instead
+     syncs the ★ favorites + thresholds + channels to the server. */
+  function _serverMode() { return localStorage.getItem(LS_SIG_SERVER) === '1'; }
+  function _fundBase() {
+    // Mirror fund.js: localhost dev → :8767, Railway → same-origin /api.
+    const h = window.location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1') return 'http://127.0.0.1:8767';
+    return window.location.origin + '/api';
+  }
+  async function _syncServerConfig(opts = {}) {
+    if (!_serverMode() && !opts.force) return;
+    const secret = (localStorage.getItem(LS_ADMIN) || '').trim();
+    if (!secret) {
+      if (opts.interactive && window.Toast?.show)
+        Toast.show('Set the admin secret first (Market Intel → Push to Railway uses the same key).');
+      return;
+    }
+    const body = {
+      enabled: _sigOn(),
+      symbols: _favs().filter(s => s && s !== 'USDT.D'),
+      oversold: _sigThr('os'), overbought: _sigThr('ob'),
+      channels: { telegram: _sigChanOn('tg'), email: _sigChanOn('email') },
+    };
+    try {
+      const r = await fetch(_fundBase() + '/api/radar/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.ok) {
+        if (opts.interactive && window.Toast?.show)
+          Toast.show(`Synced ${body.symbols.length} coin(s) to server radar-1.`);
+      } else if (opts.interactive && window.Toast?.show) {
+        Toast.show('Server sync failed: ' + (j.error || r.status));
+      }
+    } catch (e) {
+      if (opts.interactive && window.Toast?.show)
+        Toast.show('Server unreachable — is the fund API up?');
+      console.warn('[radar-signal] server sync failed:', e.message);
+    }
+  }
+
   function _swingSignal(rsiMap) {
     const vals = SIG_TFS.map(tf => rsiMap[tf]);
     if (vals.some(v => v === null || v === undefined)) return null;
@@ -574,6 +622,9 @@ const CryptoRadarTab = (() => {
 
   async function _checkSignals(opts = {}) {
     if (!_sigOn()) return;
+    // Server mode: radar-1 on Railway owns firing. Skip local delivery so
+    // the two clocks can't double-alert. (The visual radar still renders.)
+    if (_serverMode()) return;
     const favs = _favs();
     if (!favs.length) return;
     // Debounce the background timer; pull-triggered checks ride the fresh
@@ -736,13 +787,21 @@ ${window.location.origin}`;
         <button class="radar-sig-test" onclick="CryptoRadarTab._testEmail()">Send test</button>
       </div>
       <div class="radar-sig-row">
+        <span style="min-width:72px">🛰️ Server</span>
+        <label title="radar-1 farm bot on Railway fires the alerts 24/7 — off the browser clock (no throttling, no double-fire)."><input type="checkbox" ${_serverMode() ? 'checked' : ''}
+          onchange="CryptoRadarTab._sigSetToggle('server', this.checked)"/> fire from Railway (radar-1)</label>
+        <button class="radar-sig-test" onclick="CryptoRadarTab._syncServerNow()">Sync now</button>
+      </div>
+      <div class="radar-sig-row">
         <span style="min-width:72px" class="muted">Favorites</span>
         <span>${favs.length ? favs.join(' · ') : '<span class="muted">none — click ☆ on a card to star it</span>'}</span>
       </div>
       <div class="radar-sig-note">
         Fires when a starred coin's <strong>1h, 4h and D</strong> RSI are ALL in the zone
-        (SW Long ${'≤ ' + osThr} / SW Short ${'≥ ' + obThr}). Checks every 5 min while the
-        dashboard is open in any tab · re-alerts max once per 6h per coin+direction.
+        (SW Long ${'≤ ' + osThr} / SW Short ${'≥ ' + obThr}).
+        ${_serverMode()
+          ? '<strong>Server mode ON</strong> — radar-1 on Railway checks every 5 min 24/7; the browser stops firing (no double-alerts). Star changes auto-sync.'
+          : 'Checks every 5 min while the dashboard is open in any tab · re-alerts max once per 6h. Turn on 🛰️ to run it off the browser.'}
         Email needs SMTP_USER/SMTP_PASS set on Railway.
       </div>
       <div class="radar-sig-row"><span id="radarSigStatus" class="muted" style="font-size:11px"></span></div>`;
@@ -765,17 +824,25 @@ ${window.location.origin}`;
   }
 
   function _sigSetToggle(which, val) {
-    const key = which === 'on' ? LS_SIG_ON : which === 'tg' ? LS_SIG_TG : LS_SIG_EMAIL;
+    const key = which === 'on' ? LS_SIG_ON
+              : which === 'tg' ? LS_SIG_TG
+              : which === 'server' ? LS_SIG_SERVER
+              : LS_SIG_EMAIL;
     localStorage.setItem(key, val ? '1' : '0');
     if (which === 'email' && val) _ensureAdminSecret();
+    if (which === 'server' && val) { _ensureAdminSecret(); _syncServerConfig({ interactive: true }); }
+    else if (_serverMode()) _syncServerConfig();   // keep server in step with any change
     _refreshSigPanel();
     _updateSigBtn();
   }
 
   function _sigSetThr(kind, val) {
     localStorage.setItem(kind === 'os' ? LS_SIG_OS : LS_SIG_OB, String(parseFloat(val)));
+    if (_serverMode()) _syncServerConfig();
     _refreshSigPanel();
   }
+
+  function _syncServerNow() { _syncServerConfig({ force: true, interactive: true }); }
 
   function _updateSigBtn() {
     const btn = document.getElementById('radarSigBtn');
@@ -1315,5 +1382,6 @@ ${window.location.origin}`;
 
   return { render, _removeSymbol, _blockSymbol, _resetBlocked, _goPage, _setTopN, _toggleAuto,
            _toggleFav, _toggleSigPanel, _sigSetToggle, _sigSetThr, _testTelegram, _testEmail,
+           _syncServerNow,
            _sigCheckNow: () => _checkSignals({ force: true }) };
 })();

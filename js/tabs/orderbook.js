@@ -9,6 +9,8 @@
      2. Funding rate + OI    — is the market overleveraged?
      3. CVD bars             — taker flow binned by TF candle
      4. Persistent walls     — resting ≥10 min (REST snapshots)
+     5. ETF flows            — daily US spot ETF net flows
+        (BTC/ETH/SOL · daily/7D/30D + how-to-trade guide)
 
    Data sources (all free unless Coinglass key is set):
      Binance @aggTrade WS          → CVD binning
@@ -16,12 +18,14 @@
      Binance REST /depth (30s)     → persistent walls
      LW server :8766               → estimated liq heatmap
      fund-API proxy /coinglass/*   → live liq + Coinglass funding
+     fund-API /api/etf_flows       → SoSoValue daily ETF net flows
 ════════════════════════════════════════════════════════════ */
 
 const OrderBookTab = (() => {
 
   /* ── Universe ─────────────────────────────────────────── */
-  const SYMBOLS  = ['BTC', 'ETH', 'XRP', 'SOL', 'SUI'];
+  // SUI dropped 2026-07-13 (no US spot ETF → no flow context on this tab)
+  const SYMBOLS  = ['BTC', 'ETH', 'XRP', 'SOL'];
   const pairOf   = s => s.toUpperCase() + 'USDT';
 
   /* ── Per-panel window config ──────────────────────────────
@@ -65,6 +69,7 @@ const OrderBookTab = (() => {
 
   /* ── State ────────────────────────────────────────────── */
   let _sym = (localStorage.getItem(LS_SYM) || 'BTC').toUpperCase();
+  if (!SYMBOLS.includes(_sym)) _sym = 'BTC';   // stale localStorage (e.g. removed SUI)
   // Confluence sticky-confirm buffer (see _paintConfluence)
   let _steady      = localStorage.getItem(LS_STEADY) || 'balanced';
   let _cfCommitted = null;   // the setup call currently shown (sticky)
@@ -113,6 +118,13 @@ const OrderBookTab = (() => {
   let _oiPxHist = null;       // [{t, close}] oldest first
   let _histKey  = null;       // symbol the history was fetched for
   let _histTimer = null;
+
+  // ETF flows (fund-API proxy → SoSoValue, daily net flows)
+  const ETF_ASSETS = ['BTC', 'ETH', 'SOL'];   // only these have US spot ETFs
+  let _etfAsset = ETF_ASSETS.includes(_sym) ? _sym : 'BTC';
+  let _etfData  = null;    // {asset, days:[{d,flow,cum,assets}] oldest-first}
+  let _etfState = 'loading';
+  let _etfTimer = null;
 
   // Timers
   let _paintTimer = null;
@@ -242,6 +254,88 @@ const OrderBookTab = (() => {
     if (d && Array.isArray(d.list)) return d.list;
     if (d && typeof d === 'object') return [d];
     return [];
+  }
+
+  /* ══════════════════════════════════════════════════════
+     ETF FLOWS — daily institutional net buying/selling
+     fund-API /api/etf_flows → SoSoValue (key-free, cached 15m)
+  ══════════════════════════════════════════════════════ */
+  async function _loadETF() {
+    if (!_alive()) return;
+    const a = _etfAsset;
+    try {
+      const r = await fetch(`${_fundBase()}/api/etf_flows?asset=${a}`,
+                            { cache: 'no-store', signal: _sig(12000) });
+      const b = await r.json().catch(() => null);
+      if (a !== _etfAsset || !_alive()) return;
+      if (r.ok && b && b.ok && Array.isArray(b.days) && b.days.length) {
+        _etfData = b; _etfState = 'ok';
+      } else _etfState = 'error';
+    } catch (_) { if (a === _etfAsset) _etfState = 'error'; }
+    _paintETF();
+  }
+  function _setETFAsset(a) {
+    if (!a || a === _etfAsset) return;
+    _etfAsset = a; _etfData = null; _etfState = 'loading';
+    _paintETF(); _loadETF();
+  }
+
+  // Sums + streak over trading days (data has no weekend rows)
+  function _etfSums() {
+    const days = (_etfData && _etfData.days || []).filter(x => typeof x.flow === 'number');
+    const last = days[days.length - 1] || null;
+    const sum  = n => days.slice(-n).reduce((acc, x) => acc + x.flow, 0);
+    let streak = 0;
+    const sgn = last ? Math.sign(last.flow) : 0;
+    if (sgn !== 0) for (let i = days.length - 1; i >= 0 && Math.sign(days[i].flow) === sgn; i--) streak++;
+    return { days, last, s7: sum(7), s30: sum(30), streak, sgn };
+  }
+
+  function _sigETF() {
+    if (_etfState !== 'ok' || !_etfData) return { tone: 'flat', lbl: 'ETF flows unavailable', sub: '' };
+    const { days, s7, s30, streak, sgn } = _etfSums();
+    if (!days.length) return { tone: 'flat', lbl: 'No flow data yet', sub: '' };
+    const f = v => (v >= 0 ? '+' : '−') + _fmtM(Math.abs(v));
+    const stk = streak >= 3 ? ` · ${streak}-day ${sgn > 0 ? 'inflow' : 'outflow'} streak` : '';
+    if (s7 > 0 && s30 > 0)  return { tone: 'bull', lbl: '🟢 Institutions BUYING',  sub: `7D ${f(s7)} · 30D ${f(s30)}${stk}` };
+    if (s7 < 0 && s30 < 0)  return { tone: 'bear', lbl: '🔴 Institutions SELLING', sub: `7D ${f(s7)} · 30D ${f(s30)}${stk}` };
+    if (s7 < 0)             return { tone: 'warn', lbl: '⚠️ Flows rolling over',   sub: `30D still ${f(s30)}, but last 7D turned ${f(s7)}` };
+    return                         { tone: 'warn', lbl: '🟡 Outflows easing',      sub: `30D ${f(s30)}, but last 7D turned ${f(s7)}` };
+  }
+
+  function _paintETF() {
+    const el = document.getElementById('ob-etf'); if (!el) return;
+    const pills = ETF_ASSETS.map(a =>
+      `<button class="ob-win-pill${a === _etfAsset ? ' active' : ''}" data-etf="${a}">${a}</button>`).join('');
+    // XRP has US spot ETFs (Nov 2025) but no free flow feed yet — say "no feed", not "no ETF"
+    const note = ETF_ASSETS.includes(_sym) ? '' :
+      `<span class="ob-etf-note">no ETF flow feed for ${esc(_sym)} — showing ${esc(_etfAsset)}</span>`;
+    const pillRow = `<div class="ob-etf-pillrow"><div class="ob-winrow">${pills}</div>${note}</div>`;
+
+    if (_etfState === 'loading' && !_etfData) {
+      el.innerHTML = pillRow + `<div class="ob-fund-loading">Loading ETF flows…</div>`; return;
+    }
+    if (_etfState !== 'ok' || !_etfData) {
+      el.innerHTML = pillRow + `<div class="ob-fund-loading">ETF flow feed unreachable — is the fund API up? (retries every 15 min)</div>`; return;
+    }
+    const { days, last, s7, s30 } = _etfSums();
+    const { tone, lbl, sub } = _sigETF();
+    const f    = v => (v >= 0 ? '+' : '−') + _fmtM(Math.abs(v));
+    const col  = v => v >= 0 ? C_BULL : C_BEAR;
+    const vals = days.slice(-30).map(x => x.flow);
+    const tile = (label, html) => `<div class="ob-etf-tile"><div class="lbl">${label}</div><div class="val">${html}</div></div>`;
+    el.innerHTML = `
+      ${pillRow}
+      ${_verdict(tone, lbl, sub)}
+      <div class="ob-etf-tiles">
+        ${tile('Last day (' + esc(last.d.slice(5)) + ')', `<span style="color:${col(last.flow)}">${f(last.flow)}</span>`)}
+        ${tile('7D net',  `<span style="color:${col(s7)}">${f(s7)}</span>`)}
+        ${tile('30D net', `<span style="color:${col(s30)}">${f(s30)}</span>`)}
+        ${tile('Total AUM', last.assets ? _fmtUsd(last.assets) : '—')}
+      </div>
+      <div class="ob-vchart">${_svgSignedBars(vals, C_BULL, C_BEAR, vals.length - 1)}</div>
+      <div class="ob-vaxis"><span style="color:${C_BULL}">▲ inflows</span><span>← ${vals.length} trading days →</span><span style="color:${C_BEAR}">▼ outflows</span></div>
+      <div class="ob-etf-note">as of ${esc(last.d)} · publishes once daily after the US close — you are always reading yesterday's number</div>`;
   }
 
   /* ══════════════════════════════════════════════════════
@@ -858,6 +952,34 @@ const OrderBookTab = (() => {
     </div>`;
   }
 
+  /* ── ETF flow trading guide (static, sits under the ETF card) ── */
+  function _etfGuideHTML() {
+    const rows = [
+      ['⚡📈', 'LONG — Scalp mode',
+       'Yesterday was a clear INFLOW day (green bar bigger than most of the last 30) and price is holding above your level',
+       'Trade long-side setups only for today’s session — buy dips into support, skip counter-trend shorts. The flow is your tailwind, NOT your trigger: entry still comes from your chart.'],
+      ['⚡📉', 'SHORT — Scalp mode',
+       'Yesterday was a clear OUTFLOW day (big red bar) and price is stuck below resistance',
+       'Favour short-side scalps — sell pops into resistance. Skip longs today: the biggest buyer in the market was a net seller yesterday.'],
+      ['🌊📈', 'LONG — Swing mode',
+       'Verdict is green — 7D and 30D both positive, inflow streak building',
+       'Institutions are accumulating. Hold swing longs with wider stops and add on pullbacks while the 7D stays positive. Your exit warning: the 7D number flips negative.'],
+      ['🌊📉', 'SHORT — Swing mode',
+       'Verdict is red — 7D and 30D both negative, outflow streak building',
+       'Distribution regime. Favour swing shorts or stay flat; rallies are for selling while the 7D stays negative. Your exit warning: the 7D number flips positive.'],
+    ];
+    return `<div class="ob-card ob-setup-guide">
+      <div class="ob-card-h">💸 How to trade ETF flows <span class="ob-plain">(long / short · scalp / swing)</span></div>
+      <div class="ob-sg-rows">${rows.map(r => `
+        <div class="ob-sg-row"><div class="ob-sg-ico">${r[0]}</div>
+          <div class="ob-sg-body"><div class="ob-sg-name">${esc(r[1])}</div>
+            <div class="ob-sg-when"><b>When:</b> ${esc(r[2])}</div>
+            <div class="ob-sg-do"><b>Do:</b> ${esc(r[3])}</div></div></div>`).join('')}
+      </div>
+      <div class="ob-sg-foot">⏱ Timing truth: flows publish ONCE per day, after the US close — this is a <b>bias filter, not an entry trigger</b>. Scalp = direction filter for today. Swing = regime filter for the week. One giant day (±$1B+) outweighs five small ones. Amber verdicts (rolling over / easing) = transition — size down or wait. Entries always come from your ICT setup.</div>
+    </div>`;
+  }
+
   function _paintFunding() {
     const el = document.getElementById('ob-fund'); if (!el) return;
     if (!_fundingData && !_fundHist) { el.innerHTML = `<div class="ob-fund-loading">Loading…</div>`; return; }
@@ -1042,7 +1164,15 @@ const OrderBookTab = (() => {
           ${_matrixHTML('walls')}
         </div>
 
-        <!-- 5. SETUP PLAYBOOK — how the signals combine -->
+        <!-- 5. ETF FLOWS — is institutional money buying or selling? -->
+        <div class="ob-card" id="ob-card-etf">
+          <div class="ob-card-h">💸 ETF Flows <span class="ob-plain">(is institutional money buying or selling?)</span> <span class="ob-sub">US spot ETFs · daily · SoSoValue</span><button class="ob-howto-btn" data-howto="etf">ℹ️ How to read</button></div>
+          <div id="ob-etf" class="ob-fund-panel"></div>
+          ${_matrixHTML('etf')}
+        </div>
+        ${_etfGuideHTML()}
+
+        <!-- 6. SETUP PLAYBOOK — how the signals combine -->
         ${_setupGuideHTML()}
 
         <!-- GUIDE (collapsed by default) -->
@@ -1064,19 +1194,21 @@ const OrderBookTab = (() => {
     _loadFunding();
     _loadOIData();
     _loadLiq();
+    _loadETF();
     _paintAll();
     _snapTimer    = setInterval(_snapBook,    SNAP_INT_MS);
     _fundingTimer = setInterval(_pollFunding, FUND_INT_MS);
     _histTimer    = setInterval(() => { _loadFunding(); _loadOIData(); }, 600000);  // refresh history every 10 min
     _paintTimer   = setInterval(_paintAll,    PAINT_MS);
     _cgTimer      = setInterval(_cgPoll,      60000);
+    _etfTimer     = setInterval(_loadETF,     900000);  // flows update once daily — 15 min poll is plenty
   }
   function _cleanup() {
     if (_ws) { try { _ws.onclose = null; _ws.close(); } catch(_) {} _ws = null; }
-    [_paintTimer, _fundingTimer, _snapTimer, _histTimer, _reconTimer, _cgTimer].forEach(t => {
+    [_paintTimer, _fundingTimer, _snapTimer, _histTimer, _reconTimer, _cgTimer, _etfTimer].forEach(t => {
       if (t != null) { clearInterval(t); clearTimeout(t); }
     });
-    _paintTimer = _fundingTimer = _snapTimer = _histTimer = _reconTimer = _cgTimer = null;
+    _paintTimer = _fundingTimer = _snapTimer = _histTimer = _reconTimer = _cgTimer = _etfTimer = null;
   }
   function _resetState() {
     _cvdBuckets = []; _wallTracker = new Map(); _lastSnapMid = null; _depthLevels = null;
@@ -1103,7 +1235,7 @@ const OrderBookTab = (() => {
       <div class="ob-head">
         <div>
           <div class="ob-title">📖 Level 2 — Swing Context</div>
-          <div class="ob-tagline">Liquidation clusters · Funding · OI · CVD · Walls — pick a timeframe per panel</div>
+          <div class="ob-tagline">Liquidation clusters · Funding · OI · CVD · Walls · ETF flows — pick a timeframe per panel</div>
         </div>
         <div class="ob-head-right">
           <div class="ob-pills">${sym}</div>
@@ -1122,6 +1254,12 @@ const OrderBookTab = (() => {
       const p = e.target.closest('.ob-steady-pill');
       if (p) _setSteady(p.dataset.steady);
     });
+    // ETF asset pills are re-rendered on every paint → delegate on the card
+    const etfEl = document.getElementById('ob-card-etf');
+    if (etfEl) etfEl.addEventListener('click', e => {
+      const p = e.target.closest('[data-etf]');
+      if (p) _setETFAsset(p.dataset.etf);
+    });
   }
   function _toggleHowto(key) {
     const m = document.getElementById('ob-matrix-' + key);
@@ -1134,6 +1272,8 @@ const OrderBookTab = (() => {
   function _setSym(s) {
     if (!s || s === _sym) return;
     _sym = s.toUpperCase(); localStorage.setItem(LS_SYM, _sym);
+    // ETF panel follows the main symbol when it has a US spot ETF
+    if (ETF_ASSETS.includes(_sym) && _sym !== _etfAsset) { _etfAsset = _sym; _etfData = null; _etfState = 'loading'; }
     document.querySelectorAll('#ob-root .ob-pill').forEach(b => b.classList.toggle('active', b.dataset.sym === _sym));
     _cleanup(); _startAll();
   }
@@ -1211,6 +1351,14 @@ const OrderBookTab = (() => {
         [_BULL('🟢 Big cluster ABOVE price'), 'Short stops stacked over price',  _BEAR('☝️ Magnet up — expect a sweep then reject. SHORT the sweep, not before')],
         ['⚖️ Equal both sides', 'No clear magnet',                              'Range — wait until one side gets swept'],
         [_WARN('🟡 Cluster on YOUR stop'), 'Your stop is the target',           _WARN('⚠️ Move it — high odds it gets hunted')],
+      ]);
+    } else if (key === 'etf') {
+      title = '💸 Reading ETF flows = Price + daily net flow together';
+      tbl = _mtable(['Price', 'ETF flows', 'What it means', 'Scenario'], [
+        [_UP, _BULL('🟢 Inflows'),  'Institutions buying the rally',        _BULL('🟢 Trend has fuel — longs have real backing')],
+        [_UP, _BEAR('🔴 Outflows'), 'Price up but institutions selling',    _WARN('⚠️ Rally on thin ice — trail stops, don’t chase')],
+        [_DN, _BULL('🟢 Inflows'),  'Institutions buying the dip',          _BULL('🟢 Accumulation — hunt a long once price stops falling')],
+        [_DN, _BEAR('🔴 Outflows'), 'Institutions dumping into weakness',   _BEAR('🔴 Bearish — don’t catch the knife, shorts have backing')],
       ]);
     } else if (key === 'walls') {
       title = '🧱 Reading persistent walls (real resting orders)';
