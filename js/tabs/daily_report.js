@@ -304,14 +304,15 @@ const DailyReportTab = (() => {
         <span style="color:var(--muted,#8b90a8)">${esc(l[2])}</span>
       </div>`).join('');
 
-    const chartsHtml = t.charts ? `
+    // Render whichever chart keys the JSON provides (daily+h4 since 2026-07-14;
+    // older reports may still carry h1/m15) — skip missing keys, no broken imgs.
+    const chartDefs = [['daily','Daily'],['h4','4H'],['h1','1H'],['m15','15m']]
+      .filter(([k]) => t.charts && t.charts[k]);
+    const chartsHtml = chartDefs.length ? `
       <div style="display:flex;gap:8px;margin-top:14px">
-        <img loading="lazy" src="js/data/${safeImg(t.charts.daily)}" alt="${esc(t.sym)} Daily"
-          style="height:110px;border-radius:6px;object-fit:cover;flex:1;min-width:60px;background:var(--border,#e5e7eb)">
-        <img loading="lazy" src="js/data/${safeImg(t.charts.h1)}" alt="${esc(t.sym)} 1H"
-          style="height:110px;border-radius:6px;object-fit:cover;flex:1;min-width:60px;background:var(--border,#e5e7eb)">
-        <img loading="lazy" src="js/data/${safeImg(t.charts.m15)}" alt="${esc(t.sym)} 15m"
-          style="height:110px;border-radius:6px;object-fit:cover;flex:1;min-width:60px;background:var(--border,#e5e7eb)">
+        ${chartDefs.map(([k, lbl]) => `
+        <img loading="lazy" src="js/data/${safeImg(t.charts[k])}" alt="${esc(t.sym)} ${lbl}"
+          style="height:110px;border-radius:6px;object-fit:cover;flex:1;min-width:60px;background:var(--border,#e5e7eb)">`).join('')}
       </div>` : '';
 
     const liveHeadlinesHtml = (t.live_headlines && t.live_headlines.length) ? `
