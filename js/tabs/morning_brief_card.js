@@ -134,11 +134,16 @@ const MorningBriefCard = (() => {
       _render(b.brief || b);
     } catch (e) {
       const offline = /Failed to fetch|NetworkError|aborted/i.test(e.message);
-      if (body) body.innerHTML = offline
-        ? `<div class="mb-banner mb-warn">The Morning Brief runner isn't running. Start it from a terminal:<br>
-             <code style="display:inline-block;margin-top:6px">cd ~/Documents/Claude/Q2_2026 &amp;&amp; python3 automation/brief_server.py</code><br>
-             <span style="font-size:.75rem">(It needs your normal login session — macOS blocks the always-on background service from reading your files.)</span></div>`
-        : `<div class="mb-banner mb-bad">Run failed: ${esc(e.message)}</div>`;
+      // The generator runs 24/7 as a launchd agent (com.jaybot.brief-runner) — no
+      // terminal needed. If it's unreachable the Mac is asleep/off, or the agent
+      // isn't loaded. Fall back to showing the latest saved brief, no scary commands.
+      if (offline) {
+        const saved = await _fetchBrief();
+        if (saved) { _render(saved); if (typeof App !== 'undefined' && App.toast) App.toast('Generator offline — showing the latest saved brief', 'warn'); }
+        else if (body) body.innerHTML = `<div class="mb-banner mb-warn">The Morning Brief generator isn't reachable right now. It runs automatically on your Mac — if this persists, your Mac may be asleep. Nothing to do in a terminal.</div>`;
+      } else if (body) {
+        body.innerHTML = `<div class="mb-banner mb-bad">Run failed: ${esc(e.message)}</div>`;
+      }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '⟳ Run now'; }
     }

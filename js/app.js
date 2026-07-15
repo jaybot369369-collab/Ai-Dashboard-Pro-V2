@@ -1242,6 +1242,13 @@ const App = (() => {
     // Privacy toggle (eye button) — hides all dollar values
     const applyPrivacy = on => {
       document.body.classList.toggle('privacy-mode', on);
+      // Keep the "tweak" system (settings panel) in sync so a later theme/accent
+      // change — which calls applyTweaks() — doesn't silently clear privacy. Before
+      // this, the eye button only set body.privacy-mode; switching themes reset it
+      // from tweakState.privacy (still 'off'), so privacy "only worked on one theme".
+      tweakState.privacy = on ? 'on' : 'off';
+      document.documentElement.setAttribute('data-privacy', tweakState.privacy);
+      try { localStorage.setItem('td-privacy', tweakState.privacy); } catch (_) {}
       const btn = $('privacyToggle');
       btn.textContent = on ? '🙈' : '👁';
       btn.classList.toggle('active', on);
