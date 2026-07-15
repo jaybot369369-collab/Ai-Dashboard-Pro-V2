@@ -68,12 +68,8 @@
     </div>
 
     <div class="topbar-right">
-      <!-- Data source toggle -->
-      <div class="date-filter" id="dataModeFilter" title="Filter trades by source">
-        <button class="date-btn" data-mode="imported" title="Historical: Notion + Binance imports">Past</button>
-        <button class="date-btn" data-mode="new" title="Manual trades logged from now on">New</button>
-        <button class="date-btn active" data-mode="all" title="Past + New combined">Both</button>
-      </div>
+      <!-- Past/New/Both source toggle removed 2026-07-15 (Jay) — app is hardwired
+           to manual-era trades ('new'); imported history stays in the DB untouched. -->
       <!-- Date range filter (single app-wide dropdown) -->
       <div class="date-range-dd" id="dateRangeDD">
         <div class="pill-select" id="dateRangeTrigger" title="Filter all tabs by date range">
@@ -89,6 +85,7 @@
       </div>
       <!-- Actions -->
       <div class="topbar-actions">
+        <button class="theme-toggle" id="launchLocalBtn" title="Launch the local dashboard on this Mac (localhost:8768)">🖥️</button>
         <button class="theme-toggle" id="privacyToggle" title="Hide all balances">👁</button>
         <button class="theme-toggle" id="themeToggle" title="Toggle theme">🌙</button>
         <button class="theme-toggle" id="settingsBtn" title="Settings · theme · accent" aria-label="Settings">
@@ -505,7 +502,7 @@
 <script src="js/tabs/crypto_scanner.js?v=scanners-0703"></script>
 <script src="js/tabs/fund.js?v=privacy-0711"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=regime-fees-0711"></script>
+<script src="js/app.js?v=localbtn-0715"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

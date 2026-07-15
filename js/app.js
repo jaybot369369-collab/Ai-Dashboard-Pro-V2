@@ -12,7 +12,8 @@ const App = (() => {
   let dateTo        = '';
   // Single app-wide date-range dropdown options. '7/30/60/90' = days back; 'alltime' = since 27 Apr 2026.
   const RANGE_LABEL = { '7': '1 week', '30': '1 month', '60': '2 months', '90': '3 months', 'alltime': 'All time' };
-  let dataMode      = 'all';   // 'imported' | 'new' | 'all'
+  let dataMode      = 'new';   // hardwired 2026-07-15 — Past/New/Both switcher removed (Jay).
+                               // Imported history stays in localStorage; use DB.getTradesRaw() to reach it.
   let confirmCallback = null;
 
   // Pending trade-form state (reset each time modal opens)
@@ -1211,16 +1212,12 @@ const App = (() => {
     wireTweaksPanel();
     dateRange = s.dateRange || '30';
     if (!RANGE_LABEL[dateRange]) dateRange = '30';   // normalize legacy 'custom'/'1'
-    dataMode  = s.dataMode  || 'all';
+    dataMode  = 'new';   // switcher removed 2026-07-15 — ignore any saved dataMode setting
     const _drLabel = $('dateRangeLabel');
     if (_drLabel) _drLabel.textContent = RANGE_LABEL[dateRange];
     document.querySelectorAll('#dateRangeMenu .pill-menu-item').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.range === dateRange);
     });
-    document.querySelectorAll('#dataModeFilter .date-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.mode === dataMode);
-    });
-
     // Monkey-patch DB.getTrades for tab consumers — applies the data-mode filter
     // automatically. Internal CRUD inside data.js uses the closure-bound original
     // getTrades, so writes still see all trades (read-side filter only).
@@ -1279,10 +1276,18 @@ const App = (() => {
       });
     }
 
-    // Data mode toggle (Past / New / Both)
-    document.querySelectorAll('#dataModeFilter .date-btn').forEach(btn => {
-      btn.addEventListener('click', () => applyDataMode(btn.dataset.mode));
-    });
+    // 🖥 Launch Local — shown only on remote hosts (Railway / github.io). Clicking
+    // fires the jaybot:// custom protocol, handled by "JayBot Local.app" on the Mac,
+    // which starts the localhost:8768 server if it isn't running and opens the tab.
+    // (A plain localhost link can't START a server; the protocol handler can.)
+    const llBtn = $('launchLocalBtn');
+    if (llBtn) {
+      if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+        llBtn.style.display = 'none';   // already local — nothing to launch
+      } else {
+        llBtn.addEventListener('click', () => { window.location.href = 'jaybot://launch-local'; });
+      }
+    }
 
     // FAB + sidebar new trade button
     $('fab').addEventListener('click', () => openTradeModal());
