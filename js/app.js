@@ -1276,16 +1276,16 @@ const App = (() => {
       });
     }
 
-    // 🖥 Launch Local — shown only on remote hosts (Railway / github.io). Clicking
-    // fires the jaybot:// custom protocol, handled by "JayBot Local.app" on the Mac,
-    // which starts the localhost:8768 server if it isn't running and opens the tab.
-    // (A plain localhost link can't START a server; the protocol handler can.)
+    // 🖥 Open Local — shown only on remote hosts (Railway / github.io). The local
+    // dashboard runs 24/7 via a launchd agent (com.jaybot.local-dashboard) that
+    // serves localhost:8768 from a home-dir mirror, so this just opens the tab.
+    // If the click lands on a blank "can't connect" tab, the Mac is asleep/off.
     const llBtn = $('launchLocalBtn');
     if (llBtn) {
       if (['localhost', '127.0.0.1'].includes(window.location.hostname)) {
-        llBtn.style.display = 'none';   // already local — nothing to launch
+        llBtn.style.display = 'none';   // already local — nothing to open
       } else {
-        llBtn.addEventListener('click', () => { window.location.href = 'jaybot://launch-local'; });
+        llBtn.addEventListener('click', () => { window.open('http://localhost:8768/', '_blank'); });
       }
     }
 
