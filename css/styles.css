@@ -7896,3 +7896,43 @@ html[data-theme="midnight"] .cal-scenario-bear { background: rgba(220, 38, 38, 0
 .mb-pill.mb-warn { color: var(--warn,#d97706); border-color: var(--warn,#d97706); }
 .mb-pill.mb-bad  { color: var(--bad,#dc2626); border-color: var(--bad,#dc2626); }
 .mb-foot { font-size: .68rem; padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--border); }
+
+/* ── 18-Year Cycle Tripwires (js/tabs/cycle_tripwires.js) ── */
+.cyt-card { margin-top: 18px; }
+.cyt-badge { display: inline-block; font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); vertical-align: middle; margin-left: 6px; }
+.cyt-good { color: var(--good,#16a34a); border-color: var(--good,#16a34a); }
+.cyt-warn { color: var(--warn,#d97706); border-color: var(--warn,#d97706); }
+.cyt-bad  { color: var(--bad,#dc2626);  border-color: var(--bad,#dc2626); }
+.cyt-dim  { color: var(--text-dim); }
+.cyt-headline { font-size: .84rem; line-height: 1.5; color: var(--text-2,var(--text-dim)); padding: 4px 18px 12px; }
+.cyt-hy { margin: 0 18px 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2,rgba(127,127,127,.05)); }
+.cyt-hy-head { display: flex; justify-content: space-between; align-items: center; }
+.cyt-hy-title { font-size: .8rem; font-weight: 700; }
+.cyt-hy-num { font-size: 1.7rem; font-weight: 800; margin: 4px 0 8px; line-height: 1; }
+.cyt-hy-unit { font-size: .8rem; font-weight: 600; color: var(--text-dim); margin-left: 3px; }
+.cyt-hy-asof { font-size: .66rem; font-weight: 500; color: var(--text-dim); margin-left: 8px; vertical-align: middle; }
+.cyt-bar { position: relative; height: 10px; border-radius: 999px; background: rgba(127,127,127,.18); overflow: visible; }
+.cyt-bar-fill { height: 100%; border-radius: 999px; transition: width .4s ease; }
+.cyt-bar-mark { position: absolute; top: -3px; width: 2px; height: 16px; background: var(--text-dim); opacity: .7; }
+.cyt-bar-trip { background: var(--bad,#dc2626); opacity: 1; }
+.cyt-bar-scale { display: flex; justify-content: space-between; font-size: .6rem; color: var(--text-dim); margin-top: 4px; }
+.cyt-hy-note { font-size: .74rem; color: var(--text-2,var(--text-dim)); line-height: 1.45; margin-top: 8px; }
+.cyt-factors { padding: 0 18px; }
+.cyt-row { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border); }
+.cyt-status { flex: 0 0 auto; align-self: flex-start; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 74px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface,var(--bg-card)); padding: 6px 4px; cursor: pointer; font-size: 1rem; }
+.cyt-status:hover { border-color: var(--text); }
+.cyt-status-lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); }
+.cyt-st-tripped .cyt-status { border-color: var(--bad,#dc2626); }
+.cyt-st-watching .cyt-status { border-color: var(--warn,#d97706); }
+.cyt-st-armed .cyt-status { border-color: var(--good,#16a34a); }
+.cyt-body { flex: 1 1 auto; min-width: 0; }
+.cyt-name { font-size: .86rem; font-weight: 700; }
+.cyt-src { text-decoration: none; font-size: .74rem; color: var(--text-dim); margin-left: 4px; }
+.cyt-plain { font-size: .78rem; color: var(--text-2,var(--text-dim)); line-height: 1.45; margin: 2px 0 5px; }
+.cyt-reading, .cyt-trip { font-size: .78rem; line-height: 1.45; margin: 2px 0; }
+.cyt-k { display: inline-block; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-dim); margin-right: 5px; }
+.cyt-asof { font-size: .64rem; color: var(--text-dim); margin-left: 5px; }
+.cyt-usernote { font-size: .76rem; color: var(--text); background: rgba(127,127,127,.08); border-radius: 6px; padding: 4px 8px; margin: 4px 0; }
+.cyt-note-btn { font-size: .66rem; color: var(--text-dim); background: none; border: none; cursor: pointer; padding: 2px 0; text-decoration: underline; }
+.cyt-foot { font-size: .66rem; color: var(--text-dim); line-height: 1.5; padding: 12px 18px 4px; margin-top: 6px; border-top: 1px solid var(--border); }
+.cyt-btn-sm { font-size: .7rem; padding: 4px 10px; }

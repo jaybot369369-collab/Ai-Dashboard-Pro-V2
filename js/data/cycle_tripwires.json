@@ -1,0 +1,88 @@
+{
+  "_comment": "18-Year Cycle Tripwires — macro crash-factor readings for the Dashboard card (js/tabs/cycle_tripwires.js). Editorial readings + thresholds live here; the user's per-factor status clicks + notes live in localStorage jb_cycle_tripwires. Refresh the live HY spread with: python3 automation/fetch_cycle_tripwires.py. All 'reading' values carry an 'as_of' date per RULE #2 — never present as live-now.",
+  "updated": "2026-07-20",
+  "window": "2026–2028",
+  "headline": "The window the 18-year land cycle points at is open. Land is already rolling over; the financial blow-off is textbook late-cycle. The one missing ingredient is credit stress — spreads waking up is the starting gun.",
+  "hy_oas": {
+    "value_bps": 269,
+    "as_of": "2026-07-10",
+    "tripwire_bps": 400,
+    "watch_bps": 350,
+    "source": "FRED BAMLH0A0HYM2 (ICE BofA US HY OAS)",
+    "source_url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
+    "note": "Near 25-year tights. No cycle bust in the record began while credit was this calm. >350bp = stirring; >400bp close = it's starting."
+  },
+  "factors": [
+    {
+      "id": "land",
+      "name": "Land / housing rollover",
+      "plain": "Land turns down FIRST in this cycle — before stocks. This is the trigger the theory watches.",
+      "reading": "Case-Shiller +1.9% y/y (slowest since 2023); pending sales −5.4% in June, steepest drop of the year; ~40–50% of builders cutting prices.",
+      "as_of": "2026-07",
+      "tripwire": "National Case-Shiller y/y prints NEGATIVE.",
+      "default_status": "watching",
+      "source_url": "https://fred.stlouisfed.org/series/CSUSHPINSA"
+    },
+    {
+      "id": "cape",
+      "name": "Equity valuation (Shiller CAPE)",
+      "plain": "How stretched stocks are vs a decade of real earnings. A loaded spring, not a trigger — tells you how far the fall could be, not when.",
+      "reading": "CAPE 41.1 — above 40 for only the 2nd time in 100 years (first was the 2000 dot-com peak).",
+      "as_of": "2026-07-01",
+      "tripwire": "Already extreme — flag stays lit. Watch for equities putting in a LOWER HIGH.",
+      "default_status": "tripped",
+      "source_url": "https://www.multpl.com/shiller-pe"
+    },
+    {
+      "id": "margin",
+      "name": "Retail leverage (margin debt)",
+      "plain": "How much borrowed money is holding the market up. Rising fast = the last buyers levering in; the danger is the UNWIND.",
+      "reading": "$1.42T record, +53.7% y/y (May). Prior clusters of this growth pace: 1999–2000, mid-2007, spring 2021 — all late-cycle.",
+      "as_of": "2026-05",
+      "tripwire": "y/y growth rolls over from peak (leverage starts unwinding).",
+      "default_status": "watching",
+      "source_url": "https://www.finra.org/investors/learn-to-invest/advanced-investing/margin-statistics"
+    },
+    {
+      "id": "hy",
+      "name": "HY credit spreads",
+      "plain": "The single most important gauge here. Junk-bond risk premium. Every big bust began when THIS woke up — not before.",
+      "reading": "~269bp — near 25-year tights. Credit sees no stress yet.",
+      "as_of": "2026-07-10",
+      "tripwire": ">400bp close = the starting gun. >350bp = stirring.",
+      "default_status": "armed",
+      "source_url": "https://fred.stlouisfed.org/series/BAMLH0A0HYM2",
+      "live": "hy_oas"
+    },
+    {
+      "id": "ai",
+      "name": "AI capex / circular financing",
+      "plain": "The dot-com rhyme. Nvidia→OpenAI→GPU spend loops back to Nvidia; demand looks bigger and more independent than it is.",
+      "reading": "BIS (Jun 2026) flagged AI-capex bust + circular financing + sovereign debt as the top 3 risks. Hyperscaler capex ~94% of operating cash flow; ~$662B of signed data-center leases sit off balance sheet.",
+      "as_of": "2026-06",
+      "tripwire": "First hyperscaler CUTS forward capex guidance, OR a marquee AI-infra debt deal fails to fund.",
+      "default_status": "watching",
+      "source_url": "https://www.tftc.io/bis-annual-report-2026-ai-bubble-circular-financing-sovereign-debt"
+    },
+    {
+      "id": "pcredit",
+      "name": "Private credit stress",
+      "plain": "The shadow-banking pipe. Opaque, marked-to-manager — stress hides until redemptions force it into the open. The amplifier, not the trigger.",
+      "reading": "PIK interest (paying debt with more debt) jumped 5%→11% of the market; one BDC marked NAV down 19% in a quarter; redemptions exceeding liquidity.",
+      "as_of": "2026-Q1",
+      "tripwire": "A large BDC gates redemptions, or a double-digit NAV markdown hits mainstream headlines.",
+      "default_status": "watching",
+      "source_url": "https://www.withintelligence.com/insights/private-credit-outlook-2026/"
+    },
+    {
+      "id": "cre",
+      "name": "CRE / regional banks",
+      "plain": "The closest thing to a 2008-style land→bank pipe, relocated from houses to office towers.",
+      "reading": "$875B of CRE loans mature in 2026; office CMBS delinquency at a record 12.34%; CRE = 44% of regional-bank balance sheets; >54% of regionals exceed the 300% CRE-to-capital line.",
+      "as_of": "2026-H1",
+      "tripwire": "A regional bank fails or needs rescue over CRE (SVB-style deposit run).",
+      "default_status": "watching",
+      "source_url": "https://www.thinkbrg.com/thinkset/ts-delponti-banks-cre-debt-maturity-wall/"
+    }
+  ]
+}

@@ -302,6 +302,15 @@ const DashboardTab = (() => {
             ? ThesisScorecard._cardHTML() : '';
         } catch (e) { console.warn('[dashboard] thesis card failed:', e); return ''; }
       })()}
+
+      ${(() => {
+        // 18-Year Cycle Tripwires — macro crash-factor tracker for the
+        // 2026–2028 land-cycle window (js/tabs/cycle_tripwires.js)
+        try {
+          return (typeof CycleTripwires !== 'undefined' && CycleTripwires._cardHTML)
+            ? CycleTripwires._cardHTML() : '';
+        } catch (e) { console.warn('[dashboard] cycle tripwires failed:', e); return ''; }
+      })()}
     `;
 
     /* ── CHARTS ── */
