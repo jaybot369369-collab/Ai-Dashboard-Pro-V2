@@ -359,7 +359,7 @@ const CoachTab = (() => {
     return `
       <div class="card" style="margin-bottom:18px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-          <div class="section-title" style="margin:0">🎯 Rule Adherence — did you follow your playbook?</div>
+          <div class="section-title" style="margin:0"><span class="card-emoji">🎯</span>Rule Adherence — did you follow your playbook?</div>
           ${thrInput}
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -504,13 +504,13 @@ const CoachTab = (() => {
     if (!items.length) {
       return `
         <div class="card" style="margin-bottom:18px">
-          <div class="section-title" style="margin-bottom:4px">🎯 Focus Areas</div>
+          <div class="section-title" style="margin-bottom:4px"><span class="card-emoji">🎯</span>Focus Areas</div>
           <p class="text-sub text-sm">No major weak spots right now — every component is scoring reasonably well. Keep logging trades to keep this sharp.</p>
         </div>`;
     }
     return `
       <div class="card" style="margin-bottom:18px">
-        <div class="section-title" style="margin-bottom:4px">🎯 Focus Areas — what to watch on your next trades</div>
+        <div class="section-title" style="margin-bottom:4px"><span class="card-emoji">🎯</span>Focus Areas — what to watch on your next trades</div>
         <p class="text-sub text-sm" style="margin-bottom:14px">Ranked by how much each is dragging your Get Free Score down (its weight × how much room it has to improve).</p>
         <div class="privacy-mask" style="display:flex;flex-direction:column;gap:10px">
           ${items.map(({ key, comp }) => `
@@ -530,7 +530,7 @@ const CoachTab = (() => {
       const pct = Math.min(100, (gfs.closedCount / gfs.minTrades) * 100);
       return `
         <div class="card" style="margin-bottom:18px">
-          <div class="section-title" style="margin-bottom:10px">🏆 Get Free Score</div>
+          <div class="section-title" style="margin-bottom:10px"><span class="card-emoji">🏆</span>Get Free Score</div>
           <p class="text-sub text-sm" style="margin-bottom:14px">Collecting data — ${gfs.closedCount}/${gfs.minTrades} closed trades needed before a score is reliable.</p>
           <div style="height:8px;background:var(--border-sub,rgba(127,127,127,.18));border-radius:4px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px"></div>
@@ -543,7 +543,7 @@ const CoachTab = (() => {
     if (c.discipline.value.estimated) notes.push(`${c.discipline.value.estimated} Discipline input estimated from post-grade (no rule ticks yet)`);
     return `
       <div class="card" style="margin-bottom:18px">
-        <div class="section-title" style="margin-bottom:4px">🏆 Get Free Score</div>
+        <div class="section-title" style="margin-bottom:4px"><span class="card-emoji">🏆</span>Get Free Score</div>
         <p class="text-sub text-sm" style="margin-bottom:10px">One number summarizing your overall trading performance — profitability, risk management, consistency, and (unique to this dashboard) discipline. Backward-looking, not a prediction.</p>
         <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
           <div style="flex:1.3;min-width:360px">${_radarSVG(c)}</div>

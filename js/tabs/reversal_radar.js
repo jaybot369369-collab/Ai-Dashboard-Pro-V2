@@ -188,7 +188,7 @@ const ReversalRadar = (() => {
       <div class="card" id="revRadarCard">
         <div class="card-head">
           <div>
-            <div class="card-title">📡 Reversal Radar — BTC bottoms</div>
+            <div class="card-title"><span class="card-emoji">📡</span>Reversal Radar — BTC bottoms</div>
             <div class="card-sub">4-factor bottom-ZONE finder · backtested 2018–2026 · finds the zone, not the entry</div>
           </div>
         </div>

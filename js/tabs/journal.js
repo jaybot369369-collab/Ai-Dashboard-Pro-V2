@@ -29,7 +29,7 @@ const JournalTab = (() => {
         <!-- Pre-market bias -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">🌅 Pre-Market Bias</div>
+            <div class="card-title"><span class="card-emoji">🌅</span>Pre-Market Bias</div>
           </div>
           <div class="form-group" style="margin-bottom:12px">
             <label>HTF Bias &amp; Key Levels (write your analysis before the session)</label>
@@ -47,7 +47,7 @@ Key levels to watch:
         <!-- Post-session review -->
         <div class="card">
           <div class="card-header">
-            <div class="card-title">🌇 Post-Session Review</div>
+            <div class="card-title"><span class="card-emoji">🌇</span>Post-Session Review</div>
           </div>
           <div class="form-group" style="margin-bottom:12px">
             <label>Review (what worked, what didn't, rule adherence)</label>
@@ -79,7 +79,7 @@ Rule check:
       <!-- Trades today -->
       <div class="card mt-4">
         <div class="card-header">
-          <div class="card-title">📋 Trades on ${selectedDate}</div>
+          <div class="card-title"><span class="card-emoji">📋</span>Trades on ${selectedDate}</div>
           <button class="btn-ghost btn-sm" onclick="App.openTradeModal()">＋ Add Trade</button>
         </div>
         ${tradesTodayHtml(trades)}

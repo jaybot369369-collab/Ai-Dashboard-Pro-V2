@@ -114,7 +114,7 @@ const CycleTripwires = (() => {
       return `
         <div class="card cyt-card">
           <div class="card-head"><div>
-            <div class="card-title">🕰️ 18-Year Cycle Tripwires</div>
+            <div class="card-title"><span class="card-emoji">🕰️</span>18-Year Cycle Tripwires</div>
             <div class="card-sub">Loading macro crash factors…</div>
           </div></div>
           <div style="padding:12px 18px;color:var(--text-2);font-size:13px">Reading cycle_tripwires.json…</div>
@@ -132,7 +132,7 @@ const CycleTripwires = (() => {
       <div class="card cyt-card">
         <div class="card-head">
           <div>
-            <div class="card-title">🕰️ 18-Year Cycle Tripwires ${summary}</div>
+            <div class="card-title"><span class="card-emoji">🕰️</span>18-Year Cycle Tripwires ${summary}</div>
             <div class="card-sub">Land-cycle window ${esc(d.window || '')} · tick each factor off as it fires · readings dated, not live</div>
           </div>
           <button class="btn-soft cyt-btn-sm" onclick="CycleTripwires._reset()" title="Clear your manual ticks (readings stay)">reset ticks</button>

@@ -161,7 +161,7 @@ const ThesisScorecard = (() => {
       <div class="card ths-card">
         <div class="card-head">
           <div>
-            <div class="card-title">🧭 Thesis Scorecards</div>
+            <div class="card-title"><span class="card-emoji">🧭</span>Thesis Scorecards</div>
             <div class="card-sub">Falsifiable theses only — pillars scored, disconfirming evidence logged, invalidation required</div>
           </div>
           <button class="btn-soft ths-btn-sm" onclick="ThesisScorecard._openAdd()">＋ New thesis</button>

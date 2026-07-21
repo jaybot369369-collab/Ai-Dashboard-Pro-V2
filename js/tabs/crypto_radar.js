@@ -1201,7 +1201,7 @@ ${window.location.origin}`;
 
     return `
     <div class="radar-guide card" style="margin-top:24px">
-      <div class="card-title">📡 How to read the Crypto Radar</div>
+      <div class="card-title"><span class="card-emoji">📡</span>How to read the Crypto Radar</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 28px;margin-top:12px;font-size:12px;line-height:1.5">
         <div>

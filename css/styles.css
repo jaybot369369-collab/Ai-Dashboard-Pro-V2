@@ -4771,6 +4771,9 @@ body.sidebar-collapsed .main-wrapper { margin-left: 0 !important; }
   gap: 12px; margin-bottom: 14px;
 }
 .card-title { font-size: 15px; font-weight: 700; color: var(--heading); letter-spacing: .02em; text-transform: none; }
+/* Leading emoji in a card title — give it consistent breathing room so glyphs
+   whose ink overflows their cell (📡, 🕰️, …) don't collide with the text. */
+.card-emoji { display: inline-block; margin-right: .38em; }
 .card-sub { font-size: 13.8px; color: var(--muted); font-weight: 500; }
 
 .pill-select {

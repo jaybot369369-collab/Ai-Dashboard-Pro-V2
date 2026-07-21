@@ -30,7 +30,7 @@ const MorningBriefCard = (() => {
       <div class="card mb-card" id="mbCard">
         <div class="card-head">
           <div>
-            <div class="card-title">☀️ Morning Brief</div>
+            <div class="card-title"><span class="card-emoji">☀️</span>Morning Brief</div>
             <div class="card-sub">Your personal pre-market read — what to do about today</div>
           </div>
           <button class="btn-soft" id="mbRunBtn" title="Regenerate now (local, ~1–2 min)">⟳ Run now</button>
