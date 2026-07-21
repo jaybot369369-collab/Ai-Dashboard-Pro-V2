@@ -62,6 +62,8 @@ const TradeLogTab = (() => {
         <div class="scan-hero-cta">Open scanner →</div>
       </div>
 
+      ${(typeof RulesTab !== 'undefined' && RulesTab._cardHTML) ? RulesTab._cardHTML() : ''}
+
       <div class="filter-bar">
         <input type="text" class="filter-search" id="tlSearch" placeholder="Search symbol, notes…" value="${esc(filterSymbol)}" oninput="TradeLogTab._filter()" />
         <select id="tlSession" onchange="TradeLogTab._filter()">

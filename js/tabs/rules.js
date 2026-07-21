@@ -135,6 +135,58 @@ const RulesTab = (() => {
     </div>`;
   }
 
+  /* ── Embeddable card (mounted on the Trade Log tab) ───── */
+  /* Collapsible "My Rules" editor that reuses every edit handler below.
+     Placed at the top of the Trade Log tab so rules live next to trades.
+     Open/closed state persists in localStorage jb_rules_card_open. */
+  let _cardOpen = null;
+  function _isOpen() {
+    if (_cardOpen === null) {
+      try { _cardOpen = localStorage.getItem('jb_rules_card_open') === '1'; }
+      catch (_) { _cardOpen = false; }
+    }
+    return _cardOpen;
+  }
+
+  function _cardBodyHTML() {
+    return `<div style="display:grid;gap:14px;padding-top:6px">
+      ${renderRuleSet('scalp')}
+      ${renderRuleSet('swing')}
+      ${renderRuleSet('longterm')}
+    </div>`;
+  }
+
+  function _cardHTML() {
+    load();
+    const stats = _complianceStats();
+    const open = _isOpen();
+    return `
+      <div class="card rules-embed-card" id="rulesEmbedCard" style="margin-bottom:16px">
+        <div class="card-head" style="cursor:pointer;margin-bottom:0" onclick="RulesTab._toggleCard()">
+          <div>
+            <div class="card-title"><span class="card-emoji">📋</span>My Rules
+              <span class="badge badge-dim" style="font-weight:400;margin-left:6px">${stats.totalEnabled}/${stats.totalItems} active · ${stats.pct}%</span>
+            </div>
+            <div class="card-sub">Your pre-trade, risk &amp; psychology checklist — edit freely; saved to this browser</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+            <button class="btn-ghost btn-sm" onclick="RulesTab._reset()">↺ Reset</button>
+            <button class="btn-primary btn-sm" id="rulesSaveBtn" onclick="RulesTab._save()">Save</button>
+            <span id="rulesCardChevron" style="font-size:.85rem;color:var(--text-dim);transition:transform .2s;display:inline-block;transform:rotate(${open ? 90 : 0}deg)">▸</span>
+          </div>
+        </div>
+        <div id="rulesCardBody" style="${open ? '' : 'display:none'}">${_cardBodyHTML()}</div>
+      </div>`;
+  }
+
+  function _rerenderCard() {
+    const body = document.getElementById('rulesCardBody');
+    if (body) body.innerHTML = _cardBodyHTML();
+    // refresh the compliance badge in the header
+    const badge = document.querySelector('#rulesEmbedCard .card-title .badge');
+    if (badge) { const s = _complianceStats(); badge.textContent = `${s.totalEnabled}/${s.totalItems} active · ${s.pct}%`; }
+  }
+
   /* ── Flash saved feedback ─────────────────────────────── */
   function flashSaved() {
     const btn = document.getElementById('rulesSaveBtn');
@@ -148,6 +200,15 @@ const RulesTab = (() => {
   /* ── Public API ───────────────────────────────────────── */
   return {
     render,
+    _cardHTML,
+    _toggleCard: () => {
+      _cardOpen = !_isOpen();
+      try { localStorage.setItem('jb_rules_card_open', _cardOpen ? '1' : '0'); } catch (_) {}
+      const body = document.getElementById('rulesCardBody');
+      const chev = document.getElementById('rulesCardChevron');
+      if (body) body.style.display = _cardOpen ? '' : 'none';
+      if (chev) chev.style.transform = `rotate(${_cardOpen ? 90 : 0}deg)`;
+    },
     _toggleRule: (key, i) => {
       _draft[key][i].enabled = !(_draft[key][i].enabled !== false);
     },
@@ -182,12 +243,16 @@ const RulesTab = (() => {
       DB.saveRules(_draft);
       App.toast('Rules saved');
       flashSaved();
+      // Embedded card: re-render so stripped-empty rows drop + badge updates.
+      if (document.getElementById('rulesCardBody')) _rerenderCard();
     },
     _reset: () => {
       App.confirmDelete('Reset all rules back to the defaults? Your edits will be lost.', () => {
         DB.resetRules();
         App.toast('Rules reset to defaults');
-        render();
+        // Embedded on the Trade Log tab → re-render just the card; else full page.
+        if (document.getElementById('rulesCardBody')) { load(); _rerenderCard(); }
+        else render();
       });
     },
   };
