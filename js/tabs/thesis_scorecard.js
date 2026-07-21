@@ -261,6 +261,46 @@ const ThesisScorecard = (() => {
     _rerender();
   }
 
+  // ── one-time seed: 18-Year Land Cycle thesis (2026–2028) ──
+  // Ships a pre-built falsifiable thesis that mirrors the Cycle
+  // Tripwires card (js/tabs/cycle_tripwires.js). Runs once per
+  // browser (flag jb_thesis_seed_landcycle) — same migration
+  // pattern as jb_migr_deadacct_v1. Deleting it won't re-seed.
+  // NOTE on framing: HY >400bp is a CONFIRMATION pillar, not the
+  // invalidation — a spread blowout proves the top thesis right,
+  // it doesn't kill it. The invalidation is the cycle FAILING to
+  // top (housing re-accelerates + credit stays calm past mid-2027).
+  (function _seedLandCycle() {
+    try {
+      if (localStorage.getItem('jb_thesis_seed_landcycle')) return;
+      const list = _all();
+      if (!list.some(t => t.id === 'ths_landcycle_2628')) {
+        list.unshift({
+          id: 'ths_landcycle_2628',
+          sym: 'MACRO',
+          dir: 'short',
+          conviction: 'med',
+          statement: 'The 18-year land cycle peaks in the 2026–2028 window and rolls into a bust — risk assets put in a top and credit stress emerges. Get defensive into confirmation; the buy-back is the post-bust bottom (~2032). Timing ±1–2 yrs — the skeptics in 1929 & 2000 were right but early.',
+          pillars: [
+            { text: 'Land turns first: Case-Shiller y/y decelerating, builders cutting prices, pending sales falling', status: 'on' },
+            { text: 'Blow-off valuation + leverage: CAPE 41 (2nd time in a century), margin debt +53.7% y/y', status: 'on' },
+            { text: 'HY credit spreads break >400bp — the starting gun (calm ~270bp now)', status: 'watch' },
+            { text: 'Stress surfaces in AI capex / private credit / CRE-regional banks', status: 'watch' },
+          ],
+          invalidation: 'The cycle fails to top: national house prices re-accelerate AND HY spreads stay under 350bp through mid-2027. If that holds, the top is postponed or wrong — close this card.',
+          log: [
+            { date: _today(), impact: 'support', note: 'Land rolling over (Case-Shiller +1.9% y/y, slowest since 2023; pending sales −5.4% June) while CAPE 41 + margin debt record — cycle setup in place, credit not yet stressed.' },
+          ],
+          status: 'active',
+          created: _today(),
+          updated: _today(),
+        });
+        _save(list);
+      }
+      localStorage.setItem('jb_thesis_seed_landcycle', '1');
+    } catch (_) { /* non-fatal — never block the dashboard on a seed */ }
+  })();
+
   return {
     _cardHTML,
     _openAdd, _openEdit, _openLog, _cancelForms, _toggleClosed,
