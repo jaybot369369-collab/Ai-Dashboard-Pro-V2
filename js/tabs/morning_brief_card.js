@@ -147,17 +147,23 @@ const MorningBriefCard = (() => {
       const b = await r.json();
       _render(b.brief || b);
     } catch (e) {
-      const offline = /Failed to fetch|NetworkError|aborted/i.test(e.message);
-      // The generator runs 24/7 as a launchd agent (com.jaybot.brief-runner) — no
-      // terminal needed. If it's unreachable the Mac is asleep/off, or the agent
-      // isn't loaded. Fall back to showing the latest saved brief, no scary commands.
-      if (offline) {
-        const saved = await _fetchBrief();
-        if (saved) { _render(saved); if (typeof App !== 'undefined' && App.toast) App.toast('Generator offline — showing the latest saved brief', 'warn'); }
-        else if (body) body.innerHTML = `<div class="mb-banner mb-warn">The Morning Brief generator isn't reachable right now. It runs automatically on your Mac — if this persists, your Mac may be asleep. Nothing to do in a terminal.</div>`;
-      } else if (body) {
-        body.innerHTML = `<div class="mb-banner mb-bad">Run failed: ${esc(e.message)}</div>`;
+      // GRACEFUL DEGRADATION: a failed regeneration must NEVER blank the card or dump a
+      // scary error. Always fall back to the last saved brief, and add a small, plain-English
+      // banner explaining what (if anything) to do. Three cases:
+      const msg = e.message || '';
+      const offline  = /Failed to fetch|NetworkError|aborted/i.test(msg);
+      const authExp  = /AUTH_EXPIRED|authentication|invalid authentication|setup-token|credential|401/i.test(msg);
+      const saved = await _fetchBrief();   // last good brief (served file)
+      let note;
+      if (authExp) {
+        note = `<div class="mb-banner mb-warn">🔑 The brief generator needs a quick one-time re-auth (~30s, lasts about a year). Double-click <strong>reauth-claude.command</strong> in your Home folder, click Authorize in the browser, then press Run now again.${saved ? ' Showing your last saved brief below.' : ''}</div>`;
+      } else if (offline) {
+        note = `<div class="mb-banner mb-warn">The generator isn't reachable — your Mac may be asleep, or the background service isn't loaded. ${saved ? 'Showing your last saved brief below.' : 'No saved brief yet.'}</div>`;
+      } else {
+        note = `<div class="mb-banner mb-warn">Couldn't regenerate just now (${esc(msg.slice(0,120))}). ${saved ? 'Showing your last saved brief below.' : ''}</div>`;
       }
+      if (saved) { _render(saved); if (body) body.insertAdjacentHTML('afterbegin', note); }
+      else if (body) { body.innerHTML = note; }
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = '⟳ Run now'; }
     }
