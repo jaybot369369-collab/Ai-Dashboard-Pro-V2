@@ -100,6 +100,18 @@ const MorningBriefCard = (() => {
       `<div class="mb-row">${_pill(c.tier)} <strong>${esc(c.coin)}</strong> · ${esc(c.event)} <span class="text-dim">(${esc(c.when)})</span> — ${esc(c.implication)}</div>`).join('')
       || '<div class="mb-empty">No catalysts on your tickers today.</div>';
 
+    // Swing reversal watch — only shown when topping confluence is forming on held longs.
+    const rw = b.reversal_watch || {};
+    const rwStatus = (rw.status || 'none').toLowerCase();
+    let reversal = '';
+    if (rwStatus !== 'none' && (rw.coins || []).length) {
+      const cls = rwStatus === 'elevated' ? 'mb-bad' : 'mb-warn';
+      const rows = rw.coins.map(c =>
+        `<div class="mb-row"><strong>${esc(c.coin)}</strong>${_tf(c.timeframe || '1d')} — ${esc((c.signals || []).join(' + '))}.
+           <span class="mb-bad-text">Invalidation:</span> ${esc(c.invalidation || '—')}. <em>${esc(c.action || '')}</em></div>`).join('');
+      reversal = `<div class="mb-sec"><div class="mb-sec-h">⚠️ Swing reversal watch <span class="mb-pill ${cls}">${esc(rwStatus)}</span></div>${rows}</div>`;
+    }
+
     const ch = b.charter || {};
     const charter = `
       ${(ch.no_entry_windows||[]).length ? `<div class="mb-row mb-bad-text">⛔ No-entry: ${esc(ch.no_entry_windows.join(' · '))}</div>` : ''}
@@ -112,6 +124,7 @@ const MorningBriefCard = (() => {
       <div class="mb-daytype mb-${esc(dt.label||'')}"><strong>${esc((dt.label||'').toUpperCase())}</strong> — ${esc(dt.body||'')}</div>
       ${sec('📌 My exposure & thesis threats', exposure)}
       ${sec('🎯 My setups in play', setups)}
+      ${reversal}
       ${sec('🗓 Catalysts on my tickers', cats)}
       ${sec('📏 Charter flags', charter)}
       <div class="mb-foot text-dim">engine: ${esc(b.engine||'?')} · generated ${esc((b.generated||'').slice(0,16).replace('T',' '))} UTC</div>`;
