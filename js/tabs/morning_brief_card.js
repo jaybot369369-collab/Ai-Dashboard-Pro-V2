@@ -91,9 +91,10 @@ const MorningBriefCard = (() => {
       `<div class="mb-row">${_pill(e.status)} <strong>${esc(e.subject)}</strong> — ${esc(e.note)}</div>`).join('')
       || '<div class="mb-empty">No open positions or theses flagged.</div>';
 
+    const _tf = tf => tf ? ` <span style="font-size:.66rem;font-weight:700;letter-spacing:.03em;background:var(--accent-soft);color:var(--accent);padding:1px 5px;border-radius:4px">${esc(String(tf).toUpperCase())}</span>` : '';
     const setups = (b.setups || []).map(s =>
-      `<div class="mb-row">${_pill(s.tier === 'watch' ? 'watch2' : s.tier)} <strong>${esc(s.coin)}</strong> · ${esc(s.setup)} — ${esc(s.condition)}</div>`).join('')
-      || '<div class="mb-empty">No playbook setups near their conditions today.</div>';
+      `<div class="mb-row">${_pill(s.tier === 'watch' ? 'watch2' : s.tier)} <strong>${esc(s.coin)}</strong>${_tf(s.timeframe)} · ${esc(s.setup)} — ${esc(s.condition)}</div>`).join('')
+      || '<div class="mb-empty">No swing setups (4H / Daily / Weekly) near their conditions today.</div>';
 
     const cats = (b.catalysts || []).map(c =>
       `<div class="mb-row">${_pill(c.tier)} <strong>${esc(c.coin)}</strong> · ${esc(c.event)} <span class="text-dim">(${esc(c.when)})</span> — ${esc(c.implication)}</div>`).join('')
