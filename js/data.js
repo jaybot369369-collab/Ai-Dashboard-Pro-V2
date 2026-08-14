@@ -31,6 +31,18 @@ const DB = (() => {
     try { return JSON.parse(localStorage.getItem(key)) || null; }
     catch { return null; }
   }
+  // toast() is declared inside the App IIFE and exported as App.toast — it is NOT
+  // on window. The quota warning below used to be guarded on window.toast, so it
+  // could never fire: a full localStorage presented as a Save button that did
+  // nothing at all. Resolve the real toast, fall back to the console. (2026-08-14)
+  function notify(msg, type) {
+    try {
+      const t = (typeof window !== 'undefined') &&
+                ((window.App && window.App.toast) || window.toast);
+      if (typeof t === 'function') { t(msg, type); return; }
+    } catch {}
+    console.warn('[DB]', msg);
+  }
   function save(key, val) {
     try {
       localStorage.setItem(key, JSON.stringify(val));
@@ -40,8 +52,8 @@ const DB = (() => {
       // silently vanish on reload). Server copy via LocalPersist still holds the data.
       const quota = e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014);
       console.error(`[DB.save] localStorage write failed for "${key}":`, e && e.message);
-      if (quota && typeof window !== 'undefined' && typeof window.toast === 'function') {
-        window.toast('Local storage full — open Pro Tools → Storage to move images to cloud (R2).', 'error');
+      if (quota) {
+        notify('Local storage full — open Pro Tools → Storage to move images to cloud (R2).', 'error');
       }
       throw e;
     }

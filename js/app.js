@@ -991,12 +991,29 @@ const App = (() => {
        To restore either gate: git show <this commit>^ -- js/app.js
     ─────────────────────────────────────────────────────────────────────── */
 
-    if (editId) {
-      DB.updateTrade(editId, data);
-      toast('Trade updated');
-    } else {
-      DB.addTrade(data);
-      toast('Trade saved');
+    /* The DB write can throw — in practice QuotaExceededError, because base64
+       screenshots live inside jb_trades and localStorage caps at ~10MB. Before
+       2026-08-14 nothing caught it: the exception escaped the click handler, so
+       closeTradeModal() and the success toast never ran and the modal just sat
+       there. That is the "Save button does nothing" report. Keep the modal OPEN
+       on failure so the typed trade isn't lost, and say what actually broke. */
+    try {
+      if (editId) {
+        DB.updateTrade(editId, data);
+        toast('Trade updated');
+      } else {
+        DB.addTrade(data);
+        toast('Trade saved');
+      }
+    } catch (err) {
+      const quota = err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014);
+      const imgs  = (data.screenshotUrls || []).filter(
+        u => typeof u === 'string' && u.startsWith('data:image')).length;
+      console.error('[saveTradeForm] save failed:', err);
+      toast(quota
+        ? `Storage full — trade NOT saved. ${imgs ? `Remove the ${imgs} attached image${imgs === 1 ? '' : 's'} to save the text, or f` : 'F'}ree space in Pro Tools → Storage.`
+        : `Save failed: ${(err && err.message) || err}`, 'error');
+      return;   // modal stays open — nothing typed is lost
     }
     window._jb_pendingEndDate = '';
     closeTradeModal();
