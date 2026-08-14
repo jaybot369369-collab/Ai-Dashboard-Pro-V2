@@ -455,6 +455,19 @@ textarea { resize: vertical; }
 .text-xs    { font-size: 0.79rem; }
 .text-lg    { font-size: 1.15rem; }
 .text-xl    { font-size: 1.4rem; }
+
+/* Quiet "recommended" marker on trade-form fields (2026-08-14 — replaced the
+   red * that advertised the removed Risk Charter gate). Form labels are
+   uppercase/600, so this has to opt out of the transform or it reads as part
+   of the field name and wraps the label onto two lines. */
+.hint-rec {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.66rem;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-dim);
+}
 .font-bold  { font-weight: 700; }
 .mono       { font-family: var(--mono); }
 .mt-2       { margin-top: 8px; }

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="css/styles.css?v=linespacing-0720" />
+  <link rel="stylesheet" href="css/styles.css?v=nogates-0814" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -154,7 +154,7 @@
               <input type="number" id="fEntry" step="any" placeholder="0.00" required />
             </div>
             <div class="form-group">
-              <label>Stop Loss <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
+              <label>Stop Loss <span class="hint-rec" title="Recommended — R-multiples and the weekly review are computed from this">recommended</span></label>
               <input type="number" id="fSl" step="any" placeholder="0.00" required />
             </div>
             <div class="form-group">
@@ -162,7 +162,7 @@
               <input type="number" id="fTp" step="any" placeholder="0.00" />
             </div>
             <div class="form-group">
-              <label>Position Size ($) <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
+              <label>Position Size ($) <span class="hint-rec" title="Recommended — P&amp;L and risk stats are computed from this">recommended</span></label>
               <input type="number" id="fSize" step="any" placeholder="0.00" />
             </div>
           </div>
@@ -207,7 +207,7 @@
               </select>
             </div>
             <div class="form-group" style="flex:3">
-              <label>Setup Type(s) <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span> <span class="text-xs text-sub">— add multiple</span></label>
+              <label>Setup Type(s) <span class="hint-rec" title="Recommended — playbook stats group your trades by this">recommended</span> <span class="text-xs text-sub">— add multiple</span></label>
               <div id="fSetupChips" class="setup-chips" style="margin-bottom:6px"></div>
               <div style="display:flex;gap:6px;align-items:center">
                 <select id="fSetupPicker" style="flex:1">
@@ -237,7 +237,7 @@
           <legend>Pre-Trade Grade (Plan Quality)</legend>
           <div class="form-row">
             <div class="form-group">
-              <label>Grade <span style="color:var(--red,#dc2626)" title="Risk Charter: required on new trades">*</span></label>
+              <label>Grade <span class="hint-rec" title="Recommended — separates a bad outcome from a bad decision in review">recommended</span></label>
               <select id="fPreGrade">
                 <option value="">— not graded —</option>
                 <option value="A">A — Textbook setup</option>
@@ -503,7 +503,7 @@
 <script src="js/tabs/crypto_scanner.js?v=scanners-0703"></script>
 <script src="js/tabs/fund.js?v=privacy-0711"></script>
 <script src="js/tabs/sensei.js?v=sn3"></script>
-<script src="js/app.js?v=privacy-brief-0715c"></script>
+<script src="js/app.js?v=nogates-0814"></script>
 
 <!-- Tweaks FAB -->
 <button class="tweaks-fab" id="tweaksFab" aria-label="Tweaks">

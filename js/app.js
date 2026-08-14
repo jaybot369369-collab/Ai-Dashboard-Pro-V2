@@ -964,54 +964,39 @@ const App = (() => {
 
     const editId = f('tradeId');
 
-    /* ── RISK CHARTER gate (2026-07-06) — NEW trades must carry the data
-       contract: live SL (One Rule), size, setup tag, pre-grade. Edits of
-       existing trades are exempt so historical fixes stay unblocked.
-       Override = typed reason, flagged charterOverride → weekly review. */
-    if (!editId) {
-      const missing = [];
-      if (!parseFloat(data.sl))   missing.push('Stop-loss (One Rule: no stop, no trade)');
-      if (!parseFloat(data.size)) missing.push('Size');
-      if (!setupTypes.length)     missing.push('Setup tag');
-      if (!['A', 'B', 'C', 'D'].includes(data.preGrade)) missing.push('Pre-grade');
-      if (missing.length) {
-        const reason = window.prompt(
-          '⛔ RISK CHARTER — missing:\n  • ' + missing.join('\n  • ') +
-          '\n\nCancel to go back and fill them in (recommended).\n' +
-          'To save anyway, type WHY — the override is flagged and appears in your weekly review.'
-        );
-        if (reason === null || !reason.trim()) {
-          toast('Charter: fill SL / size / setup / pre-grade (or type an override reason)', 'error');
-          return;
-        }
-        data.charterOverride = true;
-        data.overrideReason  = reason.trim();
-      }
+    /* ── Save gates REMOVED 2026-08-14 (Jay) ──────────────────────────────
+       Two blocking gates used to sit here on NEW trades:
 
-      /* Regime gate (2026-07-11) — RegimeCard writes jb_regime; in RISK-OFF the
-         charter prescription is A-grade only at half size (1R = $25). Soft gate:
-         confirm + flag, never a silent block. */
-      try {
-        const reg = JSON.parse(localStorage.getItem('jb_regime') || 'null');
-        const freshH = reg && reg.ts ? (Date.now() - new Date(reg.ts)) / 36e5 : 99;
-        if (reg && reg.state === 'risk-off' && freshH < 24 && data.preGrade !== 'A') {
-          const ok = window.confirm(
-            '🌡️ REGIME: RISK-OFF\n' +
-            'Prescription: A-grade only · half size (1R = $25).\n' +
-            'This trade is graded "' + (data.preGrade || '—') + '".\n\nSave anyway? (flagged for weekly review)'
-          );
-          if (!ok) { toast('Regime gate: A-grade only while risk-off', 'error'); return; }
-          data.regimeOverride = 'risk-off';
-        }
-      } catch {}
-    }
+         1. RISK CHARTER gate (2026-07-06) — window.prompt demanding a typed
+            reason when SL / size / setup tag / pre-grade were empty. Set
+            data.charterOverride + data.overrideReason.
+         2. Regime gate (2026-07-11) — window.confirm when jb_regime was
+            'risk-off' (<24h old) and the pre-grade wasn't 'A'. Set
+            data.regimeOverride.
+
+       Why they went: the pre-grade select defaults to "" (index.html), so
+       gate 1 fired unless a grade was picked — and picking anything but 'A'
+       then handed you straight to gate 2. No path through for a B/C/D trade,
+       which is ~85% of the log (7 of 75 new-era trades are A-grade). Gate 2
+       was also effectively stuck on: regime scoring needs +2 for risk-on but
+       only -1 for risk-off, and BTC below its 20d/50d SMA is -1 by itself.
+       Net result was friction, not data — 3 charterOverride + 2 regimeOverride
+       across 75 trades.
+
+       The FIELDS are all still there and still saved (sl, size, setupTypes,
+       preGrade) — only the blocking is gone. Nothing sets charterOverride /
+       regimeOverride any more; historical trades keep theirs, so coach.js and
+       automation/trade_review.py still surface the old ones.
+       RegimeCard still computes and stores jb_regime; nothing reads it now.
+       To restore either gate: git show <this commit>^ -- js/app.js
+    ─────────────────────────────────────────────────────────────────────── */
 
     if (editId) {
       DB.updateTrade(editId, data);
       toast('Trade updated');
     } else {
       DB.addTrade(data);
-      toast(data.charterOverride ? '⚠️ Saved with charter override — flagged for review' : 'Trade saved');
+      toast('Trade saved');
     }
     window._jb_pendingEndDate = '';
     closeTradeModal();
