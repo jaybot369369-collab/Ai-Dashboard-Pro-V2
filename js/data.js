@@ -26,6 +26,21 @@ const DB = (() => {
     adherenceThr: 'jb_adherence_threshold',
   };
 
+  /* Config keys that live OUTSIDE the KEYS data map. These are written with a
+     plain setItem (raw strings, not JSON), so they cannot go through
+     load()/save() — JSON.parse would throw on a bare URL. They ride along in
+     exportJSON under `_config`.
+
+     Why this exists: jb_r2_worker was in no backup, so a browser clear silently
+     dropped the R2 worker URL. Uploads then fell back to base64 inside
+     jb_trades, localStorage filled to ~9.3MB, and saving a trade with a
+     screenshot started failing. (2026-08-14)
+
+     Do NOT add secrets here — jb_ai_key, jb_gist_token, jb_tg_token,
+     jb_local_ai_token, jb_dashboard_pat and jb_pin must never be written into a
+     backup file that lands in Downloads. */
+  const CONFIG_KEYS = ['jb_r2_worker', 'jb_r2_enabled'];
+
   /* ── Core helpers ────────────────────────────────────── */
   function load(key) {
     try { return JSON.parse(localStorage.getItem(key)) || null; }
@@ -1194,6 +1209,13 @@ const DB = (() => {
     Object.entries(KEYS).forEach(([k, key]) => {
       data[k] = load(key);
     });
+    // Raw-string config (R2 image storage) — see CONFIG_KEYS above.
+    const cfg = {};
+    CONFIG_KEYS.forEach(k => {
+      const v = localStorage.getItem(k);
+      if (v !== null) cfg[k] = v;
+    });
+    if (Object.keys(cfg).length) data._config = cfg;
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -1210,6 +1232,14 @@ const DB = (() => {
     Object.entries(KEYS).forEach(([k, key]) => {
       if (data[k] !== undefined) save(key, data[k]);
     });
+    // Restore raw-string config. Backups taken before 2026-08-14 have no
+    // _config block — skip silently rather than clearing a working setting.
+    if (data._config && typeof data._config === 'object') {
+      CONFIG_KEYS.forEach(k => {
+        const v = data._config[k];
+        if (typeof v === 'string') localStorage.setItem(k, v);
+      });
+    }
   }
 
   /* ══════════════════════════════════════════════════════
