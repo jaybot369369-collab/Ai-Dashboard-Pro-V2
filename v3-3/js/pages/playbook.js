@@ -1102,6 +1102,253 @@ const PlaybookTab = (() => {
       },
     ],
 
+    /* ── Mitigation Block ──────────────────────────────
+       Jay's rule: within an established trend, mark the last counter-trend
+       OB and enter on first touch with a rejection wick. Stop just beyond
+       the block. These five are that rule, including the one that fails. */
+    mitigation: [
+      {
+        title: 'Bullish Trend — Block Holds the Pullback',
+        context: 'Uptrend making higher highs. The last down-close candle before the impulse is the mitigation block. Price pulls back into it, wicks, and continues.',
+        candles: [
+          {o:58,h:60,l:57,c:59}, {o:59,h:62,l:58,c:61}, {o:61,h:62,l:59,c:60},
+          {o:60,h:61,l:58.5,c:59}, {o:59,h:71,l:58.5,c:70},
+          {o:70,h:73,l:69,c:72}, {o:72,h:73,l:68,c:69},
+          {o:69,h:70,l:63,c:64}, {o:64,h:65,l:59.5,c:62},
+          {o:62,h:68,l:61,c:67}, {o:67,h:72,l:66,c:71},
+          {o:71,h:75,l:70,c:74}, {o:74,h:78,l:73,c:77},
+        ],
+        zones:   [{ yHi:61, yLo:58.5, color:'var(--good)', opacity:0.22, label:'Mitigation Block' }],
+        markers: [{ type:'arrow_up', candle:8, y:58, color:'var(--good)' }],
+      },
+      {
+        title: 'Bearish Trend — Block Caps the Rally',
+        context: 'Downtrend making lower lows. The last up-close candle before the drop is the block. Price rallies back into it and is turned away.',
+        candles: [
+          {o:74,h:76,l:73,c:75}, {o:75,h:76,l:72,c:73}, {o:73,h:75,l:72,c:74},
+          {o:74,h:76,l:73,c:75}, {o:75,h:76,l:64,c:65},
+          {o:65,h:67,l:62,c:63}, {o:63,h:69,l:62,c:68},
+          {o:68,h:74,l:67,c:73}, {o:73,h:76,l:72,c:74},
+          {o:74,h:75,l:68,c:69}, {o:69,h:70,l:63,c:64},
+          {o:64,h:65,l:59,c:60}, {o:60,h:61,l:56,c:57},
+        ],
+        zones:   [{ yHi:76, yLo:73, color:'var(--bad)', opacity:0.22, label:'Mitigation Block' }],
+        markers: [{ type:'arrow_down', candle:8, y:77, color:'var(--bad)' }],
+      },
+      {
+        title: 'First Touch Only — The Rejection Wick',
+        context: 'The signal is the first touch, not the second. A long wick into the block and a close back out is the entry. Once price has sat inside it, the block is spent.',
+        candles: [
+          {o:60,h:62,l:59,c:61}, {o:61,h:63,l:60,c:62}, {o:62,h:63,l:60,c:61},
+          {o:61,h:72,l:60.5,c:71}, {o:71,h:74,l:70,c:73},
+          {o:73,h:74,l:70,c:71}, {o:71,h:72,l:66,c:67},
+          {o:67,h:68,l:61,c:66}, {o:66,h:70,l:65,c:69},
+          {o:69,h:73,l:68,c:72}, {o:72,h:74,l:71,c:73},
+          {o:73,h:77,l:72,c:76}, {o:76,h:79,l:75,c:78},
+        ],
+        zones:   [{ yHi:63, yLo:60.5, color:'var(--good)', opacity:0.22, label:'Block' }],
+        markers: [{ type:'arrow_up', candle:7, y:59.5, color:'var(--good)' },
+                  { type:'tag', candle:7, y:73, text:'FIRST TOUCH' }],
+      },
+      {
+        title: 'Hidden Support Inside the Range',
+        context: 'The block sits inside the internal range, not at an obvious swing. Without the level marked there is nothing on the chart to see — which is the whole point of it.',
+        candles: [
+          {o:62,h:64,l:61,c:63}, {o:63,h:66,l:62,c:65}, {o:65,h:66,l:63.5,c:64},
+          {o:64,h:65,l:63,c:63.5}, {o:63.5,h:70,l:63,c:69},
+          {o:69,h:71,l:68,c:70}, {o:70,h:71,l:67,c:68},
+          {o:68,h:69,l:64,c:65}, {o:65,h:66,l:63.2,c:65},
+          {o:65,h:69,l:64,c:68}, {o:68,h:71,l:67,c:70},
+          {o:70,h:72,l:69,c:71}, {o:71,h:74,l:70,c:73},
+        ],
+        zones:   [{ yHi:65, yLo:63, color:'var(--good)', opacity:0.20, label:'Internal Block' }],
+        lines:   [{ y:66, color:'var(--text-3)', dash:true, label:'Range Mid' }],
+        markers: [{ type:'arrow_up', candle:8, y:62, color:'var(--good)' }],
+      },
+      {
+        title: 'When It Fails — A Close Through, Not a Wick',
+        context: 'Price does not wick the block, it closes below it and keeps going. The setup is void at that close. This is what the stop beyond the block extreme is for.',
+        candles: [
+          {o:60,h:62,l:59,c:61}, {o:61,h:63,l:60,c:62}, {o:62,h:63,l:60.5,c:61},
+          {o:61,h:70,l:60.5,c:69}, {o:69,h:72,l:68,c:71},
+          {o:71,h:72,l:68,c:69}, {o:69,h:70,l:64,c:65},
+          {o:65,h:66,l:61,c:62}, {o:62,h:63,l:58,c:58.5},
+          {o:58.5,h:59,l:55,c:56}, {o:56,h:57,l:53,c:54},
+          {o:54,h:55,l:51,c:52}, {o:52,h:53,l:49,c:50},
+        ],
+        zones:   [{ yHi:63, yLo:60.5, color:'var(--bad)', opacity:0.18, label:'Block — lost' }],
+        markers: [{ type:'arrow_down', candle:8, y:64, color:'var(--bad)' },
+                  { type:'tag', candle:9, y:52, text:'VOID' }],
+      },
+    ],
+
+    /* ── Rebalance / Equilibrium ───────────────────────
+       Jay's rule: mark the impulse leg, take the 50%, enter on the tap with
+       a rejection wick. Stop at 62% of the same leg. */
+    rebalance: [
+      {
+        title: 'Bullish Impulse — Tap 50%, Continue',
+        context: 'A clean impulse leg up. Price drifts back to the midpoint of that leg, taps it, and resumes. Entry on the tap; stop sits at 62% of the same leg.',
+        candles: [
+          {o:56,h:58,l:55,c:57}, {o:57,h:59,l:56,c:58},
+          {o:58,h:74,l:57.5,c:73}, {o:73,h:76,l:72,c:75},
+          {o:75,h:77,l:73,c:74}, {o:74,h:75,l:69,c:70},
+          {o:70,h:71,l:66,c:67}, {o:67,h:68,l:64.5,c:66},
+          {o:66,h:70,l:65,c:69}, {o:69,h:73,l:68,c:72},
+          {o:72,h:76,l:71,c:75}, {o:75,h:78,l:74,c:77},
+          {o:77,h:80,l:76,c:79},
+        ],
+        zones:   [{ yHi:67, yLo:65, color:'var(--good)', opacity:0.20, label:'50% Equilibrium' }],
+        lines:   [{ y:63, color:'var(--warn)', dash:true, label:'62% — stop' }],
+        markers: [{ type:'arrow_up', candle:7, y:63.8, color:'var(--good)' }],
+      },
+      {
+        title: 'Bearish Impulse — Rally Into 50%, Rejected',
+        context: 'The same model inverted. A sharp leg down, then a drift back up into the midpoint, where sellers reload.',
+        candles: [
+          {o:78,h:80,l:77,c:79}, {o:79,h:80,l:77,c:78},
+          {o:78,h:79,l:62,c:63}, {o:63,h:65,l:61,c:62},
+          {o:62,h:66,l:61,c:65}, {o:65,h:69,l:64,c:68},
+          {o:68,h:71,l:67,c:70}, {o:70,h:72.5,l:69,c:71},
+          {o:71,h:72,l:67,c:68}, {o:68,h:69,l:64,c:65},
+          {o:65,h:66,l:61,c:62}, {o:62,h:63,l:58,c:59},
+          {o:59,h:60,l:56,c:57},
+        ],
+        zones:   [{ yHi:72, yLo:70, color:'var(--bad)', opacity:0.20, label:'50% Equilibrium' }],
+        lines:   [{ y:74, color:'var(--warn)', dash:true, label:'62% — stop' }],
+        markers: [{ type:'arrow_down', candle:7, y:73.5, color:'var(--bad)' }],
+      },
+      {
+        title: 'Deep Tap — Between 50% and 62%',
+        context: 'Price overshoots the midpoint and trades into the gap between 50% and 62%. Still valid: the stop is beyond 62%, so a wick between the two is noise, not invalidation.',
+        candles: [
+          {o:55,h:57,l:54,c:56}, {o:56,h:58,l:55,c:57},
+          {o:57,h:73,l:56.5,c:72}, {o:72,h:75,l:71,c:74},
+          {o:74,h:75,l:70,c:71}, {o:71,h:72,l:67,c:68},
+          {o:68,h:69,l:64,c:65}, {o:65,h:66,l:62,c:64},
+          {o:64,h:68,l:63,c:67}, {o:67,h:71,l:66,c:70},
+          {o:70,h:74,l:69,c:73}, {o:73,h:76,l:72,c:75},
+          {o:75,h:78,l:74,c:77},
+        ],
+        zones:   [{ yHi:65, yLo:62, color:'var(--good)', opacity:0.20, label:'50-62% band' }],
+        lines:   [{ y:62, color:'var(--warn)', dash:true, label:'62% — stop' }],
+        markers: [{ type:'arrow_up', candle:7, y:61, color:'var(--good)' }],
+      },
+      {
+        title: 'Range Equilibrium — Not an Impulse',
+        context: 'The same idea measured across a range rather than a leg. Mid-range is where price is fairest; the edges are where it is not. Reaction at the middle, target the far edge.',
+        candles: [
+          {o:60,h:72,l:59,c:70}, {o:70,h:73,l:68,c:69},
+          {o:69,h:71,l:64,c:65}, {o:65,h:67,l:60.5,c:62},
+          {o:62,h:66,l:61,c:65}, {o:65,h:70,l:64,c:69},
+          {o:69,h:72.5,l:68,c:70}, {o:70,h:71,l:66,c:67},
+          {o:67,h:68,l:65.2,c:66.5}, {o:66.5,h:70,l:66,c:69},
+          {o:69,h:72,l:68,c:71}, {o:71,h:73,l:70,c:72},
+          {o:72,h:74,l:71,c:73},
+        ],
+        zones:   [{ yHi:67, yLo:65.5, color:'var(--good)', opacity:0.20, label:'Equilibrium' }],
+        lines:   [{ y:72.5, color:'var(--text-3)', dash:true, label:'Range High' },
+                  { y:59,   color:'var(--text-3)', dash:true, label:'Range Low' }],
+        markers: [{ type:'arrow_up', candle:8, y:64.5, color:'var(--good)' }],
+      },
+      {
+        title: 'The Tap Needs a Reaction Candle',
+        context: 'Price reaching the level is not the trade. Without a rejection wick or a close back out, this is just price passing through on its way lower.',
+        candles: [
+          {o:56,h:58,l:55,c:57}, {o:57,h:59,l:56,c:58},
+          {o:58,h:72,l:57.5,c:71}, {o:71,h:74,l:70,c:73},
+          {o:73,h:74,l:69,c:70}, {o:70,h:71,l:66,c:67},
+          {o:67,h:68,l:64,c:64.5}, {o:64.5,h:65,l:61,c:61.5},
+          {o:61.5,h:62,l:58,c:59}, {o:59,h:60,l:56,c:57},
+          {o:57,h:58,l:54,c:55}, {o:55,h:56,l:52,c:53},
+          {o:53,h:54,l:50,c:51},
+        ],
+        zones:   [{ yHi:65, yLo:63, color:'var(--bad)', opacity:0.16, label:'50% — no reaction' }],
+        markers: [{ type:'tag', candle:7, y:68, text:'NO WICK' }],
+      },
+    ],
+
+    /* ── Scalp: Market Structure Shift (LTF) ───────────
+       Jay's rule: on 1m/5m inside a killzone, CHOCH then BOS in the new
+       direction, enter on the first FVG fill, stop beyond the CHOCH. */
+    mss_scalp: [
+      {
+        title: 'CHOCH then BOS Up — Enter First FVG',
+        context: 'A lower high fails and price breaks the last swing high (CHOCH), then makes a higher high (BOS). The impulse leaves a gap; the first fill of it is the entry.',
+        candles: [
+          {o:70,h:71,l:68,c:69}, {o:69,h:70,l:66,c:67}, {o:67,h:68,l:64,c:65},
+          {o:65,h:66,l:63,c:64}, {o:64,h:69,l:63.5,c:68},
+          {o:68,h:69,l:66,c:67}, {o:67,h:75,l:66.5,c:74},
+          {o:74,h:76,l:73,c:75}, {o:75,h:76,l:70,c:71},
+          {o:71,h:72,l:69.5,c:71.5}, {o:71.5,h:75,l:71,c:74},
+          {o:74,h:78,l:73,c:77}, {o:77,h:80,l:76,c:79},
+        ],
+        zones:   [{ yHi:71, yLo:69, color:'var(--good)', opacity:0.22, label:'FVG' }],
+        lines:   [{ y:66, color:'var(--warn)', dash:true, label:'CHOCH — stop below' }],
+        markers: [{ type:'arrow_up', candle:9, y:68.5, color:'var(--good)' }],
+      },
+      {
+        title: 'CHOCH then BOS Down — Short the Gap',
+        context: 'The mirror image. A higher low fails, price breaks down through it, and the gap left by the drop is where the short goes on.',
+        candles: [
+          {o:62,h:64,l:61,c:63}, {o:63,h:66,l:62,c:65}, {o:65,h:68,l:64,c:67},
+          {o:67,h:69,l:66,c:68}, {o:68,h:69,l:63,c:64},
+          {o:64,h:65,l:62,c:63}, {o:63,h:64,l:56,c:57},
+          {o:57,h:58,l:55,c:56}, {o:56,h:61,l:55,c:60},
+          {o:60,h:61.5,l:59,c:60.5}, {o:60.5,h:61,l:57,c:58},
+          {o:58,h:59,l:54,c:55}, {o:55,h:56,l:52,c:53},
+        ],
+        zones:   [{ yHi:61.5, yLo:59.5, color:'var(--bad)', opacity:0.22, label:'FVG' }],
+        lines:   [{ y:65, color:'var(--warn)', dash:true, label:'CHOCH — stop above' }],
+        markers: [{ type:'arrow_down', candle:9, y:62.5, color:'var(--bad)' }],
+      },
+      {
+        title: 'Inside the Killzone Only',
+        context: 'The same shape outside a killzone is noise. The session window is what gives the shift a reason to run — the shaded band is the active hour.',
+        candles: [
+          {o:66,h:67,l:64,c:65}, {o:65,h:66,l:63,c:64}, {o:64,h:65,l:62,c:63},
+          {o:63,h:64,l:61,c:62}, {o:62,h:67,l:61.5,c:66},
+          {o:66,h:67,l:64,c:65}, {o:65,h:72,l:64.5,c:71},
+          {o:71,h:73,l:70,c:72}, {o:72,h:73,l:68,c:69},
+          {o:69,h:70,l:67.5,c:69}, {o:69,h:73,l:68,c:72},
+          {o:72,h:75,l:71,c:74}, {o:74,h:77,l:73,c:76},
+        ],
+        zones:   [{ yHi:69, yLo:67, color:'var(--good)', opacity:0.22, label:'FVG' }],
+        lines:   [{ y:64.5, color:'var(--warn)', dash:true, label:'CHOCH' }],
+        markers: [{ type:'arrow_up', candle:9, y:66.5, color:'var(--good)' },
+                  { type:'tag', candle:6, y:75, text:'KILLZONE' }],
+      },
+      {
+        title: 'The Gap Must Fill Within Three Candles',
+        context: 'Price returns to the gap on the very next candles and goes. A gap left unfilled for longer has usually lost the momentum the scalp depends on.',
+        candles: [
+          {o:68,h:69,l:66,c:67}, {o:67,h:68,l:65,c:66}, {o:66,h:67,l:64,c:65},
+          {o:65,h:70,l:64.5,c:69}, {o:69,h:70,l:67,c:68},
+          {o:68,h:74,l:67.5,c:73}, {o:73,h:75,l:72,c:74},
+          {o:74,h:75,l:71,c:72}, {o:72,h:73,l:70.5,c:72.5},
+          {o:72.5,h:76,l:72,c:75}, {o:75,h:78,l:74,c:77},
+          {o:77,h:79,l:76,c:78}, {o:78,h:81,l:77,c:80},
+        ],
+        zones:   [{ yHi:72, yLo:70, color:'var(--good)', opacity:0.22, label:'FVG' }],
+        markers: [{ type:'arrow_up', candle:8, y:69.5, color:'var(--good)' },
+                  { type:'tag', candle:8, y:77, text:'3 CANDLES' }],
+      },
+      {
+        title: 'No Gap, No Trade',
+        context: 'The structure shifts but the move is grinding rather than impulsive, so no gap is left behind. There is nothing to enter on. Skipping this is the setup working correctly.',
+        candles: [
+          {o:66,h:67,l:64,c:65}, {o:65,h:66,l:63,c:64}, {o:64,h:65,l:62,c:63},
+          {o:63,h:65,l:62.5,c:64}, {o:64,h:66,l:63.5,c:65},
+          {o:65,h:67,l:64.5,c:66}, {o:66,h:68,l:65.5,c:67},
+          {o:67,h:69,l:66.5,c:68}, {o:68,h:69.5,l:67.5,c:69},
+          {o:69,h:70,l:68,c:69.5}, {o:69.5,h:71,l:69,c:70},
+          {o:70,h:71.5,l:69.5,c:71}, {o:71,h:72,l:70,c:71.5},
+        ],
+        lines:   [{ y:62, color:'var(--warn)', dash:true, label:'CHOCH' }],
+        markers: [{ type:'tag', candle:7, y:71, text:'NO FVG' }],
+      },
+    ],
+
   };
 
   /* ─────────────────────────────────────────────────────────
@@ -1133,6 +1380,12 @@ const PlaybookTab = (() => {
       return { key:'killzone',      label:'Killzone',                    list: CHART_EXAMPLES.killzone };
     if (lower.includes('continuation'))
       return { key:'continuation',  label:'Continuation',                list: CHART_EXAMPLES.continuation };
+    if (lower.includes('mitigation block') || lower.includes('mitigation'))
+      return { key:'mitigation',    label:'Mitigation Block',            list: CHART_EXAMPLES.mitigation };
+    if (lower.includes('rebalance') || lower.includes('equilibrium'))
+      return { key:'rebalance',     label:'Rebalance / Equilibrium',     list: CHART_EXAMPLES.rebalance };
+    if (lower.includes('market structure shift') || lower.includes('mss') || lower.includes('choch'))
+      return { key:'mss_scalp',     label:'Market Structure Shift',      list: CHART_EXAMPLES.mss_scalp };
     return null;
   }
 
