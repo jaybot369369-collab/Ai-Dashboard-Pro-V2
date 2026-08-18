@@ -84,6 +84,29 @@ const Store = (() => {
 
   /* ── First run: copy the real data in ─────────────── */
   async function init() {
+    /* ?fresh=1 — reload the starting data from data/seed.json.
+
+       The seeding below runs ONCE per browser and then never looks at the
+       file again, which is exactly right for a real dashboard: it means a
+       deploy can never overwrite what you have written. But on a preview
+       copy it means an updated seed file is invisible to anyone who opened
+       the page earlier, with no way out short of clearing site data.
+
+       Deliberately opt-in through the address bar, and it asks first, so it
+       cannot fire by accident on a dashboard holding real trades. */
+    if (/[?&]fresh=1\b/.test(location.search)) {
+      const n = (read(K.trades, []) || []).length;
+      const ok = confirm(
+        'Reload the starting data from this site?\n\n'
+        + (n ? `The ${n} trades in THIS browser will be replaced.\n\n` : '')
+        + 'Your live dashboard is a different address and is not affected.');
+      if (ok) {
+        Object.values(K).forEach(k => localStorage.removeItem(k));
+        clearCache();
+      }
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+
     if (localStorage.getItem(K.seeded)) { cleanOutOldTrades(); return { seeded: false }; }
     const r = await fetch('data/seed.json?t=' + Date.now());
     if (!r.ok) throw new Error('Could not load your starting data (seed.json)');

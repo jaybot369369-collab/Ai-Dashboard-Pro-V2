@@ -5,10 +5,10 @@ const PlaybookTab = (() => {
 
   const SETUP_ICONS = [
     ['silver bullet', ''], ['liquidity sweep', ''], ['liquidity', ''],
-    ['order block', ''],   ['breaker', ''],          ['cisd', '⚡'],
+    ['order block', ''],   ['breaker', ''],          ['cisd', ''],
     ['asia range', ''],    ['asia', ''],              ['ote', ''],
     ['fair value', ''],    ['fvg', ''],               ['power of 3', ''],
-    ['killzone', '⏱️'],      ['sweep', ''],             ['continuation', ''],
+    ['killzone', ''],      ['sweep', ''],             ['continuation', ''],
     ['turtle', ''],
   ];
 
@@ -1611,7 +1611,6 @@ const PlaybookTab = (() => {
 
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
               <div style="display:flex;align-items:center;gap:12px">
-                <div style="font-size:26px;line-height:1;background:var(--surface,var(--bg-2,#f5f5f5));width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${icon}</div>
                 <div>
                   <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:3px">${esc(s.name)}</div>
                   <div style="font-size:.75rem;color:var(--text-2)">${s.tradeCount} trade${s.tradeCount !== 1 ? 's' : ''} · avg ${ar}</div>
@@ -1642,14 +1641,12 @@ const PlaybookTab = (() => {
           </div>
 
           <div style="margin-top:auto;border-top:1px solid var(--border);display:flex">
-            <button style="flex:1;padding:13px;background:none;border:none;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s;border-right:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:5px;${hasEx ? 'color:var(--accent)' : 'color:var(--text-2)'}"
+            <!-- Edit removed at Jay's request 2026-08-18. The edit panel below is
+                 left in place and simply has nothing opening it, so putting the
+                 button back is one line rather than a rebuild. -->
+            <button style="flex:1;padding:13px;background:none;border:none;font-size:.82rem;font-weight:600;cursor:pointer;transition:background .15s;display:flex;align-items:center;justify-content:center;${hasEx ? 'color:var(--accent)' : 'color:var(--text-2)'}"
               onmouseenter="this.style.background='var(--hover,rgba(0,0,0,.04))'" onmouseleave="this.style.background='none'"
-              onclick="PlaybookTab._showExamples('${safeId}')">
-              ${hasEx ? '' : ''} Examples${hasEx ? '' : ''}
-            </button>
-            <button style="flex:1;padding:13px;background:none;border:none;font-size:.82rem;font-weight:600;color:var(--accent);cursor:pointer;transition:background .15s"
-              onmouseenter="this.style.background='var(--hover,rgba(0,0,0,.04))'" onmouseleave="this.style.background='none'"
-              onclick="PlaybookTab._edit('${safeId}')">Edit</button>
+              onclick="PlaybookTab._showExamples('${safeId}')">Examples</button>
           </div>
         </div>
 

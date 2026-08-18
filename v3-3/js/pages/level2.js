@@ -965,10 +965,10 @@ const OrderBookTab = (() => {
   /* ── ETF flow trading guide (static, sits under the ETF card) ── */
   function _etfGuideHTML() {
     const rows = [
-      ['⚡', 'LONG — Scalp mode',
+      ['', 'LONG — Scalp mode',
        'Yesterday was a clear INFLOW day (inflow bar bigger than most of the last 30) and price is holding above your level',
        'Trade long-side setups only for today’s session — buy dips into support, skip counter-trend shorts. The flow is your tailwind, NOT your trigger: entry still comes from your chart.'],
-      ['⚡', 'SHORT — Scalp mode',
+      ['', 'SHORT — Scalp mode',
        'Yesterday was a clear OUTFLOW day (big outflow bar) and price is stuck below resistance',
        'Favour short-side scalps — sell pops into resistance. Skip longs today: the biggest buyer in the market was a net seller yesterday.'],
       ['', 'LONG — Swing mode',
@@ -1135,7 +1135,7 @@ const OrderBookTab = (() => {
           </div>
           ${_winPills('liq')}
           <div class="ob-liq-totals">
-            <span class="ob-liq-tot-label">☝ Squeeze above</span><span id="ob-liq-above" class="ob-liq-tot-above">—</span>
+            <span class="ob-liq-tot-label">Squeeze above</span><span id="ob-liq-above" class="ob-liq-tot-above">—</span>
             <span class="ob-liq-sep">·</span>
             <span class="ob-liq-tot-label">Flush below</span><span id="ob-liq-below" class="ob-liq-tot-below">—</span>
           </div>
@@ -1334,7 +1334,7 @@ const OrderBookTab = (() => {
       tbl = _mtable(['Reading', 'What the crowd is doing', 'What it means for you'], [
         [_BULL('≤ −0.02%'), 'Shorts paying hard — heavily short',  _BULL('Squeeze fuel UP — any bounce forces shorts to cover')],
         [_BULL('−0.005 to −0.02%'), 'Shorts paying — net short',       'Mild upside lean'],
-        ['⚪ −0.005 to +0.005%', 'Balanced — no crowd',                   'Organic move, no squeeze either way'],
+        ['−0.005 to +0.005%', 'Balanced — no crowd',                   'Organic move, no squeeze either way'],
         [_BEAR('+0.005 to +0.02%'), 'Longs paying — net long',         'Flush risk — mild downside lean'],
         [_BEAR('≥ +0.02%'), 'Longs paying hard — heavily long',      _BEAR('Flush fuel DOWN — the crowd gets liquidated')],
       ]);
@@ -1459,7 +1459,7 @@ const OrderBookTab = (() => {
 
         <!-- NEUTRAL -->
         <div class="ob-scene ob-scene-neutral">
-          <div class="ob-scene-h">⚪ Neutral / Choppy — sit on your hands</div>
+          <div class="ob-scene-h">Neutral / Choppy — sit on your hands</div>
           <div class="ob-scene-grid">
             <div class="ob-sc-panel">Liq heatmap</div>
             <div class="ob-sc-state">Roughly <strong>equal clusters</strong> above and below price</div>
