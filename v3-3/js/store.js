@@ -87,22 +87,35 @@ const Store = (() => {
     /* ?fresh=1 — reload the starting data from data/seed.json.
 
        The seeding below runs ONCE per browser and then never looks at the
-       file again, which is exactly right for a real dashboard: it means a
-       deploy can never overwrite what you have written. But on a preview
-       copy it means an updated seed file is invisible to anyone who opened
-       the page earlier, with no way out short of clearing site data.
-
-       Deliberately opt-in through the address bar, and it asks first, so it
-       cannot fire by accident on a dashboard holding real trades. */
+       file again, which is exactly right for a real dashboard: a deploy can
+       never overwrite what you have written. On a preview copy it means an
+       updated seed file is invisible to anyone who opened the page earlier,
+       with no way out short of clearing site data. This is that way out. */
     if (/[?&]fresh=1\b/.test(location.search)) {
-      const n = (read(K.trades, []) || []).length;
-      const ok = confirm(
-        'Reload the starting data from this site?\n\n'
-        + (n ? `The ${n} trades in THIS browser will be replaced.\n\n` : '')
-        + 'Your live dashboard is a different address and is not affected.');
-      if (ok) {
+      /* Reset to the starting data, WITHOUT a dialog.
+
+         The first version of this asked with confirm(). That was wrong twice
+         over: a modal on page load blocks the whole tab until it is answered,
+         and it cannot be dismissed by anything except a human hand — so the
+         reset silently did nothing wherever a dialog is auto-dismissed.
+
+         The guard is now the data itself. Everything the demo seeds carries a
+         "demo" id, so if every stored trade is demo data there is nothing of
+         anyone's to lose and it resets. The moment one real trade is present
+         it refuses and says so. A dashboard holding real trades cannot be
+         wiped by this, with or without a dialog. */
+      const held = read(K.trades, []) || [];
+      const allDemo = held.every(t => String(t && t.id || '').startsWith('demo'));
+      if (allDemo) {
         Object.values(K).forEach(k => localStorage.removeItem(k));
         clearCache();
+        console.info('[fresh] starting data reloaded');
+      } else {
+        const real = held.filter(t => !String(t && t.id || '').startsWith('demo')).length;
+        console.warn(`[fresh] refused — ${real} real trade(s) here. Nothing was changed.`);
+        try {
+          sessionStorage.setItem('jp3_fresh_refused', String(real));
+        } catch (e) {}
       }
       history.replaceState(null, '', location.pathname + location.hash);
     }
